@@ -27,6 +27,7 @@ def make_silo(tmp_path: Path) -> Silo:
             str(tmp_path / "membership.yaml"),
         ),
         stream_providers={"default": InMemoryStreamProvider()},
+        gateway_port=0,
     )
 
 

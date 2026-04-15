@@ -10,9 +10,13 @@ dependencies = [
     "counter-app",
 ]
 
+[project.scripts]
+counter-client = "counter_client.main:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
+asyncio_mode = "auto"

@@ -92,6 +92,7 @@ def make_silo(storage: FakeStorageProvider | None = None) -> Silo:
         storage_providers={"default": s},
         membership_provider=FakeMembershipProvider(),
         stream_providers={"default": InMemoryStreamProvider()},
+        gateway_port=0,
     )
 
 

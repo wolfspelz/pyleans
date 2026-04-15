@@ -6,6 +6,7 @@ import logging
 import signal
 import time
 
+from pyleans.gateway.listener import GatewayListener
 from pyleans.grain import _grain_registry
 from pyleans.identity import SiloAddress, SiloInfo, SiloStatus
 from pyleans.providers.membership import MembershipProvider
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 _HEARTBEAT_INTERVAL = 30.0
 _DEFAULT_IDLE_TIMEOUT = 900.0
 _DEFAULT_PORT = 11111
+_DEFAULT_GATEWAY_PORT = 30000
 _DEFAULT_HOST = "localhost"
 
 
@@ -46,12 +48,14 @@ class Silo:
         membership_provider: MembershipProvider | None = None,
         stream_providers: dict[str, StreamProvider] | None = None,
         port: int = _DEFAULT_PORT,
+        gateway_port: int = _DEFAULT_GATEWAY_PORT,
         host: str = _DEFAULT_HOST,
         idle_timeout: float = _DEFAULT_IDLE_TIMEOUT,
     ) -> None:
         self._grain_classes = grains
         self._host = host
         self._port = port
+        self._gateway_port = gateway_port
         self._idle_timeout = idle_timeout
 
         self._storage_providers = storage_providers or {
@@ -79,6 +83,10 @@ class Silo:
         )
         self._silo_id = self._silo_address.encoded
 
+        self._gateway = GatewayListener(
+            runtime=self._runtime, host=self._host, port=self._gateway_port
+        )
+
         self._stop_event = asyncio.Event()
         self._heartbeat_task: asyncio.Task[None] | None = None
         self._started = False
@@ -99,6 +107,11 @@ class Silo:
         return self._timer_registry
 
     @property
+    def gateway_port(self) -> int:
+        """The actual gateway port (resolves port=0 after start)."""
+        return self._gateway.port
+
+    @property
     def started(self) -> bool:
         """Whether the silo has been started."""
         return self._started
@@ -112,11 +125,15 @@ class Silo:
         self._register_grain_classes()
         await self._register_in_membership()
         await self._runtime.start()
+        await self._gateway.start()
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
         self._started = True
         self._install_signal_handlers()
 
-        logger.info("Silo started on %s:%s", self._host, self._port)
+        logger.info(
+            "Silo started on %s:%s (gateway %s)",
+            self._host, self._port, self._gateway.port,
+        )
 
         await self._stop_event.wait()
 
@@ -130,10 +147,14 @@ class Silo:
         self._register_grain_classes()
         await self._register_in_membership()
         await self._runtime.start()
+        await self._gateway.start()
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
         self._started = True
 
-        logger.info("Silo started on %s:%s (background)", self._host, self._port)
+        logger.info(
+            "Silo started on %s:%s (gateway %s, background)",
+            self._host, self._port, self._gateway.port,
+        )
 
     async def stop(self) -> None:
         """Graceful shutdown: deactivate grains, unregister, cancel tasks."""
@@ -152,6 +173,7 @@ class Silo:
                 await self._heartbeat_task
             self._heartbeat_task = None
 
+        await self._gateway.stop()
         await self._runtime.stop()
 
         await self._membership_provider.unregister_silo(self._silo_id)

@@ -104,20 +104,60 @@ allows the client to call grains on a locally-running silo.
 
 ### Acceptance criteria
 
-- [ ] `python -m counter_client get foo` shows current value
-- [ ] `python -m counter_client inc foo` increments and shows new value
-- [ ] `python -m counter_client set foo 42` sets and confirms value
-- [ ] `--gateway` flag allows connecting to different silo
-- [ ] Error message if silo is not running
-- [ ] Error message if 'set' called without value
-- [ ] Exit code 0 on success, non-zero on error
-- [ ] Uses `pyleans.client` library, not raw HTTP
+- [x] `python -m counter_client get foo` shows current value
+- [x] `python -m counter_client inc foo` increments and shows new value
+- [x] `python -m counter_client set foo 42` sets and confirms value
+- [x] `--gateway` flag allows connecting to different silo
+- [x] Error message if silo is not running
+- [x] Error message if 'set' called without value
+- [x] Exit code 0 on success, non-zero on error
+- [x] Uses `pyleans.client` library, not raw HTTP
 
 ## Findings of code review
-_To be filled when task is complete._
+
+- No issues found. Code follows CLAUDE.md standards: clean naming, SOLID, type hints, hexagonal architecture.
+- `_serialize_result` in listener does an extra `orjson.dumps` round-trip for non-primitives; acceptable since it catches serialization errors at the right layer.
 
 ## Findings of security review
-_To be filled when task is complete._
+
+- No authentication on the gateway TCP listener — acceptable for Phase 1 (local dev mode). Phase 2 transport doc specifies TLS.
+- Frame size bounded to 16 MB (`MAX_FRAME_SIZE`) — prevents unbounded memory allocation.
+- Frame length validated in `read_frame` before allocation — no buffer overflow.
+- Gateway dispatches validate required fields — missing fields return errors, not crashes.
+- JSON-only deserialization (orjson) — no code execution risk.
+- Connection cleanup via `try/finally` — no socket leaks.
+- No per-client rate limiting — acceptable for Phase 1.
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+- `pyleans/pyleans/gateway/__init__.py` — gateway module exports
+- `pyleans/pyleans/gateway/protocol.py` — binary frame encoding/decoding following the documented wire format
+- `pyleans/pyleans/gateway/listener.py` — `GatewayListener` TCP server that dispatches grain calls to runtime
+- `pyleans/pyleans/client/cluster_client.py` — `ClusterClient` and `RemoteGrainRef` for remote grain calls
+- `counter-client/counter_client/__init__.py` — package marker
+- `counter-client/counter_client/main.py` — CLI with get/inc/set commands
+- `counter-client/counter_client/__main__.py` — `python -m counter_client` entry point
+- `pyleans/test/test_gateway_protocol.py` — 14 tests for frame encoding/decoding
+- `pyleans/test/test_gateway.py` — 12 tests for gateway listener + client integration
+- `counter-client/test/test_counter_client.py` — 9 tests for CLI and client
+
+### Files modified
+- `pyleans/pyleans/server/silo.py` — added `gateway_port` parameter, wired `GatewayListener` into start/stop
+- `pyleans/pyleans/client/__init__.py` — exports `ClusterClient` and `RemoteGrainRef`
+- `counter-client/pyproject.toml` — added `[project.scripts]` and `asyncio_mode` for pytest
+- `pyleans/test/test_silo.py` — added `gateway_port=0` to test helper
+- `counter-app/test/test_counter_grain.py` — added `gateway_port=0` to test helper
+- `counter-app/test/test_counter_app.py` — added `gateway_port=0` to test helper
+
+### Key decisions
+- Phase 1 gateway uses a minimal TCP protocol with length-prefixed binary framing (matches the documented wire format from pyleans-transport.md)
+- JSON payloads for simplicity (Phase 2 may switch to more efficient format)
+- `gateway_port=0` in tests for OS-assigned ports to avoid conflicts
+- `RemoteGrainRef` mirrors the `GrainRef` API so client code looks identical to in-process code
+- `ClusterClient` uses a single TCP connection with multiplexed requests via correlation IDs
+
+### Test coverage (35 new tests, 302 total)
+- **test_gateway_protocol.py** (14): MessageType values, encode/decode roundtrip, frame structure, error cases (short frame, unknown type, invalid JSON, oversized frames)
+- **test_gateway.py** (12): connect/disconnect, remote grain calls (increment, set, concurrent), error propagation, unknown grains, state persistence across client sessions
+- **test_counter_client.py** (9): get/inc/set commands via ClusterClient, CLI `run()` output, error exits (no silo, missing value)

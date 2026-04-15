@@ -123,6 +123,7 @@ def make_silo(
         membership_provider=membership_provider,
         stream_providers=stream_providers,
         idle_timeout=idle_timeout,
+        gateway_port=0,
     )
 
 
