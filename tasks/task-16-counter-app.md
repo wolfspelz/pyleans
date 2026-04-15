@@ -59,18 +59,39 @@ if __name__ == "__main__":
 
 ### Acceptance criteria
 
-- [ ] `python -m counter.main` starts silo and blocks
-- [ ] Ctrl+C triggers graceful shutdown (deactivates grains, saves state)
-- [ ] `data/membership.yaml` shows silo entry while running
-- [ ] `data/membership.yaml` shows no silo entry after clean shutdown
-- [ ] Grain state files created under `data/storage/CounterGrain/`
-- [ ] Integration test: start silo, call grain via runtime, stop silo, verify state persisted
+- [x] `python -m counter.main` starts silo and blocks
+- [x] Ctrl+C triggers graceful shutdown (deactivates grains, saves state)
+- [x] `data/membership.yaml` shows silo entry while running
+- [x] `data/membership.yaml` shows no silo entry after clean shutdown
+- [x] Grain state files created under `data/storage/CounterGrain/`
+- [x] Integration test: start silo, call grain via runtime, stop silo, verify state persisted
 
 ## Findings of code review
-_To be filled when task is complete._
+
+- [x] Unused `asyncio` import in test file — removed.
+- No other issues. Code follows CLAUDE.md standards: clean naming, type hints, hexagonal architecture, SOLID.
 
 ## Findings of security review
-_To be filled when task is complete._
+
+- No issues found.
+- `FileStorageProvider` sanitizes path components and validates against path traversal.
+- `YamlMembershipProvider` uses `yaml.safe_load` (safe against code injection).
+- Hardcoded data paths in `main.py` — no user-input-driven file access.
+- No network listeners in Phase 1.
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+- `counter-app/counter/main.py` — standalone silo entry point (existed from prior task, unchanged)
+- `counter-app/test/test_counter_app.py` — 9 integration tests using real file-based providers
+
+### Key decisions
+- Tests use `tmp_path` pytest fixture for isolation (no shared state between tests)
+- Tests use `start_background()` instead of `start()` to avoid blocking
+- `InMemoryStreamProvider` used in tests since streaming isn't the focus of this task
+
+### Test coverage (9 tests)
+- **TestSiloStartStop**: membership file created on start, cleared on shutdown, stop idempotent
+- **TestGrainStatePersistence**: state file created, state survives restart, separate files per grain
+- **TestGrainLifecycle**: deactivation saves state, shutdown deactivates all grains
+- **TestFullIntegration**: end-to-end lifecycle (start → call grains → stop → verify persistence → restart → verify state)

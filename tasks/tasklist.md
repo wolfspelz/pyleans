@@ -102,7 +102,7 @@ Tasks ordered by dependency. Each task can start when all its dependencies are c
 | # | Task | Status | Dependencies |
 |---|---|---|---|
 | 15 | [Counter Grain](task-15-counter-grain.md) | [x] | 06, 14 |
-| 16 | [Counter App (Standalone Silo)](task-16-counter-app.md) | [ ] | 10, 11, 14, 15 |
+| 16 | [Counter App (Standalone Silo)](task-16-counter-app.md) | [x] | 10, 11, 14, 15 |
 | 17 | [Counter Client (Gateway Protocol)](task-17-counter-client.md) | [ ] | 16 |
 
 ## Parallel Execution Opportunities
