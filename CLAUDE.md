@@ -198,3 +198,4 @@ Fix all vulnerabilities found before marking the task complete.
 - Every commit must leave the project in a working state (tests pass, type checks pass).
 - Commit messages describe the "why", not the "what".
 - Do not commit generated files, secrets, or IDE-specific configuration.
+- After completing each task: perform code review, security review, fix all issues from both reviews, verify all unit tests pass, then git commit the result.
