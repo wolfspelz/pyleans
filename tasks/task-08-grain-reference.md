@@ -101,4 +101,20 @@ class GrainFactory:
 - [ ] Unit tests for proxy dispatch
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+- `pyleans/pyleans/reference.py` — GrainRef proxy and GrainFactory
+- `pyleans/test/test_reference.py` — 13 tests
+- `pyleans/test/conftest.py` — Shared FakeStorageProvider for test reuse
+
+### Key decisions
+- GrainRef uses `__getattr__` to return async callables that dispatch to the runtime.
+- GrainRef implements `__eq__` and `__hash__` based on grain_id for use as dict keys.
+- Private attributes (`_xxx`) raise AttributeError immediately, not proxied.
+- GrainFactory does NOT activate grains — activation is deferred to first call.
+
+### Deviations
+- Removed `pyleans/test/__init__.py` to allow conftest.py to be importable.
+
+### Test coverage
+- 13 tests: identity, repr, private attribute rejection, equality/hashing, proxy dispatch (stateless and stateful), multiple refs sharing activation, factory creation/non-activation/dispatch/different keys.

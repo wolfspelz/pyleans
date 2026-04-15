@@ -3,56 +3,16 @@
 import asyncio
 import time
 from dataclasses import dataclass
-from typing import Any
 
 import pytest
 
-from pyleans.errors import GrainActivationError, GrainMethodError, GrainNotFoundError
+from conftest import FakeStorageProvider
+from pyleans.errors import GrainMethodError, GrainNotFoundError
 from pyleans.grain import _grain_registry, grain
 from pyleans.identity import GrainId
 from pyleans.providers.storage import StorageProvider
 from pyleans.serialization import JsonSerializer
 from pyleans.server.runtime import GrainRuntime
-
-
-# --- Test helpers ---
-
-
-class FakeStorageProvider(StorageProvider):
-    """In-memory storage for testing."""
-
-    def __init__(self) -> None:
-        self._store: dict[str, tuple[dict[str, Any], str]] = {}
-
-    async def read(
-        self, grain_type: str, grain_key: str
-    ) -> tuple[dict[str, Any], str | None]:
-        key = f"{grain_type}/{grain_key}"
-        if key in self._store:
-            state, etag = self._store[key]
-            return state, etag
-        return {}, None
-
-    async def write(
-        self,
-        grain_type: str,
-        grain_key: str,
-        state: dict[str, Any],
-        expected_etag: str | None,
-    ) -> str:
-        key = f"{grain_type}/{grain_key}"
-        new_etag = str(time.monotonic())
-        self._store[key] = (state, new_etag)
-        return new_etag
-
-    async def clear(
-        self,
-        grain_type: str,
-        grain_key: str,
-        expected_etag: str | None,
-    ) -> None:
-        key = f"{grain_type}/{grain_key}"
-        self._store.pop(key, None)
 
 
 @dataclass

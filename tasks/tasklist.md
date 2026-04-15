@@ -87,7 +87,7 @@ Tasks ordered by dependency. Each task can start when all its dependencies are c
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 08 | [Grain Reference](task-08-grain-reference.md) | [ ] | 02, 04, 07 |
+| 08 | [Grain Reference](task-08-grain-reference.md) | [x] | 02, 04, 07 |
 | 09 | [DI Container](task-09-di-container.md) | [ ] | 05, 07, 08 |
 | 12 | [Grain Timers](task-12-grain-timers.md) | [ ] | 07 |
 
