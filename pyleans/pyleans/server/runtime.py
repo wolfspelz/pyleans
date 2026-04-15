@@ -21,6 +21,10 @@ from pyleans.serialization import Serializer
 logger = logging.getLogger(__name__)
 
 _IDLE_CHECK_INTERVAL = 60.0
+_DEFAULT_IDLE_TIMEOUT = 900.0
+_DEFAULT_STORAGE_NAME = "default"
+_INBOX_MAX_SIZE = 1000
+_WORKER_SHUTDOWN_TIMEOUT = 5.0
 _SENTINEL = object()
 
 
@@ -40,7 +44,9 @@ class GrainActivation:
 
     grain_id: GrainId
     instance: Any
-    inbox: asyncio.Queue[_MethodCall | object] = field(default_factory=asyncio.Queue)
+    inbox: asyncio.Queue[_MethodCall | object] = field(
+        default_factory=lambda: asyncio.Queue(maxsize=_INBOX_MAX_SIZE)
+    )
     worker_task: asyncio.Task[None] | None = None
     last_activity: float = field(default_factory=time.monotonic)
     state_loaded: bool = False
@@ -55,7 +61,7 @@ class GrainRuntime:
         storage_providers: dict[str, StorageProvider],
         serializer: Serializer,
         grain_factory: Any = None,
-        idle_timeout: float = 900.0,
+        idle_timeout: float = _DEFAULT_IDLE_TIMEOUT,
     ) -> None:
         self._activations: dict[GrainId, GrainActivation] = {}
         self._storage_providers = storage_providers
@@ -145,7 +151,7 @@ class GrainRuntime:
         activation = GrainActivation(grain_id=grain_id, instance=instance)
 
         state_type = getattr(grain_class, "_state_type", None)
-        storage_name = getattr(grain_class, "_storage_name", "default")
+        storage_name = getattr(grain_class, "_storage_name", _DEFAULT_STORAGE_NAME)
 
         if state_type is not None:
             storage = self._storage_providers.get(storage_name)
@@ -240,7 +246,9 @@ class GrainRuntime:
         await activation.inbox.put(_SENTINEL)
         if activation.worker_task is not None:
             try:
-                await asyncio.wait_for(activation.worker_task, timeout=5.0)
+                await asyncio.wait_for(
+                    activation.worker_task, timeout=_WORKER_SHUTDOWN_TIMEOUT
+                )
             except (asyncio.TimeoutError, asyncio.CancelledError):
                 activation.worker_task.cancel()
 

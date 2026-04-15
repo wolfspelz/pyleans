@@ -1,10 +1,8 @@
 """Tests for file storage provider."""
 
-import tempfile
-
 import pytest
 
-from pyleans.errors import StorageInconsistencyError
+from pyleans.errors import StorageError, StorageInconsistencyError
 from pyleans.server.providers.file_storage import FileStorageProvider
 
 
@@ -135,3 +133,73 @@ class TestFileStorageRoundTrip:
         await storage.clear("Player", "p1", etag2)
         state, etag = await storage.read("Player", "p1")
         assert state == {}
+
+
+class TestFileStoragePathTraversal:
+    """Security tests for path traversal prevention."""
+
+    async def test_grain_type_traversal_blocked(
+        self, storage: FileStorageProvider
+    ) -> None:
+        path = storage._grain_path("../../../etc", "passwd")
+        assert ".." not in str(path.relative_to(storage._base_path))
+
+    async def test_grain_key_traversal_blocked(
+        self, storage: FileStorageProvider
+    ) -> None:
+        path = storage._grain_path("Counter", "../../../etc/passwd")
+        assert ".." not in str(path.relative_to(storage._base_path))
+
+    async def test_slashes_in_grain_type_sanitized(
+        self, storage: FileStorageProvider
+    ) -> None:
+        path = storage._grain_path("a/b/c", "key")
+        assert path.parent.name != "c"
+
+    async def test_backslashes_in_type_sanitized(
+        self, storage: FileStorageProvider
+    ) -> None:
+        path = storage._grain_path("a\\b\\c", "key")
+        assert "\\" not in path.parent.name
+
+    async def test_resolved_path_within_base(
+        self, storage: FileStorageProvider
+    ) -> None:
+        path = storage._grain_path("Counter", "key")
+        assert str(path).startswith(str(storage._base_path))
+
+    async def test_empty_grain_type_raises(
+        self, storage: FileStorageProvider
+    ) -> None:
+        with pytest.raises(StorageError, match="empty after sanitization"):
+            storage._grain_path("", "key")
+
+    async def test_empty_grain_key_raises(
+        self, storage: FileStorageProvider
+    ) -> None:
+        with pytest.raises(StorageError, match="empty after sanitization"):
+            storage._grain_path("Counter", "")
+
+
+class TestFileStorageCorruptionHandling:
+    """Tests for handling corrupt or malformed state files."""
+
+    async def test_corrupt_json_raises_storage_error(
+        self, storage: FileStorageProvider
+    ) -> None:
+        await storage.write("Counter", "c1", {"value": 1}, None)
+        path = storage._grain_path("Counter", "c1")
+        path.write_bytes(b"not valid json")
+        with pytest.raises(StorageError, match="Failed to read"):
+            await storage.read("Counter", "c1")
+
+    async def test_missing_state_key_raises_storage_error(
+        self, storage: FileStorageProvider
+    ) -> None:
+        import orjson
+
+        await storage.write("Counter", "c1", {"value": 1}, None)
+        path = storage._grain_path("Counter", "c1")
+        path.write_bytes(orjson.dumps({"etag": "abc"}))
+        with pytest.raises(StorageError, match="Failed to read"):
+            await storage.read("Counter", "c1")

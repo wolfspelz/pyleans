@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Coroutine
 from typing import TYPE_CHECKING, Any
 
 from pyleans.identity import GrainId

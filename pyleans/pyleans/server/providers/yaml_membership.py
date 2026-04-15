@@ -77,19 +77,25 @@ class YamlMembershipProvider(MembershipProvider):
     def _read_file(self) -> dict[str, Any]:
         if not self._file_path.exists():
             return {"version": 0, "silos": []}
-        content = self._file_path.read_text(encoding="utf-8")
-        data = yaml.safe_load(content)
-        if data is None:
+        try:
+            content = self._file_path.read_text(encoding="utf-8")
+            data = yaml.safe_load(content)
+        except (OSError, yaml.YAMLError) as e:
+            raise MembershipError(f"Failed to read membership file: {e}") from e
+        if not isinstance(data, dict):
             return {"version": 0, "silos": []}
-        return data
+        return data  # type: ignore[return-value]
 
     def _write_file(self, data: dict[str, Any]) -> None:
         data["version"] = data.get("version", 0) + 1
-        self._file_path.parent.mkdir(parents=True, exist_ok=True)
-        self._file_path.write_text(
-            yaml.dump(data, default_flow_style=False, sort_keys=False),
-            encoding="utf-8",
-        )
+        try:
+            self._file_path.parent.mkdir(parents=True, exist_ok=True)
+            self._file_path.write_text(
+                yaml.dump(data, default_flow_style=False, sort_keys=False),
+                encoding="utf-8",
+            )
+        except OSError as e:
+            raise MembershipError(f"Failed to write membership file: {e}") from e
 
     @staticmethod
     def _silo_to_dict(silo: SiloInfo) -> dict[str, Any]:
@@ -105,13 +111,18 @@ class YamlMembershipProvider(MembershipProvider):
 
     @staticmethod
     def _dict_to_silo(entry: dict[str, Any]) -> SiloInfo:
-        return SiloInfo(
-            address=SiloAddress(
-                host=entry["host"],
-                port=entry["port"],
-                epoch=entry["epoch"],
-            ),
-            status=SiloStatus(entry["status"]),
-            last_heartbeat=entry["last_heartbeat"],
-            start_time=entry["start_time"],
-        )
+        try:
+            return SiloInfo(
+                address=SiloAddress(
+                    host=str(entry["host"]),
+                    port=int(entry["port"]),
+                    epoch=int(entry["epoch"]),
+                ),
+                status=SiloStatus(entry["status"]),
+                last_heartbeat=float(entry["last_heartbeat"]),
+                start_time=float(entry["start_time"]),
+            )
+        except (KeyError, ValueError, TypeError) as e:
+            raise MembershipError(
+                f"Malformed silo entry in membership file: {e}"
+            ) from e
