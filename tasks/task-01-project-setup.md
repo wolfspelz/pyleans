@@ -53,4 +53,19 @@ pyleans/
 - [ ] `pytest` runs (no tests yet, but framework works)
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created/modified
+- `pyleans/pyproject.toml` — Updated with full dependencies (`dependency-injector`, `orjson`, `pyyaml`), optional `[web]` deps (`fastapi`, `uvicorn`), `[dev]` deps (`pytest`, `pytest-asyncio`, `pytest-cov`, `mypy`, `ruff`), hatch build targets, and asyncio_mode config.
+- `pyleans/pyleans/server/__init__.py` — Created server subpackage.
+- `pyleans/pyleans/client/__init__.py` — Created client subpackage.
+- `pyleans/pyleans/providers/__init__.py` — Created providers subpackage.
+
+### Key decisions
+- Kept `counter-app/` and `counter-client/` at workspace root (matching the plan doc Section 4) rather than nesting under `pyleans/examples/`.
+- Used `[tool.hatch.build.targets.wheel] packages = ["pyleans"]` so hatchling finds the package correctly in the flat layout.
+
+### Deviations
+- Task spec shows `src/pyleans/` layout but existing code uses flat `pyleans/pyleans/` layout. Kept the existing layout.
+
+### Test coverage
+- No tests yet (as expected for this task). pytest framework runs successfully.

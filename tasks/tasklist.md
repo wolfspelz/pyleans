@@ -52,7 +52,7 @@ Tasks ordered by dependency. Each task can start when all its dependencies are c
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 01 | [Project Setup](task-01-project-setup.md) | [ ] | None |
+| 01 | [Project Setup](task-01-project-setup.md) | [x] | None |
 
 ### Layer 2: Core Types (depends on 01)
 
