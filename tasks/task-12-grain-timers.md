@@ -103,4 +103,19 @@ class HeartbeatGrain:
 - [ ] Unit tests with fast intervals
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+- `pyleans/pyleans/server/timer.py` — GrainTimer, TimerRegistry
+- `pyleans/test/test_timer.py` — 7 tests
+
+### Key decisions
+- Timer callbacks dispatched through runtime.invoke to maintain turn-based execution.
+- Timer loop catches and logs errors without crashing (grain stays alive).
+- `unregister_all` called on grain deactivation to clean up.
+- Timer IDs are UUID4 strings.
+
+### Deviations
+- None.
+
+### Test coverage
+- 7 tests: register/unregister/unregister_all, timer fires at interval, due_time respected, error in callback doesn't crash grain.

@@ -80,4 +80,19 @@ class AppContainer(containers.DeclarativeContainer):
 - [ ] Unit test: grain constructed with injected mock services
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+- `pyleans/pyleans/server/container.py` — PyleansContainer with framework services
+- `pyleans/test/test_container.py` — 10 tests
+
+### Key decisions
+- Container provides JsonSerializer and empty storage_providers as defaults.
+- Runtime, GrainFactory, TimerRegistry are Singletons sharing the same runtime instance.
+- Logger name configurable via `config.logger_name`.
+- Users can extend PyleansContainer or override individual providers.
+
+### Deviations
+- StreamManager not included yet (deferred to Task 13 when it's implemented).
+
+### Test coverage
+- 10 tests: container creation, all providers resolve, singleton behavior, shared runtime instance, extension via subclass, provider override.

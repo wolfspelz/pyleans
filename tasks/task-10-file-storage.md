@@ -92,4 +92,19 @@ class FileStorageProvider(StorageProvider):
 - [ ] Integration test: round-trip read/write/clear
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+- `pyleans/pyleans/server/providers/file_storage.py` — FileStorageProvider
+- `pyleans/test/test_file_storage.py` — 15 tests
+
+### Key decisions
+- One JSON file per grain: `{base_path}/{grain_type}/{safe_key}.json`.
+- ETags use UUID4.
+- Key sanitization replaces `/`, `\\`, `..` with `_` to prevent path traversal.
+- Synchronous file I/O (acceptable for PoC, small JSON files).
+
+### Deviations
+- None.
+
+### Test coverage
+- 15 tests: read nonexistent, read after write, first write, directory creation, correct/wrong/none etag writes, unique etags, clear (with/without etag, nonexistent), directory structure, key sanitization, full lifecycle round-trip.

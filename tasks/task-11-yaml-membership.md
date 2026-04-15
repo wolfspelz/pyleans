@@ -93,4 +93,19 @@ table version row.
 - [ ] Unit tests with temp directory
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+- `pyleans/pyleans/server/providers/yaml_membership.py` — YamlMembershipProvider
+- `pyleans/test/test_yaml_membership.py` — 14 tests
+
+### Key decisions
+- Single YAML file with version counter that increments on every write.
+- Silo ID is `SiloAddress.encoded` (host_port_epoch).
+- `register_silo` updates in-place if silo already exists.
+- `heartbeat` and `update_status` raise MembershipError for unknown silos.
+
+### Deviations
+- No file locking in PoC (simple read-modify-write). Sufficient for single-silo dev mode.
+
+### Test coverage
+- 14 tests: register (create file, get, multiple, update), unregister, get_active_silos (filter, empty), heartbeat (update, unknown), update_status, version increment, YAML readability.

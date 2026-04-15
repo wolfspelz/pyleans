@@ -73,8 +73,8 @@ Tasks ordered by dependency. Each task can start when all its dependencies are c
 | # | Task | Status | Dependencies |
 |---|---|---|---|
 | 06 | [Grain Decorator](task-06-grain-decorator.md) | [x] | 02, 04 |
-| 10 | [File Storage Provider](task-10-file-storage.md) | [ ] | 04, 05 |
-| 11 | [YAML Membership Provider](task-11-yaml-membership.md) | [ ] | 02, 05 |
+| 10 | [File Storage Provider](task-10-file-storage.md) | [x] | 04, 05 |
+| 11 | [YAML Membership Provider](task-11-yaml-membership.md) | [x] | 02, 05 |
 | 13 | [In-Memory Stream Provider](task-13-in-memory-streaming.md) | [ ] | 05, 07 |
 
 ### Layer 5: Runtime (depends on Layer 4)
@@ -88,8 +88,8 @@ Tasks ordered by dependency. Each task can start when all its dependencies are c
 | # | Task | Status | Dependencies |
 |---|---|---|---|
 | 08 | [Grain Reference](task-08-grain-reference.md) | [x] | 02, 04, 07 |
-| 09 | [DI Container](task-09-di-container.md) | [ ] | 05, 07, 08 |
-| 12 | [Grain Timers](task-12-grain-timers.md) | [ ] | 07 |
+| 09 | [DI Container](task-09-di-container.md) | [x] | 05, 07, 08 |
+| 12 | [Grain Timers](task-12-grain-timers.md) | [x] | 07 |
 
 ### Layer 7: Silo Assembly (depends on all above)
 
