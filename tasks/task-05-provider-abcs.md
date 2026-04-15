@@ -113,4 +113,20 @@ class StreamSubscription:
 - [ ] `StreamSubscription` dataclass defined
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+- `pyleans/pyleans/providers/storage.py` — StorageProvider ABC
+- `pyleans/pyleans/providers/membership.py` — MembershipProvider ABC
+- `pyleans/pyleans/providers/streaming.py` — StreamProvider ABC, StreamSubscription dataclass
+- `pyleans/pyleans/providers/__init__.py` — Re-exports all provider types
+- `pyleans/test/test_providers.py` — 15 tests
+
+### Key decisions
+- Used `dict[str, Any]` for state parameter in StorageProvider (typed dict values).
+- `Callable[[Any], Awaitable[None]]` for stream callbacks.
+
+### Deviations
+- None.
+
+### Test coverage
+- 15 tests: ABC non-instantiability, method existence, concrete subclass creation, StreamSubscription creation/equality, import verification.

@@ -65,8 +65,8 @@ Tasks ordered by dependency. Each task can start when all its dependencies are c
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 04 | [Serialization](task-04-serialization.md) | [ ] | 01, 03 |
-| 05 | [Provider ABCs](task-05-provider-abcs.md) | [ ] | 02, 03 |
+| 04 | [Serialization](task-04-serialization.md) | [x] | 01, 03 |
+| 05 | [Provider ABCs](task-05-provider-abcs.md) | [x] | 02, 03 |
 
 ### Layer 4: Grain System (depends on 04, 05)
 

@@ -57,4 +57,18 @@ class JsonSerializer(Serializer):
 - [ ] `Serializer` ABC allows alternative implementations
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+- `pyleans/pyleans/serialization.py` — Serializer ABC, JsonSerializer with orjson
+- `pyleans/test/test_serialization.py` — 22 tests
+
+### Key decisions
+- `_dataclass_to_dict` recursively converts nested dataclasses, lists, and dicts.
+- `_dict_to_dataclass` reconstructs nested dataclasses by inspecting field types.
+- String type annotations are skipped during nested reconstruction (no eval).
+
+### Deviations
+- None.
+
+### Test coverage
+- 22 tests: ABC abstractness, custom implementations, all primitive types, dataclass round-trips (simple, nested, with lists, defaults), output format, and all error cases.
