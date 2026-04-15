@@ -61,4 +61,17 @@ class SerializationError(PyleansError):
 - [ ] Importable from `pyleans.errors`
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+- `pyleans/pyleans/errors.py` — Full exception hierarchy
+- `pyleans/test/test_errors.py` — 23 tests
+
+### Key decisions
+- `StorageInconsistencyError` stores `expected_etag` and `actual_etag` as attributes and formats them in the message.
+- All error classes use only `str | None` attributes — no complex types to keep them serializable.
+
+### Deviations
+- None.
+
+### Test coverage
+- 23 tests covering hierarchy (all subclass PyleansError), StorageInconsistencyError etag storage (both present, one None, both None), catchability at multiple levels, and message content for all grain error types.

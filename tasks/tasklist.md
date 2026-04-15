@@ -58,8 +58,8 @@ Tasks ordered by dependency. Each task can start when all its dependencies are c
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 02 | [Core Identity Types](task-02-core-types.md) | [ ] | 01 |
-| 03 | [Error Types](task-03-errors.md) | [ ] | 01 |
+| 02 | [Core Identity Types](task-02-core-types.md) | [x] | 01 |
+| 03 | [Error Types](task-03-errors.md) | [x] | 01 |
 
 ### Layer 3: Serialization and ABCs (depends on 02, 03)
 
