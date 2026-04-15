@@ -1,0 +1,17 @@
+[project]
+name = "pyleans"
+version = "0.1.0"
+description = "A Python implementation of the Virtual Actor pattern inspired by Microsoft Orleans"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["test"]

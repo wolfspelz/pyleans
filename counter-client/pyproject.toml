@@ -1,0 +1,18 @@
+[project]
+name = "counter-client"
+version = "0.1.0"
+description = "CLI sample app demonstrating the counter grain in a pyleans cluster"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+
+dependencies = [
+    "pyleans",
+    "counter-app",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["test"]

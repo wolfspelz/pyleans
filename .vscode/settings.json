@@ -1,0 +1,22 @@
+{
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+
+    "python.analysis.typeCheckingMode": "strict",
+    "python.analysis.diagnosticSeverityOverrides": {},
+
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports.ruff": "explicit"
+        }
+    },
+
+    "ruff.path": ["${workspaceFolder}/.venv/Scripts/ruff.exe"],
+
+    "mypy-type-checker.path": ["${workspaceFolder}/.venv/Scripts/mypy.exe"],
+    "mypy-type-checker.args": ["--strict"],
+
+    "python.testing.pytestEnabled": true,
+    "python.testing.pytestArgs": ["."]
+}

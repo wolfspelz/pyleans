@@ -1,0 +1,17 @@
+[project]
+name = "counter-app"
+version = "0.1.0"
+description = "Counter grain example for pyleans"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+
+dependencies = [
+    "pyleans",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
