@@ -101,7 +101,7 @@ Tasks ordered by dependency. Each task can start when all its dependencies are c
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 15 | [Counter Grain](task-15-counter-grain.md) | [ ] | 06, 14 |
+| 15 | [Counter Grain](task-15-counter-grain.md) | [x] | 06, 14 |
 | 16 | [Counter App (Silo + FastAPI)](task-16-counter-app.md) | [ ] | 10, 11, 14, 15 |
 | 17 | [Counter Client (CLI)](task-17-counter-client.md) | [ ] | 16 |
 
