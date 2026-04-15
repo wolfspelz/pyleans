@@ -91,6 +91,12 @@ class FileStorageProvider(StorageProvider):
 - [ ] Directory structure: `{base_path}/{grain_type}/{key}.json`
 - [ ] Integration test: round-trip read/write/clear
 
+## Findings of code review
+_To be filled when task is complete._
+
+## Findings of security review
+_To be filled when task is complete._
+
 ## Summary of implementation
 
 ### Files created

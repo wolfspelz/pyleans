@@ -102,6 +102,12 @@ class HeartbeatGrain:
 - [ ] Timer errors logged but don't crash the grain
 - [ ] Unit tests with fast intervals
 
+## Findings of code review
+_To be filled when task is complete._
+
+## Findings of security review
+_To be filled when task is complete._
+
 ## Summary of implementation
 
 ### Files created

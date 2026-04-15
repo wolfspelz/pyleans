@@ -60,6 +60,12 @@ class SerializationError(PyleansError):
 - [ ] `StorageInconsistencyError` carries the expected and actual ETags
 - [ ] Importable from `pyleans.errors`
 
+## Findings of code review
+_To be filled when task is complete._
+
+## Findings of security review
+_To be filled when task is complete._
+
 ## Summary of implementation
 
 ### Files created

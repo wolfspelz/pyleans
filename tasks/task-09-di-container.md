@@ -79,6 +79,12 @@ class AppContainer(containers.DeclarativeContainer):
 - [ ] Container wiring works across grain modules
 - [ ] Unit test: grain constructed with injected mock services
 
+## Findings of code review
+_To be filled when task is complete._
+
+## Findings of security review
+_To be filled when task is complete._
+
 ## Summary of implementation
 
 ### Files created

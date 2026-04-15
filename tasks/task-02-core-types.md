@@ -61,6 +61,12 @@ class SiloStatus(Enum):
 - [ ] Types are JSON-serializable via dataclass fields
 - [ ] Unit tests for equality, hashing, encoding
 
+## Findings of code review
+_To be filled when task is complete._
+
+## Findings of security review
+_To be filled when task is complete._
+
 ## Summary of implementation
 
 ### Files created

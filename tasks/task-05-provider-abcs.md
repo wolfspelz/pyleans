@@ -112,6 +112,12 @@ class StreamSubscription:
 - [ ] Type hints on all parameters and return types
 - [ ] `StreamSubscription` dataclass defined
 
+## Findings of code review
+_To be filled when task is complete._
+
+## Findings of security review
+_To be filled when task is complete._
+
 ## Summary of implementation
 
 ### Files created

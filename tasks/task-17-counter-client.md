@@ -90,5 +90,11 @@ if __name__ == "__main__":
 - [ ] Error message if 'set' called without value
 - [ ] Exit code 0 on success, non-zero on error
 
+## Findings of code review
+_To be filled when task is complete._
+
+## Findings of security review
+_To be filled when task is complete._
+
 ## Summary of implementation
 _To be filled when task is complete._

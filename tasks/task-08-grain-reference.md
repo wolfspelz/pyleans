@@ -100,6 +100,12 @@ class GrainFactory:
 - [ ] Multiple GrainRefs to same grain_id share the same activation
 - [ ] Unit tests for proxy dispatch
 
+## Findings of code review
+_To be filled when task is complete._
+
+## Findings of security review
+_To be filled when task is complete._
+
 ## Summary of implementation
 
 ### Files created

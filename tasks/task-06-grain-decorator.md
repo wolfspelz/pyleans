@@ -94,6 +94,12 @@ def get_grain_methods(grain_class: type) -> dict[str, Callable]:
 - [ ] Metadata accessible: `cls._grain_type`, `cls._state_type`, `cls._storage_name`
 - [ ] Unit tests for decorator, registry, method discovery
 
+## Findings of code review
+_To be filled when task is complete._
+
+## Findings of security review
+_To be filled when task is complete._
+
 ## Summary of implementation
 
 ### Files created

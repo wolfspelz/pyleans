@@ -90,5 +90,11 @@ if __name__ == "__main__":
 - [ ] `data/storage/CounterGrain/foo.json` contains state
 - [ ] Multiple counters (`foo`, `bar`) are independent
 
+## Findings of code review
+_To be filled when task is complete._
+
+## Findings of security review
+_To be filled when task is complete._
+
 ## Summary of implementation
 _To be filled when task is complete._

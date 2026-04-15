@@ -59,5 +59,11 @@ class CounterGrain:
 - [ ] State survives grain deactivation and reactivation (read from file)
 - [ ] Multiple counter instances (different keys) are independent
 
+## Findings of code review
+_To be filled when task is complete._
+
+## Findings of security review
+_To be filled when task is complete._
+
 ## Summary of implementation
 _To be filled when task is complete._

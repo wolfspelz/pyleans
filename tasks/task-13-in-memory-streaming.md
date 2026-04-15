@@ -97,13 +97,40 @@ class RoomGrain:
 
 ### Acceptance criteria
 
-- [ ] Publish delivers to all subscribers
-- [ ] Subscribe returns a StreamSubscription handle
-- [ ] Unsubscribe stops delivery
-- [ ] Multiple subscribers on same stream
-- [ ] Multiple independent streams
-- [ ] Publishing to stream with no subscribers is a no-op
-- [ ] Unit tests for pub/sub flow
+- [x] Publish delivers to all subscribers
+- [x] Subscribe returns a StreamSubscription handle
+- [x] Unsubscribe stops delivery
+- [x] Multiple subscribers on same stream
+- [x] Multiple independent streams
+- [x] Publishing to stream with no subscribers is a no-op
+- [x] Unit tests for pub/sub flow
+
+## Findings of code review
+- Removed unused imports (`asyncio`, `field`) — fixed.
+- All classes have type annotations, follow SOLID/KISS principles.
+- No dead code, unused imports, or magic constants.
+
+## Findings of security review
+- No vulnerabilities found. Minimal attack surface (no I/O, no deserialization, internal API only).
+- No unbounded resource consumption beyond what the design requires.
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+- `pyleans/pyleans/server/providers/memory_stream.py` — `InMemoryStreamProvider`, `StreamRef`, `StreamManager`
+- `pyleans/test/test_memory_stream.py` — 24 unit tests
+
+### Key implementation decisions
+- **Synchronous delivery**: publish awaits each callback sequentially, preserving event ordering and surfacing errors immediately via `ExceptionGroup`. Safer than fire-and-forget `create_task`.
+- **Cleanup on empty**: when all subscriptions for a stream key are removed, the key is deleted from the internal dict to prevent memory leaks.
+- **Three-class design**: `InMemoryStreamProvider` (implements ABC), `StreamRef` (bound to namespace+key), `StreamManager` (DI-friendly factory for StreamRefs).
+
+### Deviations from task design
+- Callbacks are awaited sequentially instead of using `asyncio.create_task` — better error handling and ordering guarantees.
+- Errors from callbacks are collected into an `ExceptionGroup` instead of being silently ignored.
+
+### Test coverage (24 tests)
+- Publish/subscribe happy path, multiple subscribers, independent streams, namespace isolation
+- Unsubscribe stops delivery, partial unsubscribe, double unsubscribe safety, cleanup
+- Error handling: bad callbacks raise ExceptionGroup, good callbacks still called
+- StreamRef and StreamManager wrappers, cross-ref publish/subscribe

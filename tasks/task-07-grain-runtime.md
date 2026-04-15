@@ -138,6 +138,12 @@ If `time.monotonic() - activation.last_activity > idle_timeout`, deactivate.
 - [ ] Errors in grain methods propagated to caller via future
 - [ ] Unit tests with mock storage provider
 
+## Findings of code review
+_To be filled when task is complete._
+
+## Findings of security review
+_To be filled when task is complete._
+
 ## Summary of implementation
 
 ### Files created
