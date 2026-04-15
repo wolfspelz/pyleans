@@ -1,4 +1,4 @@
-# Task 16: Counter App (Silo with FastAPI)
+# Task 16: Counter App (Standalone Silo)
 
 > **Coding rules**: Follow [CLAUDE.md](../CLAUDE.md) strictly — clean code, SOLID, strict type hints, mandatory tests.\
 > **On completion**: Fill in "Summary of implementation" at the bottom with files created, decisions made, deviations, and test coverage.
@@ -14,81 +14,57 @@
 
 ## Description
 
-Create a complete sample silo application that hosts the CounterGrain and
-exposes it via a FastAPI HTTP API. This is the Phase 1 milestone.
+Create a standalone silo application that hosts the CounterGrain.
+This is the default deployment model: the silo runs as its own process.
+External clients connect via the gateway protocol (see task 17).
+
+**Note:** The Silo class supports co-hosting (e.g. with FastAPI via
+`start_background()`), but the default and recommended deployment is a
+standalone silo process. Co-hosting is an advanced pattern for when the
+silo and a web API must share a process.
 
 ### Files to create
-- `examples/counter-app/main.py`
-- `examples/counter-app/requirements.txt` (or pyproject.toml)
+- `counter-app/counter/main.py`
 
 ### main.py
 
 ```python
+"""Standalone silo hosting CounterGrain."""
+
 import asyncio
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
-import uvicorn
 from pyleans.server import Silo
 from pyleans.server.providers import FileStorageProvider, YamlMembershipProvider
-from grains import CounterGrain
+from counter.grains import CounterGrain
 
-# Create silo
-silo = Silo(
-    grains=[CounterGrain],
-    storage_providers={"default": FileStorageProvider("./data/storage")},
-    membership_provider=YamlMembershipProvider("./data/membership.yaml"),
-)
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Start silo (non-blocking)
-    silo_task = asyncio.create_task(silo.start())
-    yield
-    await silo.stop()
-    silo_task.cancel()
-
-app = FastAPI(lifespan=lifespan)
-
-@app.get("/counter/{counter_id}")
-async def get_counter(counter_id: str):
-    counter = silo.grain_factory.get_grain(CounterGrain, counter_id)
-    value = await counter.get_value()
-    return {"counter_id": counter_id, "value": value}
-
-@app.post("/counter/{counter_id}/increment")
-async def increment_counter(counter_id: str):
-    counter = silo.grain_factory.get_grain(CounterGrain, counter_id)
-    value = await counter.increment()
-    return {"counter_id": counter_id, "value": value}
-
-@app.put("/counter/{counter_id}")
-async def set_counter(counter_id: str, value: int):
-    counter = silo.grain_factory.get_grain(CounterGrain, counter_id)
-    await counter.set_value(value)
-    return {"counter_id": counter_id, "value": value}
+async def main() -> None:
+    silo = Silo(
+        grains=[CounterGrain],
+        storage_providers={"default": FileStorageProvider("./data/storage")},
+        membership_provider=YamlMembershipProvider("./data/membership.yaml"),
+    )
+    await silo.start()  # blocks until Ctrl+C
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    asyncio.run(main())
 ```
 
 ### What this demonstrates
 
-- Silo co-hosted with FastAPI in the same process
-- Grain calls from HTTP handlers
+- Silo as a standalone process (the default deployment model)
+- `asyncio.run()` as the entry point
+- Grain classes registered at startup
 - State persisted to files (survives restart)
 - Membership visible in YAML file
-- Multiple counter instances (different counter_id values)
+- Ctrl+C triggers graceful shutdown via signal handling
 
 ### Acceptance criteria
 
-- [ ] `python main.py` starts silo + FastAPI
-- [ ] `GET /counter/foo` returns `{"counter_id": "foo", "value": 0}` initially
-- [ ] `POST /counter/foo/increment` returns incremented value
-- [ ] `PUT /counter/foo?value=42` sets the value
-- [ ] State persists across restarts (kill + restart, same value)
-- [ ] `data/membership.yaml` shows silo entry
-- [ ] `data/storage/CounterGrain/foo.json` contains state
-- [ ] Multiple counters (`foo`, `bar`) are independent
+- [ ] `python -m counter.main` starts silo and blocks
+- [ ] Ctrl+C triggers graceful shutdown (deactivates grains, saves state)
+- [ ] `data/membership.yaml` shows silo entry while running
+- [ ] `data/membership.yaml` shows no silo entry after clean shutdown
+- [ ] Grain state files created under `data/storage/CounterGrain/`
+- [ ] Integration test: start silo, call grain via runtime, stop silo, verify state persisted
 
 ## Findings of code review
 _To be filled when task is complete._

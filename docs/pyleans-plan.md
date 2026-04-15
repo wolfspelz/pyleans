@@ -30,7 +30,7 @@ updated as we iterate on design decisions.
 | Idle collection | Yes | Deactivate after timeout |
 | Timers | Yes | In-grain periodic callbacks |
 | Dependency injection | Yes | `dependency-injector`, constructor injection like Orleans |
-| Web server co-hosting | Yes | FastAPI co-hosted with silo |
+| Client gateway | Yes | External clients connect via ClusterClient over gateway protocol |
 
 ### Excluded from PoC
 
@@ -392,48 +392,46 @@ Each provider gets a simple default implementation:
 ## 3. Architecture Overview
 
 ```
-                    +-----------+
-                    | Web Client|
-                    +-----+-----+
-                          |
-                    +-----v-----+
-                    |  FastAPI   |  (co-hosted, same process)
-                    +-----+-----+
-                          |
-          +---------------v----------------+
-          |            Silo                 |
-          |                                |
-          |  +--------+  +--------+        |
-          |  | Grain  |  | Grain  |  ...   |
-          |  | (User) |  | (Room) |        |
-          |  +--------+  +--------+        |
-          |                                |
-          |  +---------------------------+ |
-          |  |     Grain Runtime         | |
-          |  | - Directory (local cache) | |
-          |  | - Activation table        | |
-          |  | - Scheduler (asyncio)     | |
-          |  | - Timer service           | |
-          |  +---------------------------+ |
-          |                                |
-          |  +---------------------------+ |
-          |  |     Provider Layer        | |
-          |  | - Storage provider        | |
-          |  | - Membership provider     | |
-          |  | - Stream provider         | |
-          |  +---------------------------+ |
-          |                                |
-          |  +---------------------------+ |
-          |  |     Transport Layer       | |
-          |  | - TCP mesh (silo-to-silo) | |
-          |  | - Gateway (client-to-silo)| |
-          |  +---------------------------+ |
-          +--------------------------------+
-                     |          |
-            +--------v--+  +---v--------+
-            | Other Silo|  | Other Silo |
-            +-----------+  +------------+
+  +-----------+
+  | Web Client|
+  +-----+-----+
+        |  HTTP
+  +-----v-----------+
+  | Web Server      |     (separate process, e.g. FastAPI)
+  | (ClusterClient) |
+  +-----+-----------+
+        |  gateway protocol (persistent connection)
+        |
+        |     +-------------+  TCP mesh  +-------------+
+        +---->|    Silo A    |<---------->|    Silo B    |
+              |              |            |              |
+              | +----------+ |            | +----------+ |
+              | | Grain    | |            | | Grain    | |
+              | | (User)   | |            | | (Room)   | |
+              | +----------+ |            | +----------+ |
+              |              |            |              |
+              | +----------+ |            | +----------+ |
+              | | Runtime  | |            | | Runtime  | |
+              | +----------+ |            | +----------+ |
+              |              |            |              |
+              | +----------+ |            | +----------+ |
+              | | Providers| |            | | Providers| |
+              | +----------+ |            | +----------+ |
+              |              |            |              |
+              | +----------+ |            | +----------+ |
+              | | Transport| |            | | Transport| |
+              | | - Mesh   | |            | | - Mesh   | |
+              | | - Gateway| |            | | - Gateway| |
+              | +----------+ |            | +----------+ |
+              +--------------+            +--------------+
 ```
+
+**Key design principle**: The silo is a standalone process. No HTTP server runs
+inside the silo. External clients (web servers, CLI tools, other services) connect
+via `ClusterClient` using the gateway protocol over a persistent connection.
+A FastAPI or other web API is a separate service that uses `ClusterClient`. The
+silo _can_ be co-hosted with a web server (via `start_background()`), but this
+is an advanced pattern, not the default.
 
 ---
 
@@ -454,7 +452,7 @@ counter-app/                     # sample silo app (depends on pyleans)
   pyproject.toml
   counter/
     grains.py                    # CounterGrain
-    main.py                      # Silo + FastAPI
+    main.py                      # Standalone silo
   test/
 counter-client/              # CLI client tool
 ```
@@ -467,7 +465,8 @@ counter-client/              # CLI client tool
 - `orjson` -- fast JSON serialization
 - `pyyaml` -- YAML membership provider
 
-**Optional dependencies**: `[web]` = `fastapi`, `uvicorn` (for co-hosting)
+**No optional web dependencies**: FastAPI or other web frameworks are not pyleans
+dependencies. A web API is a separate service that uses `pyleans.client`.
 
 **Dev dependencies** (workspace root): `pytest`, `pytest-asyncio`, `ruff`, `mypy`.
 
@@ -490,9 +489,10 @@ Everything runs in one Python process. Like Orleans' `UseLocalhostClustering()`.
 9. Grain state via `self.state` (dataclass, loaded on activation, `orjson` serialization)
 10. Idle collection (deactivate after timeout)
 11. Grain timers
-12. Counter example with FastAPI
+12. Counter example: standalone silo + CLI client via gateway protocol
 
-**Milestone**: A FastAPI app with a counter grain that persists to a JSON file.
+**Milestone**: A standalone silo hosting a counter grain that persists to a JSON file,
+with a CLI client connecting via ClusterClient and the gateway protocol.
 
 ### Phase 2: Multi-Silo Cluster
 
