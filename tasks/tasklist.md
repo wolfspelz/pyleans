@@ -81,7 +81,7 @@ Tasks ordered by dependency. Each task can start when all its dependencies are c
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 07 | [Grain Runtime](task-07-grain-runtime.md) | [ ] | 03, 04, 05, 06 |
+| 07 | [Grain Runtime](task-07-grain-runtime.md) | [x] | 03, 04, 05, 06 |
 
 ### Layer 6: Runtime Consumers (depends on 07)
 

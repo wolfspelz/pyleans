@@ -139,4 +139,21 @@ If `time.monotonic() - activation.last_activity > idle_timeout`, deactivate.
 - [ ] Unit tests with mock storage provider
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+- `pyleans/pyleans/server/runtime.py` — GrainRuntime, GrainActivation, worker loop, idle collector
+- `pyleans/test/test_runtime.py` — 20 tests
+
+### Key decisions
+- Worker loop uses a sentinel object to signal shutdown (avoids cancellation races).
+- `_idle_collector_single_pass` extracted for deterministic test control.
+- `save_state` and `clear_state` are bound as closures on the instance (not class methods) to capture activation context.
+- `on_activate` is dispatched through the grain's inbox to maintain turn-based ordering.
+- `on_deactivate` is called directly (outside inbox) since the grain is shutting down.
+- `grain_factory` parameter allows DI integration (Task 09) without coupling to dependency-injector.
+
+### Deviations
+- None.
+
+### Test coverage
+- 20 tests: activation (first call, reuse, unknown type/method), state management (load from storage, defaults, save, clear), lifecycle hooks (on_activate/on_deactivate), turn-based execution (sequential same grain, concurrent different grains), error propagation, idle collection, start/stop.
