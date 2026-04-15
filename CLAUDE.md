@@ -168,9 +168,19 @@ ruff format .                    # format everything
 
 ## Post-Task Reviews — MANDATORY
 
-After completing each task (code + tests passing), perform two reviews before marking it done:
+After completing each task (code + tests passing), you MUST perform both reviews below **before committing**. Do NOT batch reviews across multiple tasks. Do NOT skip reviews for "simple" tasks. Every task gets both reviews, every time.
 
-### Code Review
+### Step-by-step workflow per task
+
+1. Implement code + tests
+2. Run tests — all must pass
+3. **Code review** (see checklist below)
+4. **Security review** (see checklist below)
+5. Fix all issues found in steps 3–4
+6. Re-run tests to confirm fixes don't break anything
+7. Only then: commit
+
+### Code Review Checklist
 
 Review all code written or modified in the task for:
 
@@ -178,10 +188,11 @@ Review all code written or modified in the task for:
 - Correct use of type hints, error handling, and naming
 - Test quality and completeness (all acceptance criteria covered)
 - Architectural consistency with hexagonal architecture
+- No dead code, unused imports, or magic constants
 
 Fix all issues found before proceeding.
 
-### Security Review
+### Security Review Checklist
 
 Review the **entire existing codebase** (not just the current task) for:
 
@@ -190,8 +201,9 @@ Review the **entire existing codebase** (not just the current task) for:
 - Improper input validation at system boundaries
 - Unsafe file operations, race conditions
 - Dependency vulnerabilities
+- Unbounded resource consumption (queues, strings, collections)
 
-Fix all vulnerabilities found before marking the task complete.
+Fix all vulnerabilities found. Add tests for any security fix.
 
 ## Commit and PR Rules
 
