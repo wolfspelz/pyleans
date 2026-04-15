@@ -95,4 +95,19 @@ def get_grain_methods(grain_class: type) -> dict[str, Callable]:
 - [ ] Unit tests for decorator, registry, method discovery
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+- `pyleans/pyleans/grain.py` — `@grain` decorator, registry, method discovery
+- `pyleans/test/test_grain.py` — 19 tests
+
+### Key decisions
+- Decorator stores metadata as class attributes (`_grain_type`, `_state_type`, `_storage_name`).
+- `get_grain_methods` uses `inspect.isfunction` + `asyncio.iscoroutinefunction` to discover only public async methods.
+- `LIFECYCLE_METHODS` is a frozenset for O(1) lookups.
+- `identity`, `state`, `save_state`, `clear_state` are NOT added by the decorator — they will be set by the runtime (Task 07).
+
+### Deviations
+- None.
+
+### Test coverage
+- 19 tests: decorator with/without args, registry lookup, not-found error, method discovery (public/private/dunder/sync/lifecycle exclusions), metadata for stateful/stateless grains.
