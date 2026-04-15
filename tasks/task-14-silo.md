@@ -133,13 +133,49 @@ Register SIGINT/SIGTERM handlers to trigger graceful `stop()`.
 
 ### Acceptance criteria
 
-- [ ] `Silo(grains=[...])` with defaults starts successfully
-- [ ] Grain calls work via `silo.grain_factory.get_grain()`
-- [ ] Graceful shutdown deactivates grains and saves state
-- [ ] Silo registers/unregisters in membership table
-- [ ] Heartbeat updates membership periodically
-- [ ] Ctrl+C triggers graceful shutdown
-- [ ] Integration test: start silo, call grain, stop silo, verify state persisted
+- [x] `Silo(grains=[...])` with defaults starts successfully
+- [x] Grain calls work via `silo.grain_factory.get_grain()`
+- [x] Graceful shutdown deactivates grains and saves state
+- [x] Silo registers/unregisters in membership table
+- [x] Heartbeat updates membership periodically
+- [x] Ctrl+C triggers graceful shutdown
+- [x] Integration test: start silo, call grain, stop silo, verify state persisted
+
+## Findings of code review
+
+No issues found. Review checked:
+- Clean code: Silo has single responsibility (wiring components together). No logic duplication with runtime.
+- SOLID: All providers injected via constructor. Abstractions (ABCs) used for storage, membership, streaming.
+- Type hints: All public APIs fully typed. mypy strict mode passes.
+- No dead code, magic constants, or unused imports.
+- Tests cover all acceptance criteria including integration end-to-end.
+
+## Findings of security review
+
+No issues found. Review checked:
+- No new system boundary inputs exposed (host/port stored for future TCP mesh, not bound).
+- Signal handlers: wrapped in try/except NotImplementedError for Windows ProactorEventLoop compatibility.
+- No path traversal, injection, or deserialization risks introduced.
+- No unbounded resource consumption — heartbeat task properly cancelled on stop, all grains deactivated.
+- Shutdown task reference stored to prevent GC collection (RUF006 fix).
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created/modified
+- **Created**: `pyleans/pyleans/server/silo.py` — Silo class with start/stop lifecycle, signal handling, heartbeat
+- **Modified**: `pyleans/pyleans/server/__init__.py` — re-exports Silo
+- **Modified**: `pyleans/pyleans/__init__.py` — re-exports grain, GrainId, GrainRef, GrainFactory
+- **Created**: `pyleans/test/test_silo.py` — 25 tests across 9 test classes
+
+### Key implementation decisions
+- Added `start_background()` method for non-blocking start (FastAPI embedding, tests) alongside blocking `start()`.
+- Silo directly creates GrainRuntime, GrainFactory, TimerRegistry rather than using PyleansContainer — simpler wiring, DI container available as extension point for user services.
+- Signal handlers use try/except for Windows compatibility (ProactorEventLoop doesn't support add_signal_handler).
+- Shutdown task stored as `self._shutdown_task` to prevent garbage collection (addresses RUF006 lint rule).
+
+### Deviations from original design
+- Removed `container` parameter from constructor. The DI container (`PyleansContainer`) is available as a separate utility for users who want it, but Silo handles wiring directly for simplicity.
+- Added `start_background()` method not in original spec — needed for practical embedding and testing.
+
+### Test coverage summary
+- 25 tests covering: start/stop lifecycle, blocking start, double-stop safety, properties, grain registration, stateless and stateful grain calls, lifecycle hooks, multiple independent grains, membership registration/unregistration, shutdown status transition, heartbeat periodic execution, heartbeat cancellation, graceful shutdown with grain deactivation, state persistence through stop, full integration restart test, concurrent grain calls, default providers, custom providers, package imports.
