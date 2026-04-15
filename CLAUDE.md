@@ -174,11 +174,12 @@ After completing each task (code + tests passing), you MUST perform both reviews
 
 1. Implement code + tests
 2. Run tests — all must pass
-3. **Code review** (see checklist below)
-4. **Security review** (see checklist below)
-5. Fix all issues found in steps 3–4
+3. **Code review** (see checklist below) and put the findings as open issues into the task file.
+4. **Security review** (see checklist below) and put the findings as open issues into the task file.
+5. Fix all issues found in steps 3–4 and update the issues in the task file.
 6. Re-run tests to confirm fixes don't break anything
-7. Only then: commit
+7. Add a summary of changes to the task file
+8. Only then: commit
 
 ### Code Review Checklist
 
