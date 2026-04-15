@@ -1,0 +1,36 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Web API (Local Silo)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/Web/bin/Debug/net8.0/Web.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/Web",
+            "console": "internalConsole",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "ASPNETCORE_URLS": "http://localhost:5000",
+            },
+            "preLaunchTask": "build-all"
+        },
+        {
+            "name": "Debug Web API (MongoDB Membership)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/Web/bin/Debug/net8.0/Web.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/Web",
+            "console": "internalConsole",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "ASPNETCORE_URLS": "http://localhost:5000",
+                "MONGODB_CONNECTION": "mongodb://localhost:27017/orleans"
+            },
+            "preLaunchTask": "build-web"
+        }
+    ]
+}

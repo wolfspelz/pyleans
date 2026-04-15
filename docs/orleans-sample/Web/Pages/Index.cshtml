@@ -1,0 +1,207 @@
+@page
+@model Web.Pages.IndexModel
+@{
+    ViewData["Title"] = "Web API Dashboard";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/site.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+
+<body>
+    <div class="container mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Grid API</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="gridKey" class="form-label">Grid Name:</label>
+                        <input type="text" class="form-control" id="gridKey" value="test-grid">
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label for="gridNy" class="form-label">Rows:</label>
+                            <input type="number" class="form-control" id="gridNy" value="3">
+                        </div>
+                        <div class="col-6">
+                            <label for="gridNx" class="form-label">Columns:</label>
+                            <input type="number" class="form-control" id="gridNx" value="3">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="gridAutoRefresh"
+                                onchange="toggleGridAutoRefresh()">
+                            <label class="form-check-label" for="gridAutoRefresh">
+                                Auto-refresh
+                            </label>
+                        </div>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" onclick="getGrid()">Get Grid</button>
+                    </div>
+                    <div id="grid-result" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // Auto-refresh variables
+        let gridRefreshInterval = null;
+
+        // Auto-refresh toggle function
+        function toggleGridAutoRefresh() {
+            const checkbox = document.getElementById('gridAutoRefresh');
+            const label = document.querySelector('label[for="gridAutoRefresh"]');
+
+            if (checkbox.checked) {
+                startGridAutoRefresh();
+                label.innerHTML = 'Auto-refresh <span class="badge bg-success">ON</span>';
+            } else {
+                stopGridAutoRefresh();
+                label.innerHTML = 'Auto-refresh ';
+            }
+        }
+
+        function startGridAutoRefresh() {
+            // Clear any existing interval
+            if (gridRefreshInterval) {
+                clearInterval(gridRefreshInterval);
+            }
+
+            // Start new interval
+            gridRefreshInterval = setInterval(() => {
+                getGrid();
+            }, 314);
+
+            console.log('Grid auto-refresh started');
+        }
+
+        function stopGridAutoRefresh() {
+            if (gridRefreshInterval) {
+                clearInterval(gridRefreshInterval);
+                gridRefreshInterval = null;
+            }
+            console.log('Grid auto-refresh stopped');
+        }
+
+        // Grid functions
+        function getGrid() {
+            const key = document.getElementById('gridKey').value;
+            const nx = document.getElementById('gridNx').value;
+            const ny = document.getElementById('gridNy').value;
+
+            axios.get(`/api/grid/${key}?nx=${nx}&ny=${ny}`)
+                .then(response => {
+                    const gridDimensions = getGridDimensions();
+                    const dimensionsChanged = gridDimensions.rows !== response.data.length || gridDimensions.columns !== response.data[0].length;
+                    if (dimensionsChanged) {
+                        // Rebuild the grid HTML if dimensions have changed
+                        const gridHtml = response.data.map((row, y) => ''
+                            + '<div>'
+                            + row.map((cell, x) =>
+                                `<span id="iField-${x}-${y}" class="badge my-field my-field-selected-${cell.selected}" data-selected="${cell.selected}" style="background-color: ${cell.color};" onclick="toggleFieldSelection('${key}', ${x}, ${y}, this.dataset.selected === 'true')">${cell.count}</span>`
+                            ).join('')
+                            + '</div>'
+                        ).join('');
+                        document.getElementById('grid-result').innerHTML = `<div class="alert alert-success">${gridHtml}</div>`;
+                    } else {
+                        // Update only the cell contents without rebuilding the entire grid
+                        response.data.forEach((row, y) => {
+                            row.forEach((cell, x) => {
+                                const cellElement = document.getElementById(`iField-${x}-${y}`);
+                                if (cellElement) {
+                                    cellElement.className = `badge my-field my-field-selected-${cell.selected}`;
+                                    cellElement.dataset.selected = `${cell.selected}`;
+                                    cellElement.style.backgroundColor = cell.color;
+                                    cellElement.innerText = cell.count;
+                                }
+                            });
+                        });
+                    }
+                })
+                .catch(error => showError('grid-result', error));
+        }
+
+        function getGridDimensions() {
+            const gridContainer = document.getElementById('grid-result');
+            if (!gridContainer) {
+                return { rows: 0, columns: 0 };
+            }
+
+            // Find all row divs (direct children of the grid container's alert div)
+            const alertDiv = gridContainer.querySelector('.alert');
+            if (!alertDiv) {
+                return { rows: 0, columns: 0 };
+            }
+
+            const rowDivs = alertDiv.querySelectorAll(':scope > div');
+            const rows = rowDivs.length;
+
+            // Get columns from the first row
+            let columns = 0;
+            if (rows > 0) {
+                const firstRow = rowDivs[0];
+                const cells = firstRow.querySelectorAll('.my-field');
+                columns = cells.length;
+            }
+
+            return { rows, columns };
+        }
+
+        function toggleFieldSelection(gridKey, x, y, currentValue) {
+            const fieldKey = `${gridKey}-${x}-${y}`;
+            const newValue = !currentValue; // Toggle the current selection state
+
+            axios.post(`/api/field/${fieldKey}/select`, newValue, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => {
+                    @* console.log(`Field ${fieldKey} selection set to: ${newValue}`); *@
+                    // Refresh the grid to show the updated selection state
+                    getGrid();
+                })
+                .catch(error => {
+                    console.error(`Error toggling selection for field ${fieldKey}:`, error);
+                    showError('grid-result', error);
+                });
+        }
+
+        // Error handling
+        function showError(elementId, error) {
+            const message = error.response?.data || error.message || 'Unknown error';
+            document.getElementById(elementId).innerHTML =
+                `<div class="alert alert-danger">Error: ${message}</div>`;
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function () {
+            stopGridAutoRefresh();
+        });
+
+        // Stop auto-refresh when checkbox loses focus or page becomes inactive
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden && gridRefreshInterval) {
+                console.log('Page became inactive, pausing auto-refresh');
+                // Optionally pause auto-refresh when page is not visible
+            }
+        });
+    </script>
+</body>
+
+</html>
