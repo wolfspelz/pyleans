@@ -3,8 +3,6 @@
 from dataclasses import dataclass
 from typing import Any
 
-from dependency_injector.wiring import Provide, inject
-from pyleans.server.container import PyleansContainer
 from pyleans.server.silo_management import SiloManagement
 
 from pyleans import Grain, grain
@@ -24,11 +22,7 @@ class CounterGrain(Grain[CounterState]):
     Each counter is identified by a unique key and maintains independent state.
     """
 
-    @inject
-    def __init__(
-        self,
-        silo_mgmt: SiloManagement = Provide[PyleansContainer.silo_management],
-    ) -> None:
+    def __init__(self, silo_mgmt: SiloManagement) -> None:
         self._silo_mgmt = silo_mgmt
         self.logger.info("Counter %s created", self.identity.key)
 

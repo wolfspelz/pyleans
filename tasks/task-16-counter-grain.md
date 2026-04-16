@@ -25,9 +25,7 @@ persistence, the @grain decorator, and DI.
 from dataclasses import dataclass
 from typing import Any
 
-from dependency_injector.wiring import inject, Provide
 from pyleans import grain
-from pyleans.server.container import PyleansContainer
 from pyleans.server.silo_management import SiloManagement
 
 @dataclass
@@ -36,10 +34,10 @@ class CounterState:
 
 @grain(state_type=CounterState, storage="default")
 class CounterGrain:
-    @inject
+    
     def __init__(
         self,
-        silo_mgmt: SiloManagement = Provide[PyleansContainer.silo_management],
+        silo_mgmt: SiloManagement ,
     ):
         self._silo_mgmt = silo_mgmt
 
@@ -74,7 +72,7 @@ Note: `identity`, `state`, `write_state`, `clear_state` are still runtime-bound
 - [x] `set_value` sets and persists
 - [x] State survives grain deactivation and reactivation (read from file)
 - [x] Multiple counter instances (different keys) are independent
-- [x] `SiloManagement` injected via `@inject` + `Provide[...]` in constructor
+- [x] `SiloManagement` injected via type-hint constructor injection in constructor
 - [x] `get_silo_info()` returns silo metadata via DI-injected service
 
 ## Findings of code review

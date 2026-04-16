@@ -44,8 +44,8 @@ The decorator:
 ```python
 @grain(state_type=CounterState, storage="default")
 class CounterGrain:
-    @inject
-    def __init__(self, logger: Logger = Provide[SiloContainer.logger]):
+    
+    def __init__(self, logger: Logger ):
         self.logger = logger
 
     async def on_activate(self):

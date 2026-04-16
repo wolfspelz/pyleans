@@ -5,6 +5,8 @@ import inspect
 from collections.abc import Callable
 from typing import Any, get_args, get_origin
 
+from injector import inject
+
 from pyleans.errors import GrainNotFoundError
 from pyleans.grain_base import Grain
 
@@ -40,6 +42,12 @@ def grain(
         _set_grain_metadata(cls, "_grain_type", cls.__name__)
         _set_grain_metadata(cls, "_state_type", resolved_state_type)
         _set_grain_metadata(cls, "_storage_name", storage)
+
+        # Mark __init__ for DI auto-resolution so grain authors
+        # don't need @inject — plain type hints suffice.
+        init = cls.__dict__.get("__init__")
+        if init is not None:
+            cls.__init__ = inject(init)  # type: ignore[misc]
 
         _grain_registry[cls.__name__] = cls
         return cls

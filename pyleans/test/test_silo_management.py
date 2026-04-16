@@ -7,12 +7,10 @@ from typing import Any
 
 import pytest
 from conftest import FakeStorageProvider
-from dependency_injector.wiring import Provide, inject
 from pyleans.grain import _grain_registry, grain
 from pyleans.grain_base import Grain
 from pyleans.identity import SiloStatus
 from pyleans.providers.membership import MembershipProvider
-from pyleans.server.container import PyleansContainer
 from pyleans.server.grains import StringCacheGrain, system_grains
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.silo import Silo
@@ -28,11 +26,7 @@ class MgmtCounterState:
 
 @grain
 class MgmtCounterGrain(Grain[MgmtCounterState]):
-    @inject
-    def __init__(
-        self,
-        silo_mgmt: SiloManagement = Provide[PyleansContainer.silo_management],
-    ) -> None:
+    def __init__(self, silo_mgmt: SiloManagement) -> None:
         self._silo_mgmt = silo_mgmt
 
     async def get_value(self) -> int:

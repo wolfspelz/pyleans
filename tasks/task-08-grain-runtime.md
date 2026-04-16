@@ -106,9 +106,9 @@ current one completes.
 
 Grain instances receive two kinds of injected context:
 
-**DI-injected (via constructor, `@inject` + `Provide[...]`):**
+**DI-injected (via constructor, type-hint constructor injection):**
 Singleton services like `GrainFactory`, `TimerRegistry`, `SiloManagement`,
-`StreamManager`, `Logger`. These are wired by `dependency-injector` during
+`StreamManager`, `Logger`. These are wired by `injector` during
 `grain_class()` construction — the runtime does NOT set these.
 
 **Runtime-bound (per-grain-instance, set as attributes during activation):**
@@ -116,7 +116,7 @@ Singleton services like `GrainFactory`, `TimerRegistry`, `SiloManagement`,
 grain activation and cannot be DI singletons.
 
 On activation:
-1. Create grain instance (`grain_class()` — DI resolves `@inject` defaults)
+1. Create grain instance (`grain_class()` — DI resolves `` defaults)
 2. Set `instance.identity = grain_id` (runtime-bound)
 3. If grain has `state_type`: read from storage, deserialize, set `instance.state`
 4. Bind `instance.write_state()` and `instance.clear_state()` closures
@@ -169,7 +169,7 @@ _To be filled when task is complete._
 - `write_state` and `clear_state` are bound as closures on the instance (not class methods) to capture activation context.
 - `on_activate` is dispatched through the grain's inbox to maintain turn-based ordering.
 - `on_deactivate` is called directly (outside inbox) since the grain is shutting down.
-- `grain_factory` parameter allows DI integration (Task 10) without coupling to dependency-injector.
+- `grain_factory` parameter allows DI integration (Task 10) without coupling to injector.
 
 ### Deviations
 - None.

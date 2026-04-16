@@ -70,13 +70,13 @@ if __name__ == "__main__":
 ### CounterGrain additions
 
 The CounterGrain receives `SiloManagement` via constructor injection
-(`@inject` + `Provide[...]`) and exposes silo metadata:
+(type-hint constructor injection) and exposes silo metadata:
 
 ```python
 @grain(state_type=CounterState, storage="default")
 class CounterGrain:
-    @inject
-    def __init__(self, silo_mgmt: SiloManagement = Provide[PyleansContainer.silo_management]):
+    
+    def __init__(self, silo_mgmt: SiloManagement ):
         self._silo_mgmt = silo_mgmt
 
     # ... existing methods ...
@@ -95,7 +95,7 @@ class CounterGrain:
 - Membership visible in YAML file
 - Ctrl+C triggers graceful shutdown via signal handling
 - `system_grains()` included for future framework grains
-- Grains access silo metadata via DI-injected `SiloManagement` service (`@inject`)
+- Grains access silo metadata via DI-injected `SiloManagement` service (``)
 
 ### Acceptance criteria
 

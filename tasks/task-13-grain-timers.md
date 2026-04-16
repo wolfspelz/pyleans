@@ -75,8 +75,8 @@ This ensures timer callbacks never run concurrently with other grain methods.
 ```python
 @grain
 class HeartbeatGrain:
-    @inject
-    def __init__(self, timers: TimerRegistry = Provide[...]):
+    
+    def __init__(self, timers: TimerRegistry ):
         self.timers = timers
 
     async def on_activate(self):

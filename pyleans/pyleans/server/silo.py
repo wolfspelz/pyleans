@@ -7,7 +7,7 @@ import signal
 import time
 import typing
 
-from dependency_injector import providers as di_providers
+from injector import Injector
 
 from pyleans.gateway.listener import GatewayListener
 from pyleans.grain import _grain_registry, get_grain_type_name
@@ -17,9 +17,9 @@ from pyleans.providers.storage import StorageProvider
 from pyleans.providers.streaming import StreamProvider
 from pyleans.reference import GrainFactory
 from pyleans.serialization import JsonSerializer
-from pyleans.server.container import PyleansContainer
+from pyleans.server.container import create_injector
 from pyleans.server.providers.file_storage import FileStorageProvider
-from pyleans.server.providers.memory_stream import InMemoryStreamProvider
+from pyleans.server.providers.memory_stream import InMemoryStreamProvider, StreamManager
 from pyleans.server.providers.yaml_membership import YamlMembershipProvider
 from pyleans.server.runtime import GrainRuntime
 from pyleans.server.silo_management import SiloManagement
@@ -79,6 +79,11 @@ class Silo:
 
         self._silo_management = SiloManagement(silo=self)
         self._serializer = JsonSerializer()
+
+        # Build stream manager from first stream provider (if any)
+        first_stream = next(iter(self._stream_providers.values()), None)
+        stream_manager = StreamManager(first_stream) if first_stream else None
+
         self._runtime = GrainRuntime(
             storage_providers=self._storage_providers,
             serializer=self._serializer,
@@ -87,12 +92,15 @@ class Silo:
         self._grain_factory = GrainFactory(runtime=self._runtime)
         self._timer_registry = TimerRegistry(runtime=self._runtime)
 
-        # DI container — override with actual instances
-        self._container = PyleansContainer()
-        self._container.runtime.override(di_providers.Object(self._runtime))
-        self._container.grain_factory.override(di_providers.Object(self._grain_factory))
-        self._container.timer_registry.override(di_providers.Object(self._timer_registry))
-        self._container.silo_management.override(di_providers.Object(self._silo_management))
+        # DI container — type-hint-based resolution via injector
+        self._injector: Injector = create_injector(
+            runtime=self._runtime,
+            grain_factory=self._grain_factory,
+            timer_registry=self._timer_registry,
+            silo_management=self._silo_management,
+            stream_manager=stream_manager,
+        )
+        self._runtime._grain_factory = self._injector.get
 
         self._gateway = GatewayListener(
             runtime=self._runtime, host=self._host, port=self._gateway_port
@@ -136,7 +144,6 @@ class Silo:
         """
         self._configure_default_logging()
         self._register_grain_classes()
-        self._wire_container()
         await self._register_in_membership()
         await self._runtime.start()
         await self._gateway.start()
@@ -163,7 +170,6 @@ class Silo:
         """
         self._configure_default_logging()
         self._register_grain_classes()
-        self._wire_container()
         await self._register_in_membership()
         await self._runtime.start()
         await self._gateway.start()
@@ -229,18 +235,6 @@ class Silo:
         for cls in self._grain_classes:
             grain_type = get_grain_type_name(cls)
             _grain_registry[grain_type] = cls
-
-    def _wire_container(self) -> None:
-        """Wire the DI container so @inject works in grain modules."""
-        import sys
-
-        modules_to_wire = []
-        for cls in self._grain_classes:
-            mod = sys.modules.get(cls.__module__)
-            if mod is not None and mod not in modules_to_wire:
-                modules_to_wire.append(mod)
-        if modules_to_wire:
-            self._container.wire(modules=modules_to_wire)
 
     async def _register_in_membership(self) -> None:
         """Register this silo in the membership table."""

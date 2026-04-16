@@ -10,19 +10,6 @@ It uses Hexagonal Architecture with pluggable providers for membership, storage,
 All design decisions are documented in [docs/pyleans-plan.md](docs/pyleans-plan.md).
 The Orleans reference docs are in [docs/orleans-*.md](docs/).
 
-### Key decisions (summary)
-
-1. **Grain interfaces**: `@grain` decorator on class, no separate ABC. Proxy via `__getattr__`.
-2. **Concurrency**: asyncio, one event loop per silo process. Multi-core = run multiple silos.
-3. **Serialization**: JSON via `dataclasses` + `orjson`. Pluggable `Serializer` ABC.
-4. **DI**: `dependency-injector` package. Constructor injection for ALL services (framework + user), matching Orleans. No context object.
-5. **Providers**: Minimal ABCs: `StorageProvider`, `MembershipProvider`, `StreamProvider`.
-6. **Grain directory**: Consistent hash ring with virtual nodes (eventually consistent, pre-Orleans 9.0).
-7. **State**: Declared in decorator: `@grain(state_type=PlayerState, storage="default")`.
-8. **Dev mode**: Single-silo, no networking, in-memory directory.
-9. **Library, not CLI**: User writes `main.py`, creates `Silo`, calls `silo.start()`.
-10. **One package, two entry points**: `pyleans.server` (silo) and `pyleans.client` (lightweight).
-
 ### Implementation state
 
 **Phase 1 (single silo, dev mode)** is being implemented. Tasks are in [tasks/tasklist.md](tasks/tasklist.md).

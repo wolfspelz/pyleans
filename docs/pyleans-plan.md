@@ -29,7 +29,7 @@ updated as we iterate on design decisions.
 | TCP mesh transport | Yes | Custom asyncio TCP, as designed in pyleans-transport.md |
 | Idle collection | Yes | Deactivate after timeout |
 | Timers | Yes | In-grain periodic callbacks |
-| Dependency injection | Yes | `dependency-injector`, constructor injection like Orleans |
+| Dependency injection | Yes | `injector` (Guice-style), type-hint constructor injection |
 | Client gateway | Yes | External clients connect via ClusterClient over gateway protocol |
 
 ### Excluded from PoC
@@ -45,6 +45,7 @@ updated as we iterate on design decisions.
 | Rolling upgrades | Operational concern, not PoC |
 | MQTT/WebSocket gateway | Phase 2 transport |
 | Guid/integer/compound grain keys | String keys cover all use cases; Orleans encodes all key types as strings internally anyway |
+| Dashboard / admin UI | Post-PoC |
 
 ---
 
@@ -188,117 +189,50 @@ class PlayerGrain(Grain[PlayerState]):
 
 ### Dependency Injection
 
-All services — framework and user — are constructor-injected via the
-`dependency-injector` package, matching Orleans' approach. There is no context
-object or service locator. `GrainFactory`, `TimerRegistry`, `SiloManagement`,
-and user services all come through the constructor with `@inject` + `Provide[...]`.
-
-Framework and user services are injected identically through the grain constructor:
+All services — framework and user — are constructor-injected via the `injector`
+package (Python port of Google Guice). Grains declare dependencies as plain
+`__init__` type hints. No decorators, no markers, no `Provide[...]`. The `@grain`
+decorator automatically marks `__init__` for injection.
 
 ```python
-from abc import ABC, abstractmethod
-from dependency_injector import containers, providers
-from dependency_injector.wiring import inject, Provide
-
-
-# --- App-specific service interface (defined by the application) ---
-
-class IEmailService(ABC):
-    """Application-defined interface for sending emails."""
-    @abstractmethod
-    async def send(self, to: str, subject: str, body: str) -> None: ...
-
-class SmtpEmailService(IEmailService):
-    """Concrete implementation using SMTP."""
-    def __init__(self, smtp_host: str, api_key: str):
-        self.smtp_host = smtp_host
-        self.api_key = api_key
-
-    async def send(self, to: str, subject: str, body: str) -> None:
-        # ... actual SMTP sending ...
-        pass
-
-
-# --- DI Container (configured at silo startup) ---
-
-class SiloContainer(containers.DeclarativeContainer):
-    config = providers.Configuration()
-
-    # Framework services (provided by pyleans)
-    grain_factory = providers.Singleton(GrainFactory)
-    timer_registry = providers.Singleton(TimerRegistry)
-    stream_manager = providers.Singleton(StreamManager)
-    logger = providers.Singleton(logging.getLogger, "pyleans")
-
-    # App-specific services (provided by the application)
-    email_service = providers.Singleton(
-        SmtpEmailService,
-        smtp_host=config.smtp_host,
-        api_key=config.email_api_key,
-    )
-
-
-# --- Grain using both framework and app services ---
-
-@grain(state_type=PlayerState, storage="default")
-class PlayerGrain:
-    @inject
-    def __init__(self,
-                 grain_factory: GrainFactory = Provide[SiloContainer.grain_factory],
-                 logger: Logger = Provide[SiloContainer.logger],
-                 email: IEmailService = Provide[SiloContainer.email_service]):
-        self.grain_factory = grain_factory
-        self.logger = logger
-        self.email = email  # injected as IEmailService, resolved to SmtpEmailService
-
-    async def on_activate(self):
-        self.logger.info(f"Player {self.identity} activated")
-
-    async def get_name(self) -> str:
-        return self.state.name
+@grain(storage="default")
+class PlayerGrain(Grain[PlayerState]):
+    def __init__(self, grain_factory: GrainFactory, email: IEmailService) -> None:
+        self._grain_factory = grain_factory
+        self._email = email
 
     async def send_welcome(self) -> None:
-        await self.email.send(
-            to=self.state.email,
-            subject="Welcome!",
-            body=f"Welcome {self.state.name}!",
-        )
+        await self._email.send(self.state.email, "Welcome!", f"Hi {self.state.name}")
 
     async def join_room(self, room_key: str) -> None:
-        room = self.grain_factory.get_grain(ChatRoomGrain, room_key)
+        room = self._grain_factory.get_grain(ChatRoomGrain, room_key)
         await room.add_member(self.identity.key)
 ```
 
-**What gets injected**:
+The `injector` resolves dependencies by type annotation. The Silo creates an
+`Injector` with all framework services bound as singletons. The runtime calls
+`injector.get(grain_class)` to create grain instances with dependencies resolved.
 
-| Service | Type | How |
-|---|---|---|
-| `GrainFactory` | Get references to other grains | `Provide[SiloContainer.grain_factory]` |
-| `Logger` | Logging | `Provide[SiloContainer.logger]` |
-| `TimerRegistry` | Register grain timers | `Provide[SiloContainer.timer_registry]` |
-| `StreamManager` | Get stream references | `Provide[SiloContainer.stream_manager]` |
-| `IEmailService` | App-defined ABC, resolved to impl | `Provide[SiloContainer.email_service]` |
-| Other user services | Whatever users register | `Provide[SiloContainer.xxx]` |
+**Framework services** available for injection:
 
-**Grain identity and state** are provided by the `Grain[TState]` base class / runtime:
-- `self.identity` -- set by the runtime during activation
-- `self.state` -- loaded from storage on activation (configured via `@grain(state_type=...)`)
-- `self.write_state()`, `self.clear_state()`, `self.deactivate_on_idle()` -- bound by runtime
-- See "Grain Base Class" for the `Grain[TState]` base class that provides these
+| Service | Purpose |
+|---|---|
+| `GrainFactory` | Get references to other grains |
+| `TimerRegistry` | Register grain timers |
+| `SiloManagement` | Silo metadata |
+| `StreamManager` | Stream pub/sub |
 
-**Testing**: Clean -- just pass mocks to the constructor. The app interface
-makes it natural to swap implementations:
+**Grain identity, state, logger** are provided by the `Grain[TState]` base class
+(not DI) — see "Grain Base Class".
+
+**Testing**: Pass mocks directly to the constructor — no container needed:
 ```python
-class MockEmailService(IEmailService):
-    async def send(self, to, subject, body): 
-        self.last_sent = (to, subject, body)
-
-grain = PlayerGrain(
-    grain_factory=mock_factory,
-    logger=mock_logger,
-    email=MockEmailService(),
-)
+grain = PlayerGrain(grain_factory=mock_factory, email=MockEmailService())
 ```
+
+> **Rejected alternative**: `dependency-injector` package — required `@inject`
+> decorator and `Provide[Container.service]` markers on every constructor parameter.
+> The `injector` package resolves from type hints alone.
 
 ---
 
@@ -389,6 +323,13 @@ Grain state is declared explicitly in the decorator:
 When a grain inherits from `Grain[TState]`, the decorator can infer `state_type`
 from the generic type argument, making the explicit parameter optional.
 
+The `storage` parameter names a registered storage provider (default: `"default"`).
+This follows the Orleans legacy pattern where `[StorageProvider(ProviderName = "store1")]`
+is a class-level attribute. Orleans' modern approach uses `[PersistentState("name", "store")]`
+on constructor parameters, allowing multiple named state objects per grain, each backed
+by a different provider. pyleans currently supports one state object per grain — the
+multi-state pattern can be added later if needed.
+
 ---
 
 ### Dev Mode
@@ -402,10 +343,30 @@ default for local development and testing.
 
 ### Library vs CLI
 
-pyleans is a library, not a CLI tool. The user writes their own `main.py`,
-creates a `Silo`, and calls `silo.start()`. This gives full control over DI
-setup, co-hosting with FastAPI, and custom startup logic. No code generation,
-no scaffolding commands.
+pyleans is a library, not a CLI tool. Requires **Python 3.12+**. The user writes
+their own `main.py`, creates a `Silo`, and calls `silo.start()`. This gives full
+control over DI setup, co-hosting with FastAPI, and custom startup logic. No code
+generation, no scaffolding commands.
+
+```python
+# my_app/main.py
+import asyncio
+from pyleans.server import Silo
+from my_grains import PlayerGrain, RoomGrain
+
+silo = Silo(
+    grains=[PlayerGrain, RoomGrain],
+)
+asyncio.run(silo.start())
+```
+
+```bash
+python my_app/main.py
+
+# Multi-core: run multiple silos on different ports
+python my_app/main.py --port 11111 &
+python my_app/main.py --port 11112 &
+```
 
 ---
 
@@ -417,6 +378,17 @@ One pip package (`pyleans`), two entry points:
 
 Client code avoids importing the heavy silo runtime. A web server that calls
 grains only needs `from pyleans.client import ClusterClient`.
+
+```python
+# web_server/api.py — e.g. a FastAPI app that calls grains
+from pyleans.client import ClusterClient
+
+client = ClusterClient(gateways=["localhost:30000"])
+await client.connect()
+
+player = client.get_grain(PlayerGrain, "player-42")
+name = await player.get_name()
+```
 
 ---
 
@@ -675,7 +647,7 @@ working directory.
 No `[project.scripts]` -- all entry points are `__main__.py` modules.
 
 **Dependencies (pyleans)**:
-- `dependency-injector` -- DI container (constructor injection for grains)
+- `injector` -- DI container (type-hint-based constructor injection for grains)
 - `orjson` -- fast JSON serialization
 - `pyyaml` -- YAML membership provider
 
@@ -693,7 +665,7 @@ dependencies. A web API is a separate service that uses `pyleans.client`.
 Everything runs in one Python process. Like Orleans' `UseLocalhostClustering()`.
 
 1. `@grain` decorator with `state_type` and `storage` params
-2. `SiloContainer` with `dependency-injector` (GrainFactory, TimerRegistry, etc.)
+2. DI container with `injector` (GrainFactory, TimerRegistry, etc.)
 3. Constructor injection for grains (framework + user services)
 4. Grain activation / deactivation lifecycle (`on_activate`, `on_deactivate`)
 5. `GrainRef` proxy with `__getattr__` forwarding
@@ -748,53 +720,3 @@ Add networking and distribution.
 
 ---
 
-## 6. Resolved Questions
-
-- **Minimum Python**: 3.12+
-- **Pyleans is a library, not a CLI.** The user writes their own `main.py` that
-  creates and starts a silo. This gives full control over DI setup, co-hosting
-  with FastAPI, and custom startup logic.
-- **One package, two entry points** (`Split A`): `pip install pyleans` gets everything.
-  `from pyleans.server` for silo code, `from pyleans.client` for lightweight client.
-  Client module avoids importing the heavy silo runtime.
-- **Dashboard/admin UI**: Post-PoC.
-- **Grain base class**: See "Grain Base Class".
-
-### Silo usage (library, no CLI)
-
-```python
-# my_app/main.py
-import asyncio
-from pyleans.server import Silo
-from my_grains import PlayerGrain, RoomGrain
-from my_container import AppContainer
-
-silo = Silo(
-    port=11111,
-    grains=[PlayerGrain, RoomGrain],
-    container=AppContainer(),
-)
-asyncio.run(silo.start())
-```
-
-```bash
-# Run it like any Python script
-python my_app/main.py
-
-# Or run multiple silos for multi-core
-python my_app/main.py --port 11111 &
-python my_app/main.py --port 11112 &
-```
-
-### Client usage (lightweight, no silo overhead)
-
-```python
-# web_server/api.py -- e.g. a FastAPI app that calls grains
-from pyleans.client import ClusterClient
-
-client = ClusterClient(gateways=["localhost:30000"])
-await client.connect()
-
-player = client.get_grain(PlayerGrain, "player-42")
-name = await player.get_name()
-```

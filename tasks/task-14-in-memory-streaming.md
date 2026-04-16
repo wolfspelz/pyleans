@@ -84,8 +84,8 @@ class StreamRef:
 ```python
 @grain
 class RoomGrain:
-    @inject
-    def __init__(self, streams: StreamManager = Provide[...]):
+    
+    def __init__(self, streams: StreamManager ):
         self.streams = streams
 
     async def on_activate(self):

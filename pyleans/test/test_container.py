@@ -1,83 +1,85 @@
-"""Tests for DI container."""
+"""Tests for DI container (injector-based)."""
 
-import logging
-
+from injector import Injector
 from pyleans.reference import GrainFactory
-from pyleans.server.container import PyleansContainer
+from pyleans.serialization import JsonSerializer
+from pyleans.server.container import create_injector
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider, StreamManager
 from pyleans.server.runtime import GrainRuntime
+from pyleans.server.silo_management import SiloManagement
 from pyleans.server.timer import TimerRegistry
 
 
-class TestPyleansContainer:
-    def test_container_creates(self) -> None:
-        container = PyleansContainer()
-        assert container is not None
+def _make_injector(
+    stream_manager: StreamManager | None = None,
+) -> tuple[Injector, GrainRuntime, GrainFactory, TimerRegistry, SiloManagement]:
+    """Create a minimal injector with fake services for testing."""
+    runtime = GrainRuntime(
+        storage_providers={},
+        serializer=JsonSerializer(),
+    )
+    factory = GrainFactory(runtime=runtime)
+    timer_registry = TimerRegistry(runtime=runtime)
+    silo_management = SiloManagement.__new__(SiloManagement)
+    injector = create_injector(
+        runtime=runtime,
+        grain_factory=factory,
+        timer_registry=timer_registry,
+        silo_management=silo_management,
+        stream_manager=stream_manager,
+    )
+    return injector, runtime, factory, timer_registry, silo_management
 
-    def test_runtime_provider(self) -> None:
-        container = PyleansContainer()
-        runtime = container.runtime()
-        assert isinstance(runtime, GrainRuntime)
 
-    def test_grain_factory_provider(self) -> None:
-        container = PyleansContainer()
-        factory = container.grain_factory()
-        assert isinstance(factory, GrainFactory)
+class TestInjectorCreation:
+    def test_create_injector(self) -> None:
+        injector, *_ = _make_injector()
+        assert injector is not None
 
-    def test_timer_registry_provider(self) -> None:
-        container = PyleansContainer()
-        registry = container.timer_registry()
-        assert isinstance(registry, TimerRegistry)
+    def test_resolve_runtime(self) -> None:
+        injector, runtime, *_ = _make_injector()
+        assert injector.get(GrainRuntime) is runtime
 
-    def test_logger_provider(self) -> None:
-        container = PyleansContainer()
-        container.config.logger_name.from_value("pyleans.test")
-        log = container.logger()
-        assert isinstance(log, logging.Logger)
-        assert log.name == "pyleans.test"
+    def test_resolve_grain_factory(self) -> None:
+        injector, _, factory, *_ = _make_injector()
+        assert injector.get(GrainFactory) is factory
+
+    def test_resolve_timer_registry(self) -> None:
+        injector, _, _, timer_registry, _ = _make_injector()
+        assert injector.get(TimerRegistry) is timer_registry
+
+    def test_resolve_silo_management(self) -> None:
+        injector, _, _, _, silo_management = _make_injector()
+        assert injector.get(SiloManagement) is silo_management
 
     def test_singleton_returns_same_instance(self) -> None:
-        container = PyleansContainer()
-        r1 = container.runtime()
-        r2 = container.runtime()
-        assert r1 is r2
+        injector, runtime, *_ = _make_injector()
+        r1 = injector.get(GrainRuntime)
+        r2 = injector.get(GrainRuntime)
+        assert r1 is r2 is runtime
 
-    def test_factory_uses_runtime_singleton(self) -> None:
-        container = PyleansContainer()
-        runtime = container.runtime()
-        factory = container.grain_factory()
-        assert factory._runtime is runtime
-
-    def test_timer_registry_uses_runtime(self) -> None:
-        container = PyleansContainer()
-        runtime = container.runtime()
-        registry = container.timer_registry()
-        assert registry._runtime is runtime
-
-    def test_stream_manager_provider(self) -> None:
-        from dependency_injector import providers as di_providers
-
-        container = PyleansContainer()
-        container.stream_provider.override(di_providers.Object(InMemoryStreamProvider()))
-        manager = container.stream_manager()
-        assert isinstance(manager, StreamManager)
+    def test_resolve_stream_manager(self) -> None:
+        sm = StreamManager(InMemoryStreamProvider())
+        injector, *_ = _make_injector(stream_manager=sm)
+        assert injector.get(StreamManager) is sm
 
 
-class TestContainerExtension:
-    def test_user_can_extend_container(self) -> None:
-        from dependency_injector import providers
+class TestInjectorGrainCreation:
+    def test_resolve_grain_with_typed_dependency(self) -> None:
+        """Grains decorated with @grain get @inject applied automatically."""
+        from pyleans.grain import _grain_registry, grain
+        from pyleans.grain_base import Grain
 
-        class AppContainer(PyleansContainer):
-            greeting = providers.Factory(str, "hello")
+        _grain_registry.clear()
 
-        container = AppContainer()
-        assert container.greeting() == "hello"
-        assert isinstance(container.runtime(), GrainRuntime)
+        @grain
+        class DITestGrain(Grain[None]):
+            def __init__(self, mgmt: SiloManagement) -> None:
+                self.mgmt = mgmt
 
-    def test_user_can_override_providers(self) -> None:
-        from dependency_injector import providers
+            async def get_mgmt(self) -> SiloManagement:
+                return self.mgmt
 
-        container = PyleansContainer()
-        container.runtime.override(providers.Factory(dict))
-        result = container.runtime()
-        assert isinstance(result, dict)
+        injector, _, _, _, silo_management = _make_injector()
+        instance = injector.get(DITestGrain)
+        assert instance.mgmt is silo_management

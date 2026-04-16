@@ -40,7 +40,7 @@ counter_client/
 
 - `[project]`: name=pyleans, requires-python=">=3.12"
 - `[build-system]`: hatchling
-- Dependencies: `dependency-injector`, `orjson`, `pyyaml`
+- Dependencies: `injector`, `orjson`, `pyyaml`
 - Optional dependencies: `[web]` = `fastapi`, `uvicorn`
 - Dev dependencies: `pytest`, `pytest-asyncio`, `ruff`, `mypy`
 - Package manager: `pip` with `venv`
@@ -62,7 +62,7 @@ _To be filled when task is complete._
 ## Summary of implementation
 
 ### Files created/modified
-- `pyleans/pyproject.toml` — Updated with full dependencies (`dependency-injector`, `orjson`, `pyyaml`), optional `[web]` deps (`fastapi`, `uvicorn`), `[dev]` deps (`pytest`, `pytest-asyncio`, `pytest-cov`, `mypy`, `ruff`), hatch build targets, and asyncio_mode config.
+- `pyleans/pyproject.toml` — Updated with full dependencies (`injector`, `orjson`, `pyyaml`), optional `[web]` deps (`fastapi`, `uvicorn`), `[dev]` deps (`pytest`, `pytest-asyncio`, `pytest-cov`, `mypy`, `ruff`), hatch build targets, and asyncio_mode config.
 - `pyleans/pyleans/server/__init__.py` — Created server subpackage.
 - `pyleans/pyleans/client/__init__.py` — Created client subpackage.
 - `pyleans/pyleans/providers/__init__.py` — Created providers subpackage.

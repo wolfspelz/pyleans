@@ -98,7 +98,7 @@ class Silo:
 ### SiloManagement — framework service for silo metadata
 
 The pyleans library provides a `SiloManagement` service that exposes silo
-metadata to grains via true dependency injection (`@inject` + `Provide[...]`).
+metadata to grains via true dependency injection (type-hint constructor injection).
 Grains that need silo info declare it in their constructor — the DI container
 resolves it automatically.
 
@@ -136,22 +136,22 @@ class SiloManagement:
 #### Integration with the Silo
 
 The Silo creates a `SiloManagement` instance and registers it in the
-`PyleansContainer`. During silo startup, `container.wire()` enables
-`@inject` + `Provide[...]` across grain modules. Grains receive
+the DI container. During silo startup, DI container setup enables
+type-hint constructor injection across grain modules. Grains receive
 `SiloManagement` (and other services) via constructor injection — the
 runtime does NOT bind it as an attribute.
 
 ```python
 # In Silo.__init__() or start():
-self._container = PyleansContainer()
-self._container.silo_management.override(providers.Object(self._silo_management))
-self._container.wire(modules=[...])  # enables @inject in grain modules
+# DI container created by Silo
+# services bound via injector
+self._# DI resolved via injector  # enables  in grain modules
 
 # In grain code:
 @grain(state_type=CounterState, storage="default")
 class CounterGrain:
-    @inject
-    def __init__(self, silo_mgmt: SiloManagement = Provide[PyleansContainer.silo_management]):
+    
+    def __init__(self, silo_mgmt: SiloManagement ):
         self._silo_mgmt = silo_mgmt
 ```
 
@@ -182,14 +182,12 @@ def system_grains() -> list[type]:
 Grains that need silo info declare it via constructor injection:
 
 ```python
-from dependency_injector.wiring import inject, Provide
-from pyleans.server.container import PyleansContainer
 from pyleans.server.silo_management import SiloManagement
 
 @grain(state_type=CounterState, storage="default")
 class CounterGrain:
-    @inject
-    def __init__(self, silo_mgmt: SiloManagement = Provide[PyleansContainer.silo_management]):
+    
+    def __init__(self, silo_mgmt: SiloManagement ):
         self._silo_mgmt = silo_mgmt
 
     async def get_silo_info(self) -> dict[str, object]:
@@ -205,8 +203,8 @@ is bound by the runtime — all singleton services come through DI.
 - [x] `SiloManagement.get_info()` returns all documented keys
 - [x] `grain_count` reflects the current number of active grains
 - [x] `uptime_seconds` increases over time
-- [x] `SiloManagement` injected into grains via `@inject` + `Provide[...]` (not runtime-bound)
-- [x] Silo calls `container.wire()` during startup
+- [x] `SiloManagement` injected into grains via type-hint constructor injection (not runtime-bound)
+- [x] Silo calls DI container setup during startup
 - [x] `system_grains()` returns a list (currently empty, extensible)
 - [x] Unit tests for DI-injected SiloManagement in grains
 
@@ -318,7 +316,7 @@ start()
   |-> Register grain classes in registry
   |-> Initialize storage/membership/stream providers
   |-> Create GrainRuntime
-  |-> Create DI container (PyleansContainer or user-supplied)
+  |-> Create DI container (injector-based)
   |-> Wire DI into grain modules
   |-> Create GrainFactory, TimerRegistry, StreamManager
   |-> Register silo in membership table
@@ -378,12 +376,12 @@ No issues found. Review checked:
 
 ### Key implementation decisions
 - Added `start_background()` method for non-blocking start (FastAPI embedding, tests) alongside blocking `start()`.
-- Silo directly creates GrainRuntime, GrainFactory, TimerRegistry rather than using PyleansContainer — simpler wiring, DI container available as extension point for user services.
+- Silo directly creates GrainRuntime, GrainFactory, TimerRegistry rather than using the DI container — simpler wiring, DI container available as extension point for user services.
 - Signal handlers use try/except for Windows compatibility (ProactorEventLoop doesn't support add_signal_handler).
 - Shutdown task stored as `self._shutdown_task` to prevent garbage collection (addresses RUF006 lint rule).
 
 ### Deviations from original design
-- Removed `container` parameter from constructor. The DI container (`PyleansContainer`) is available as a separate utility for users who want it, but Silo handles wiring directly for simplicity.
+- Removed `container` parameter from constructor. The DI container (the DI container) is available as a separate utility for users who want it, but Silo handles wiring directly for simplicity.
 - Added `start_background()` method not in original spec — needed for practical embedding and testing.
 
 ### Test coverage summary
