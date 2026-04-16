@@ -105,6 +105,25 @@ Every contributor (human or AI) must follow these rules. No exceptions without e
 - Dependencies always point inward: adapters depend on the core, never the reverse.
 - This applies to all providers: membership, storage, streaming, transport.
 
+## Logging Requirements — MANDATORY
+
+**All significant activity must be logged. No feature is complete without logging.**
+
+Every operation that changes state, crosses a boundary, or could fail must emit a
+log message. Logging is not optional or an afterthought — it is as mandatory as tests.
+
+### Logging Standards
+
+- Use `logging.getLogger(__name__)` in every module. Grains use `logging.getLogger(f"pyleans.grain.{grain_type}")`.
+- Follow the log level guideline from [pyleans-plan.md](docs/pyleans-plan.md) (Logging section):
+  - **INFO**: lifecycle events, ≤1/sec per module or grain (activation, deactivation, silo start/stop, membership changes)
+  - **DEBUG**: per-operation, frequent (grain calls, `write_state`, storage I/O, gateway messages, timer ticks)
+  - **WARNING**: unexpected but recoverable (exceptions caught, etag conflicts, timeouts)
+  - **ERROR**: operation failures (activation failure, provider errors, unhandled exceptions)
+- Rule of thumb: if a log line fires more than once per second per module or grain instance, it is DEBUG.
+- Log messages must be actionable: include the grain identity, method name, or operation context.
+- Never log secrets, credentials, or full grain state payloads.
+
 ## Testing Requirements — MANDATORY
 
 **Every feature must have unit tests. No feature is complete without tests.**

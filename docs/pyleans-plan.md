@@ -431,6 +431,72 @@ follow standard Python conventions without requiring Orleans alignment.
 
 ---
 
+### Logging
+
+pyleans follows the Python library convention: every module creates its own logger
+via `logging.getLogger(__name__)`, and grains get a per-type logger via
+`logging.getLogger(f"pyleans.grain.{grain_type}")`. The library never configures
+handlers or levels — that is the application's responsibility.
+
+**Logger hierarchy**:
+
+```
+pyleans                          ← root, controls everything
+pyleans.silo                     ← silo lifecycle (start, stop, membership)
+pyleans.runtime                  ← activation, deactivation, idle collection
+pyleans.grain.<GrainType>        ← per-grain-type (e.g. pyleans.grain.CounterGrain)
+pyleans.storage                  ← storage provider read/write/clear
+pyleans.gateway                  ← gateway protocol, client connections
+pyleans.membership               ← membership provider operations
+pyleans.streaming                ← stream provider publish/subscribe
+pyleans.timer                    ← timer registration and tick callbacks
+```
+
+The per-grain-type logger (`pyleans.grain.CounterGrain`) enables filtering individual
+grain types independently. Setting `pyleans.grain` controls all grains at once.
+
+**Log level guideline**: a log line that fires more than once per second per module
+or per grain instance is DEBUG. Everything else is INFO or above.
+
+| Level | When | Examples |
+|---|---|---|
+| INFO | Lifecycle events, ≤1/sec | Silo start/stop, grain activation/deactivation, provider init, membership changes |
+| DEBUG | Per-operation, frequent | Grain method calls, `write_state`/`clear_state`, storage read/write, gateway messages, timer ticks, idle collection passes |
+| WARNING | Unexpected but recoverable | Grain method exception (caught), storage etag conflict, deactivation timeout |
+| ERROR | Operation failed | Grain activation failure, provider I/O error, unhandled grain exception |
+
+**Default log levels**:
+- Dev mode (single silo): `pyleans` logger at **INFO** — see lifecycle events, quiet on per-call traffic.
+- Multi-silo cluster: `pyleans` logger at **WARNING** — only problems surface.
+
+The Silo sets the default level on the `pyleans` root logger during startup if no
+handler is already configured (following the pattern of `logging.basicConfig` — no-op
+if the user already configured logging). The user can override any logger at any
+time with standard Python logging:
+
+```python
+import logging
+
+# All grains INFO, CounterGrain DEBUG, AnswerGrain WARNING
+logging.getLogger("pyleans.grain").setLevel(logging.INFO)
+logging.getLogger("pyleans.grain.CounterGrain").setLevel(logging.DEBUG)
+logging.getLogger("pyleans.grain.AnswerGrain").setLevel(logging.WARNING)
+
+# See storage operations
+logging.getLogger("pyleans.storage").setLevel(logging.DEBUG)
+
+# Or configure from a file before creating the silo
+logging.config.fileConfig("logging.ini")
+
+silo = Silo(grains=[CounterGrain], ...)
+await silo.start()
+```
+
+No pyleans-specific logging configuration format. Standard Python logging is the
+configuration mechanism — `dictConfig`, `fileConfig`, or programmatic calls.
+
+---
+
 ## 3. Architecture Overview
 
 ```
