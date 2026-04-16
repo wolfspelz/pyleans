@@ -1,5 +1,6 @@
 """YAML file-based membership provider."""
 
+import logging
 import time
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,8 @@ import yaml
 from pyleans.errors import MembershipError
 from pyleans.identity import SiloAddress, SiloInfo, SiloStatus
 from pyleans.providers.membership import MembershipProvider
+
+logger = logging.getLogger(__name__)
 
 
 class YamlMembershipProvider(MembershipProvider):
@@ -38,15 +41,18 @@ class YamlMembershipProvider(MembershipProvider):
             if entry["id"] == silo_id:
                 silos[i] = self._silo_to_dict(silo)
                 self._write_file(data)
+                logger.info("Silo re-registered: %s", silo_id)
                 return
 
         silos.append(self._silo_to_dict(silo))
         self._write_file(data)
+        logger.info("Silo registered: %s", silo.address.encoded)
 
     async def unregister_silo(self, silo_id: str) -> None:
         data = self._read_file()
         data["silos"] = [s for s in data["silos"] if s["id"] != silo_id]
         self._write_file(data)
+        logger.info("Silo unregistered: %s", silo_id)
 
     async def get_active_silos(self) -> list[SiloInfo]:
         data = self._read_file()
@@ -62,6 +68,7 @@ class YamlMembershipProvider(MembershipProvider):
             if entry["id"] == silo_id:
                 entry["last_heartbeat"] = time.time()
                 self._write_file(data)
+                logger.debug("Heartbeat updated for %s", silo_id)
                 return
         raise MembershipError(f"Silo {silo_id!r} not found in membership table")
 
@@ -71,6 +78,7 @@ class YamlMembershipProvider(MembershipProvider):
             if entry["id"] == silo_id:
                 entry["status"] = status.value
                 self._write_file(data)
+                logger.info("Status updated for %s: %s", silo_id, status.value)
                 return
         raise MembershipError(f"Silo {silo_id!r} not found in membership table")
 
@@ -81,6 +89,7 @@ class YamlMembershipProvider(MembershipProvider):
             content = self._file_path.read_text(encoding="utf-8")
             data = yaml.safe_load(content)
         except (OSError, yaml.YAMLError) as e:
+            logger.error("Failed to read membership file: %s", e)
             raise MembershipError(f"Failed to read membership file: {e}") from e
         if not isinstance(data, dict):
             return {"version": 0, "silos": []}
@@ -95,6 +104,7 @@ class YamlMembershipProvider(MembershipProvider):
                 encoding="utf-8",
             )
         except OSError as e:
+            logger.error("Failed to write membership file: %s", e)
             raise MembershipError(f"Failed to write membership file: {e}") from e
 
     @staticmethod

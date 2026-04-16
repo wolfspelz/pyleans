@@ -51,7 +51,7 @@ class TestGrainBaseStubs:
 
     def test_identity_not_set_before_activation(self) -> None:
         instance: Grain[CounterState] = Grain()
-        with pytest.raises(AttributeError):
+        with pytest.raises(GrainActivationError, match="identity not available"):
             _ = instance.identity
 
     def test_state_not_set_before_activation(self) -> None:
@@ -60,14 +60,76 @@ class TestGrainBaseStubs:
             _ = instance.state
 
 
-class TestGrainBaseRuntimeBinding:
-    """Runtime can override stubs with setattr."""
+class TestGrainLogger:
+    """Per-grain-type logger available via self.logger."""
 
-    def test_identity_can_be_set(self) -> None:
+    def test_logger_returns_grain_type_logger(self) -> None:
+        @grain
+        class MyLogGrain(Grain[CounterState]):
+            async def do_work(self) -> None:
+                pass
+
+        instance = MyLogGrain()
+        assert instance.logger.name == "pyleans.grain.MyLogGrain"
+
+    def test_logger_available_before_activation(self) -> None:
+        instance: Grain[CounterState] = Grain()
+        assert instance.logger.name == "pyleans.grain.Grain"
+
+    def test_different_grain_types_get_different_loggers(self) -> None:
+        @grain
+        class GrainA(Grain[CounterState]):
+            async def do_work(self) -> None:
+                pass
+
+        @grain
+        class GrainB(Grain[CounterState]):
+            async def do_work(self) -> None:
+                pass
+
+        assert GrainA().logger.name == "pyleans.grain.GrainA"
+        assert GrainB().logger.name == "pyleans.grain.GrainB"
+
+
+class TestGrainIdentityInInit:
+    """Identity is available during __init__ via context var."""
+
+    def test_identity_available_during_init(self) -> None:
+        from pyleans.grain_base import _current_grain_id
+
+        captured_key: str | None = None
+
+        @grain
+        class InitGrain(Grain[CounterState]):
+            def __init__(self) -> None:
+                nonlocal captured_key
+                captured_key = self.identity.key
+
+            async def do_work(self) -> None:
+                pass
+
+        gid = GrainId("InitGrain", "my-key")
+        token = _current_grain_id.set(gid)
+        try:
+            instance = InitGrain()
+        finally:
+            _current_grain_id.reset(token)
+
+        assert captured_key == "my-key"
+        # After construction, the property still works (from context var during init)
+        # but permanent assignment happens via setter
+        instance.identity = gid
+        assert instance.identity == gid
+
+    def test_identity_falls_back_to_instance_attr(self) -> None:
         instance: Grain[CounterState] = Grain()
         gid = GrainId("TestGrain", "key-1")
         instance.identity = gid
         assert instance.identity == gid
+
+
+class TestGrainBaseRuntimeBinding:
+    """Runtime can override stubs with setattr."""
 
     def test_state_can_be_set(self) -> None:
         instance: Grain[CounterState] = Grain()

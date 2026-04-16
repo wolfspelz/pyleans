@@ -1,5 +1,6 @@
 """File-based storage provider — one JSON file per grain."""
 
+import logging
 import re
 import uuid
 from pathlib import Path
@@ -9,6 +10,8 @@ import orjson
 
 from pyleans.errors import StorageError, StorageInconsistencyError
 from pyleans.providers.storage import StorageProvider
+
+logger = logging.getLogger(__name__)
 
 _SAFE_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_\-]+$")
 
@@ -39,11 +42,14 @@ class FileStorageProvider(StorageProvider):
     async def read(self, grain_type: str, grain_key: str) -> tuple[dict[str, Any], str | None]:
         path = self._grain_path(grain_type, grain_key)
         if not path.exists():
+            logger.debug("No state file for %s/%s", grain_type, grain_key)
             return {}, None
         try:
             data = orjson.loads(path.read_bytes())
+            logger.debug("State read for %s/%s", grain_type, grain_key)
             return data["state"], data["etag"]
         except (orjson.JSONDecodeError, KeyError, OSError) as e:
+            logger.error("Failed to read state for %s/%s: %s", grain_type, grain_key, e)
             raise StorageError(f"Failed to read state for {grain_type}/{grain_key}: {e}") from e
 
     async def write(
@@ -61,7 +67,9 @@ class FileStorageProvider(StorageProvider):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(orjson.dumps({"etag": new_etag, "state": state}))
         except OSError as e:
+            logger.error("Failed to write state for %s/%s: %s", grain_type, grain_key, e)
             raise StorageError(f"Failed to write state for {grain_type}/{grain_key}: {e}") from e
+        logger.debug("State written for %s/%s", grain_type, grain_key)
         return new_etag
 
     async def clear(
@@ -77,7 +85,9 @@ class FileStorageProvider(StorageProvider):
         try:
             path.unlink()
         except OSError as e:
+            logger.error("Failed to clear state for %s/%s: %s", grain_type, grain_key, e)
             raise StorageError(f"Failed to clear state for {grain_type}/{grain_key}: {e}") from e
+        logger.debug("State cleared for %s/%s", grain_type, grain_key)
 
     def _grain_path(self, grain_type: str, grain_key: str) -> Path:
         """Build a safe filesystem path for a grain's state file.
@@ -89,6 +99,7 @@ class FileStorageProvider(StorageProvider):
         safe_key = _sanitize_path_component(grain_key)
         path = (self._base_path / safe_type / f"{safe_key}.json").resolve()
         if not str(path).startswith(str(self._base_path)):
+            logger.warning("Path traversal detected: %s/%s", grain_type, grain_key)
             raise StorageError(f"Path traversal detected: {grain_type}/{grain_key}")
         return path
 
@@ -103,4 +114,5 @@ class FileStorageProvider(StorageProvider):
         except (orjson.JSONDecodeError, KeyError, OSError) as e:
             raise StorageError(f"Failed to read etag: {e}") from e
         if actual_etag != expected_etag:
+            logger.warning("ETag conflict: expected %s, got %s", expected_etag, actual_etag)
             raise StorageInconsistencyError(expected_etag, actual_etag)

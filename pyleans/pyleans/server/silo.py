@@ -191,6 +191,7 @@ class Silo:
         await self._runtime.stop()
 
         await self._membership_provider.unregister_silo(self._silo_id)
+        logger.info("Unregistered from membership table")
 
         self._started = False
         self._stop_event.set()
@@ -225,6 +226,7 @@ class Silo:
             start_time=now,
         )
         await self._membership_provider.register_silo(silo_info)
+        logger.info("Registered in membership table as %s", self._silo_id)
 
     async def _heartbeat_loop(self) -> None:
         """Periodically update heartbeat in membership table."""
@@ -233,6 +235,7 @@ class Silo:
                 await asyncio.sleep(_HEARTBEAT_INTERVAL)
                 try:
                     await self._membership_provider.heartbeat(self._silo_id)
+                    logger.debug("Heartbeat sent for %s", self._silo_id)
                 except Exception:
                     logger.warning(
                         "Heartbeat failed for silo %s",

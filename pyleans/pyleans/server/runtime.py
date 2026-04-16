@@ -13,6 +13,7 @@ from pyleans.errors import (
     GrainMethodError,
 )
 from pyleans.grain import get_grain_class, get_grain_methods
+from pyleans.grain_base import _current_grain_id
 from pyleans.identity import GrainId
 from pyleans.providers.storage import StorageProvider
 from pyleans.serialization import Serializer
@@ -77,9 +78,11 @@ class GrainRuntime:
     async def start(self) -> None:
         """Start the idle collector background task."""
         self._idle_collector_task = asyncio.create_task(self._idle_collector())
+        logger.info("Grain runtime started")
 
     async def stop(self) -> None:
         """Stop the runtime, deactivating all grains."""
+        logger.info("Grain runtime stopping, deactivating %d grains", len(self._activations))
         if self._idle_collector_task is not None:
             self._idle_collector_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -103,6 +106,9 @@ class GrainRuntime:
         """
         args = args or []
         kwargs = kwargs or {}
+
+        grain_logger = logging.getLogger(f"pyleans.grain.{grain_id.grain_type}")
+        grain_logger.debug("Invoking %s.%s on %s", grain_id.grain_type, method_name, grain_id.key)
 
         activation = self._activations.get(grain_id)
         if activation is None:
@@ -130,16 +136,21 @@ class GrainRuntime:
             return self._activations[grain_id]
 
         grain_class = get_grain_class(grain_id.grain_type)
+        grain_logger = logging.getLogger(f"pyleans.grain.{grain_id.grain_type}")
 
+        token = _current_grain_id.set(grain_id)
         try:
             if self._grain_factory is not None:
                 instance = self._grain_factory(grain_class)
             else:
                 instance = grain_class()
         except Exception as e:
+            grain_logger.error("Failed to create instance of %s: %s", grain_id, e)
             raise GrainActivationError(
                 f"Failed to create instance of {grain_id.grain_type}: {e}"
             ) from e
+        finally:
+            _current_grain_id.reset(token)
 
         instance.identity = grain_id
 
@@ -156,11 +167,13 @@ class GrainRuntime:
                     if state_dict:
                         serialized = self._serializer.serialize(state_dict)
                         instance.state = self._serializer.deserialize(serialized, state_type)
+                        grain_logger.debug("State loaded from storage for %s", grain_id)
                     else:
                         instance.state = state_type()
                     activation.etag = etag
                     activation.state_loaded = True
                 except Exception as e:
+                    grain_logger.error("Failed to load state for %s: %s", grain_id, e)
                     raise GrainActivationError(f"Failed to load state for {grain_id}: {e}") from e
             else:
                 instance.state = state_type()
@@ -180,6 +193,7 @@ class GrainRuntime:
             await activation.inbox.put(call)
             await future
 
+        grain_logger.info("Grain activated: %s", grain_id)
         return activation
 
     def _bind_state_methods(
@@ -191,6 +205,7 @@ class GrainRuntime:
     ) -> None:
         """Bind write_state and clear_state methods to the grain instance."""
         runtime = self
+        grain_logger = logging.getLogger(f"pyleans.grain.{activation.grain_id.grain_type}")
 
         async def write_state() -> None:
             storage = runtime._storage_providers.get(storage_name)
@@ -204,6 +219,7 @@ class GrainRuntime:
                 activation.etag,
             )
             activation.etag = new_etag
+            grain_logger.debug("write_state for %s", activation.grain_id)
 
         async def clear_state() -> None:
             storage = runtime._storage_providers.get(storage_name)
@@ -216,6 +232,7 @@ class GrainRuntime:
             )
             activation.etag = None
             instance.state = state_type()
+            grain_logger.debug("clear_state for %s", activation.grain_id)
 
         instance.write_state = write_state
         instance.clear_state = clear_state
@@ -241,6 +258,8 @@ class GrainRuntime:
         if activation is None:
             return
 
+        grain_logger = logging.getLogger(f"pyleans.grain.{grain_id.grain_type}")
+
         if hasattr(activation.instance, "on_deactivate"):
             try:
                 await activation.instance.on_deactivate()
@@ -255,6 +274,7 @@ class GrainRuntime:
                 activation.worker_task.cancel()
 
         self._activations.pop(grain_id, None)
+        grain_logger.info("Grain deactivated: %s", grain_id)
 
     async def _grain_worker(self, activation: GrainActivation) -> None:
         """Worker loop: drain inbox one message at a time (turn-based)."""
@@ -273,6 +293,13 @@ class GrainRuntime:
                 if not call.future.done():
                     call.future.set_result(result)
             except Exception as e:
+                logging.getLogger(f"pyleans.grain.{activation.grain_id.grain_type}").warning(
+                    "Exception in %s.%s on %s: %s",
+                    activation.grain_id.grain_type,
+                    call.method_name,
+                    activation.grain_id.key,
+                    e,
+                )
                 if not call.future.done():
                     call.future.set_exception(
                         GrainMethodError(
@@ -282,6 +309,7 @@ class GrainRuntime:
 
     async def _idle_collector_single_pass(self) -> None:
         """Run one pass of idle collection. Used by tests and the periodic loop."""
+        logger.debug("Idle collection pass, %d active grains", len(self._activations))
         now = time.monotonic()
         to_deactivate = [
             gid

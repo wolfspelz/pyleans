@@ -57,15 +57,29 @@ all runtime-bound attributes. This matches Orleans' `Grain<TState>` pattern. Onl
 one type parameter (state) since grain keys are always strings (see Excluded table).
 
 The base class provides:
-- `identity: GrainId` — set by the runtime during activation
+- `identity` — the grain's `GrainId` (type + key), available from `__init__` onward (read-only property)
 - `state: TState` — loaded from storage before `on_activate`
 - `write_state()` — persist current state (async)
 - `clear_state()` — clear persisted state and reset to defaults (async)
 - `deactivate_on_idle()` — request deactivation after the current turn (sync)
+- `logger` — per-grain-type logger (`pyleans.grain.<GrainType>`), read-only property
+
+`identity` is a property backed by a `contextvars.ContextVar` during construction
+and a permanent instance attribute after activation. This allows grains to access
+their key in `__init__` (e.g. for logging or DI setup) — matching Orleans where
+`IGrainContext.GrainId` is available in the constructor.
 
 Stub methods raise `GrainActivationError` if called before activation. The runtime
 overrides them with `setattr()` during activation, binding closures that capture the
 activation context (storage provider, etag, etc.).
+
+The `logger` property returns `logging.getLogger(f"pyleans.grain.{type(self).__name__}")`
+— it is always available (no activation required) and automatically uses the correct
+grain type name. Constructor injection would work (the runtime knows the grain type
+and could override a container provider per activation), but adds boilerplate for the
+grain author (`@inject`, `__init__`, `Provide[...]`) with no benefit — the logger is
+determined entirely by the class name, not by configuration or environment. A property
+is the right abstraction for an intrinsic attribute of the grain type.
 
 ```python
 @grain(storage="default")
@@ -76,6 +90,7 @@ class CounterGrain(Grain[CounterState]):
     async def increment(self) -> int:
         self.state.value += 1
         await self.write_state()
+        self.logger.debug("Counter incremented to %d", self.state.value)
         return self.state.value
 ```
 

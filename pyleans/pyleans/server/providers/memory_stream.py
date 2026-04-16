@@ -1,11 +1,14 @@
 """In-memory stream provider for single-silo pub/sub streaming."""
 
+import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
 from pyleans.providers.streaming import StreamProvider, StreamSubscription
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -33,11 +36,17 @@ class InMemoryStreamProvider(StreamProvider):
         """Publish an event, delivering to all current subscribers."""
         key: StreamKey = (stream_namespace, stream_key)
         subscribers = self._subscriptions.get(key, [])
+        logger.debug(
+            "Publishing to %s/%s (%d subscribers)", stream_namespace, stream_key, len(subscribers)
+        )
         errors: list[Exception] = []
         for sub in subscribers:
             try:
                 await sub.callback(event)
             except Exception as e:
+                logger.warning(
+                    "Subscriber %s failed on %s/%s: %s", sub.id, stream_namespace, stream_key, e
+                )
                 errors.append(e)
         if errors:
             raise ExceptionGroup("stream delivery failures", errors)
@@ -53,6 +62,7 @@ class InMemoryStreamProvider(StreamProvider):
         sub_id = str(uuid.uuid4())
         subscription = _Subscription(id=sub_id, callback=callback)
         self._subscriptions.setdefault(key, []).append(subscription)
+        logger.debug("Subscriber added to %s/%s (id=%s)", stream_namespace, stream_key, sub_id)
         return StreamSubscription(
             id=sub_id,
             stream_namespace=stream_namespace,
@@ -64,6 +74,12 @@ class InMemoryStreamProvider(StreamProvider):
         key: StreamKey = (subscription.stream_namespace, subscription.stream_key)
         subs = self._subscriptions.get(key, [])
         self._subscriptions[key] = [s for s in subs if s.id != subscription.id]
+        logger.debug(
+            "Subscriber removed from %s/%s (id=%s)",
+            subscription.stream_namespace,
+            subscription.stream_key,
+            subscription.id,
+        )
         if not self._subscriptions[key]:
             del self._subscriptions[key]
 

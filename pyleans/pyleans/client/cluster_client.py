@@ -125,6 +125,9 @@ class ClusterClient:
         future: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
         self._pending[correlation_id] = future
 
+        logger.debug(
+            "Request %d: %s.%s on %s", correlation_id, grain_id.grain_type, method, grain_id.key
+        )
         assert self._writer is not None
         self._writer.write(frame)
         await self._writer.drain()
@@ -151,9 +154,10 @@ class ClusterClient:
                 _msg_type, correlation_id, payload = decode_frame(frame_data)
                 future = self._pending.pop(correlation_id, None)
                 if future is not None and not future.done():
+                    logger.debug("Response %d received", correlation_id)
                     future.set_result(payload)
         except (asyncio.IncompleteReadError, ConnectionError):
-            pass
+            logger.warning("Connection to gateway lost")
         except asyncio.CancelledError:
             return
         except TransportError as e:

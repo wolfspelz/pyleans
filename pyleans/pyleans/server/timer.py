@@ -59,6 +59,9 @@ class TimerRegistry:
         timer.task = asyncio.create_task(self._timer_loop(timer))
         self._timers[timer_id] = timer
         self._grain_timers.setdefault(grain_id, []).append(timer_id)
+        logger.debug(
+            "Timer registered for %s: %s (interval=%.1fs)", grain_id, callback_name, interval
+        )
         return timer_id
 
     def unregister_timer(self, timer_id: str) -> None:
@@ -71,6 +74,7 @@ class TimerRegistry:
         grain_ids = self._grain_timers.get(timer.grain_id, [])
         if timer_id in grain_ids:
             grain_ids.remove(timer_id)
+        logger.debug("Timer unregistered: %s for %s", timer_id, timer.grain_id)
 
     def unregister_all(self, grain_id: GrainId) -> None:
         """Cancel all timers for a grain (called on deactivation)."""
@@ -87,6 +91,7 @@ class TimerRegistry:
                 await asyncio.sleep(timer.due_time)
             while True:
                 try:
+                    logger.debug("Timer tick: %s on %s", timer.callback_name, timer.grain_id)
                     await self._runtime.invoke(timer.grain_id, timer.callback_name, [], {})
                 except Exception:
                     logger.warning(

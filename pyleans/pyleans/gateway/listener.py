@@ -110,6 +110,7 @@ class GatewayListener:
             )
 
         grain_id = GrainId(grain_type=grain_type, key=key)
+        logger.debug("Dispatching %s.%s on %s", grain_type, method, key)
         try:
             result = await self._runtime.invoke(grain_id, method, args, kwargs)
             return encode_frame(
