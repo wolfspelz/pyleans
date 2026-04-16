@@ -160,11 +160,23 @@ ruff format .                    # format everything
 ## Package Relationships
 
 - `pyleans` is the framework library (no CLI entry point)
-- `counter-app` is a sample silo app that depends on `pyleans`
-- `counter-client` is a sample CLI that talks to counter-app via `pyleans.client`
+- `counter-app` is a sample silo app that depends on `pyleans` (module: `counter_app`)
+- `counter-client` is a sample CLI that talks to counter-app via `pyleans.client` (module: `counter_client`)
 - `pyleans.server` is the silo runtime (import only in silo processes)
 - `pyleans.client` is the lightweight client (import in external apps)
+- `pyleans.gateway` is the TCP gateway protocol (used by both server and client)
 - Shared code (grain.py, identity.py, etc.) lives at top-level `pyleans/`
+
+### Running the applications
+
+All apps are run as Python modules — no installed console scripts.
+
+```bash
+python -m counter_app                          # start silo (blocks, Ctrl+C to stop)
+python -m counter_client get my-counter        # CLI client
+python -m counter_client inc my-counter
+python -m counter_client set my-counter 42
+```
 
 ## Post-Task Reviews — MANDATORY
 

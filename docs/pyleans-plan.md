@@ -446,19 +446,63 @@ pyleans/                         # framework package
   pyleans/                       # importable: import pyleans
     server/                      # silo runtime (heavy)
     client/                      # lightweight client
+    gateway/                     # TCP gateway protocol
     providers/                   # provider ABCs (ports)
   test/
 counter-app/                     # sample silo app (depends on pyleans)
   pyproject.toml
-  counter/
+  counter_app/                   # Python module: counter_app
     grains.py                    # CounterGrain
     main.py                      # Standalone silo
+    __main__.py                  # python -m counter_app
   test/
-counter-client/              # CLI client tool
+counter-client/                  # CLI client tool (depends on pyleans + counter-app)
+  pyproject.toml
+  counter_client/                # Python module: counter_client
+    main.py                      # CLI entry point
+    __main__.py                  # python -m counter_client
+  test/
 ```
+
+### Naming convention
+
+Directory names use hyphens (`counter-app`), Python module names use underscores
+(`counter_app`). This is standard Python packaging practice. The pip package name
+(in `pyproject.toml`) matches the directory name; the importable module name
+matches the inner directory.
+
+| pip package | Python module | Run with |
+|---|---|---|
+| `pyleans` | `pyleans` | Library, not runnable |
+| `counter-app` | `counter_app` | `python -m counter_app` |
+| `counter-client` | `counter_client` | `python -m counter_client` |
+
+### Running the applications
+
+All applications are run as Python modules. There are no installed console
+scripts -- everything uses `python -m`.
+
+```bash
+# Install all packages in editable mode
+pip install -e pyleans -e counter-app -e counter-client
+
+# Terminal 1: start the silo (blocks, Ctrl+C to stop)
+python -m counter_app
+
+# Terminal 2: use the CLI client
+python -m counter_client get my-counter
+python -m counter_client inc my-counter
+python -m counter_client set my-counter 42
+python -m counter_client get my-counter --gateway localhost:30000
+```
+
+The silo listens on gateway port 30000 (configurable). State persists to
+`./data/storage/` and membership to `./data/membership.yaml` relative to the
+working directory.
 
 **Package manager**: `pip` with `venv` and editable installs (`pip install -e`).
 `pyproject.toml` with `[project]` metadata, `[build-system]` using hatchling.
+No `[project.scripts]` -- all entry points are `__main__.py` modules.
 
 **Dependencies (pyleans)**:
 - `dependency-injector` -- DI container (constructor injection for grains)
@@ -491,8 +535,9 @@ Everything runs in one Python process. Like Orleans' `UseLocalhostClustering()`.
 11. Grain timers
 12. Counter example: standalone silo + CLI client via gateway protocol
 
-**Milestone**: A standalone silo hosting a counter grain that persists to a JSON file,
-with a CLI client connecting via ClusterClient and the gateway protocol.
+**Milestone**: `python -m counter_app` runs a standalone silo hosting a counter grain
+that persists to a JSON file. `python -m counter_client` connects via ClusterClient
+and the TCP gateway protocol.
 
 ### Phase 2: Multi-Silo Cluster
 

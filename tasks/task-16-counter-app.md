@@ -24,7 +24,7 @@ standalone silo process. Co-hosting is an advanced pattern for when the
 silo and a web API must share a process.
 
 ### Files to create
-- `counter-app/counter/main.py`
+- `counter-app/counter_app/main.py`
 
 ### main.py
 
@@ -34,7 +34,7 @@ silo and a web API must share a process.
 import asyncio
 from pyleans.server import Silo
 from pyleans.server.providers import FileStorageProvider, YamlMembershipProvider
-from counter.grains import CounterGrain
+from counter_app.grains import CounterGrain
 
 async def main() -> None:
     silo = Silo(
@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
 ### Acceptance criteria
 
-- [x] `python -m counter.main` starts silo and blocks
+- [x] `python -m counter_app` starts silo and blocks
 - [x] Ctrl+C triggers graceful shutdown (deactivates grains, saves state)
 - [x] `data/membership.yaml` shows silo entry while running
 - [x] `data/membership.yaml` shows no silo entry after clean shutdown

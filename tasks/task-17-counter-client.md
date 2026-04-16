@@ -55,7 +55,7 @@ async def run(args: argparse.Namespace) -> None:
     await client.connect()
 
     # Import grain class for type reference
-    from counter.grains import CounterGrain
+    from counter_app.grains import CounterGrain
 
     counter = client.get_grain(CounterGrain, args.counter_id)
 
@@ -145,7 +145,7 @@ allows the client to call grains on a locally-running silo.
 ### Files modified
 - `pyleans/pyleans/server/silo.py` — added `gateway_port` parameter, wired `GatewayListener` into start/stop
 - `pyleans/pyleans/client/__init__.py` — exports `ClusterClient` and `RemoteGrainRef`
-- `counter-client/pyproject.toml` — added `[project.scripts]` and `asyncio_mode` for pytest
+- `counter-client/pyproject.toml` — added `asyncio_mode` for pytest
 - `pyleans/test/test_silo.py` — added `gateway_port=0` to test helper
 - `counter-app/test/test_counter_grain.py` — added `gateway_port=0` to test helper
 - `counter-app/test/test_counter_app.py` — added `gateway_port=0` to test helper
