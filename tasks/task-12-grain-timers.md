@@ -17,7 +17,7 @@ deactivation), high-frequency callbacks. They respect the turn-based model --
 timer callbacks are enqueued like regular grain method calls.
 
 ### Files to create
-- `src/pyleans/server/timer.py`
+- `pyleans/pyleans/server/timer.py`
 
 ### Design
 
@@ -95,12 +95,12 @@ class HeartbeatGrain:
 
 ### Acceptance criteria
 
-- [ ] Timer fires after due_time, then every interval
-- [ ] Timer callback executes through grain inbox (turn-based)
-- [ ] Timer cancelled via `unregister_timer`
-- [ ] All timers cancelled on grain deactivation
-- [ ] Timer errors logged but don't crash the grain
-- [ ] Unit tests with fast intervals
+- [x] Timer fires after due_time, then every interval
+- [x] Timer callback executes through grain inbox (turn-based)
+- [x] Timer cancelled via `unregister_timer`
+- [x] All timers cancelled on grain deactivation
+- [x] Timer errors logged but don't crash the grain
+- [x] Unit tests with fast intervals
 
 ## Findings of code review
 _To be filled when task is complete._

@@ -16,7 +16,7 @@
 Implement a pluggable serialization layer with JSON/orjson as the default.
 
 ### Files to create
-- `src/pyleans/serialization.py`
+- `pyleans/pyleans/serialization.py`
 
 ### Design
 
@@ -50,11 +50,11 @@ class JsonSerializer(Serializer):
 
 ### Acceptance criteria
 
-- [ ] Round-trip dataclass serialization works
-- [ ] Nested dataclasses serialize correctly
-- [ ] Primitives serialize correctly
-- [ ] `SerializationError` raised for non-serializable types
-- [ ] `Serializer` ABC allows alternative implementations
+- [x] Round-trip dataclass serialization works
+- [x] Nested dataclasses serialize correctly
+- [x] Primitives serialize correctly
+- [x] `SerializationError` raised for non-serializable types
+- [x] `Serializer` ABC allows alternative implementations
 
 ## Findings of code review
 _To be filled when task is complete._

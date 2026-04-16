@@ -17,7 +17,7 @@ Implement a file-based storage provider. One JSON file per grain, stored in a
 configurable directory. Supports ETags for optimistic concurrency.
 
 ### Files to create
-- `src/pyleans/server/providers/file_storage.py`
+- `pyleans/pyleans/server/providers/file_storage.py`
 
 ### Design
 
@@ -82,14 +82,14 @@ class FileStorageProvider(StorageProvider):
 
 ### Acceptance criteria
 
-- [ ] Read returns `({}, None)` for non-existent grain
-- [ ] Write creates file with state and etag
-- [ ] Read returns correct state and etag after write
-- [ ] Write with wrong etag raises `StorageInconsistencyError`
-- [ ] Write with `expected_etag=None` always succeeds (first write)
-- [ ] Clear removes the file
-- [ ] Directory structure: `{base_path}/{grain_type}/{key}.json`
-- [ ] Integration test: round-trip read/write/clear
+- [x] Read returns `({}, None)` for non-existent grain
+- [x] Write creates file with state and etag
+- [x] Read returns correct state and etag after write
+- [x] Write with wrong etag raises `StorageInconsistencyError`
+- [x] Write with `expected_etag=None` always succeeds (first write)
+- [x] Clear removes the file
+- [x] Directory structure: `{base_path}/{grain_type}/{key}.json`
+- [x] Integration test: round-trip read/write/clear
 
 ## Findings of code review
 _To be filled when task is complete._

@@ -18,21 +18,22 @@ Create the pyleans project skeleton with modern Python packaging.
 ```
 pyleans/
   pyproject.toml
-  src/
-    pyleans/
-      __init__.py
-      py.typed           # PEP 561 marker
-      server/
-        __init__.py
-      client/
-        __init__.py
-      providers/
-        __init__.py
-  tests/
+  pyleans/                  # flat layout (not src/)
     __init__.py
-  examples/
-    counter-app/
-    counter-client/
+    py.typed                # PEP 561 marker
+    server/
+      __init__.py
+    client/
+      __init__.py
+    providers/
+      __init__.py
+  test/
+counter-app/                # at workspace root, not nested
+  pyproject.toml
+  counter_app/
+counter-client/
+  pyproject.toml
+  counter_client/
 ```
 
 ### pyproject.toml
@@ -46,11 +47,11 @@ pyleans/
 
 ### Acceptance criteria
 
-- [ ] `pip install -e "pyleans[dev]"` succeeds
-- [ ] `import pyleans` works
-- [ ] `import pyleans.server` works
-- [ ] `import pyleans.client` works
-- [ ] `pytest` runs (no tests yet, but framework works)
+- [x] `pip install -e "pyleans[dev]"` succeeds
+- [x] `import pyleans` works
+- [x] `import pyleans.server` works
+- [x] `import pyleans.client` works
+- [x] `pytest` runs (no tests yet, but framework works)
 
 ## Findings of code review
 _To be filled when task is complete._
@@ -71,7 +72,9 @@ _To be filled when task is complete._
 - Used `[tool.hatch.build.targets.wheel] packages = ["pyleans"]` so hatchling finds the package correctly in the flat layout.
 
 ### Deviations
-- Task spec shows `src/pyleans/` layout but existing code uses flat `pyleans/pyleans/` layout. Kept the existing layout.
+- Task originally specified `src/pyleans/` layout — changed to flat `pyleans/pyleans/` layout (decision: keep flat).
+- Task originally nested examples under `pyleans/examples/` — moved `counter-app/` and `counter-client/` to workspace root.
+- Test directory is `test/` (singular), not `tests/`.
 
 ### Test coverage
 - No tests yet (as expected for this task). pytest framework runs successfully.

@@ -15,7 +15,7 @@
 Define the exception hierarchy for pyleans.
 
 ### Files to create
-- `src/pyleans/errors.py`
+- `pyleans/pyleans/errors.py`
 
 ### Exception classes
 
@@ -56,9 +56,9 @@ class SerializationError(PyleansError):
 
 ### Acceptance criteria
 
-- [ ] All exceptions inherit from `PyleansError`
-- [ ] `StorageInconsistencyError` carries the expected and actual ETags
-- [ ] Importable from `pyleans.errors`
+- [x] All exceptions inherit from `PyleansError`
+- [x] `StorageInconsistencyError` carries the expected and actual ETags
+- [x] Importable from `pyleans.errors`
 
 ## Findings of code review
 _To be filled when task is complete._

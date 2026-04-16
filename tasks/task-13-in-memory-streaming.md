@@ -18,7 +18,7 @@ pub/sub channels identified by (namespace, key). Subscribers receive events
 through their grain inbox (turn-based).
 
 ### Files to create
-- `src/pyleans/server/providers/memory_stream.py`
+- `pyleans/pyleans/server/providers/memory_stream.py`
 
 ### Design
 

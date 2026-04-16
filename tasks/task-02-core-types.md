@@ -16,7 +16,7 @@
 Implement the core identity types used throughout pyleans.
 
 ### Files to create
-- `src/pyleans/identity.py`
+- `pyleans/pyleans/identity.py`
 
 ### Types
 
@@ -56,10 +56,10 @@ class SiloStatus(Enum):
 
 ### Acceptance criteria
 
-- [ ] `GrainId` is hashable and usable as dict key
-- [ ] `SiloAddress` is hashable and usable as dict key
-- [ ] Types are JSON-serializable via dataclass fields
-- [ ] Unit tests for equality, hashing, encoding
+- [x] `GrainId` is hashable and usable as dict key
+- [x] `SiloAddress` is hashable and usable as dict key
+- [x] Types are JSON-serializable via dataclass fields
+- [x] Unit tests for equality, hashing, encoding
 
 ## Findings of code review
 _To be filled when task is complete._

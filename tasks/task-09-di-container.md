@@ -18,7 +18,7 @@ Set up the `dependency-injector` container that provides framework services
 to grains via constructor injection. Matching Orleans' all-DI pattern.
 
 ### Files to create
-- `src/pyleans/server/container.py`
+- `pyleans/pyleans/server/container.py`
 
 ### Framework Container
 
@@ -73,11 +73,11 @@ class AppContainer(containers.DeclarativeContainer):
 
 ### Acceptance criteria
 
-- [ ] `PyleansContainer` provides GrainFactory, TimerRegistry, StreamManager, Logger
-- [ ] Grain `__init__` with `@inject` + `Provide[...]` receives framework services
-- [ ] User services injectable alongside framework services
-- [ ] Container wiring works across grain modules
-- [ ] Unit test: grain constructed with injected mock services
+- [x] `PyleansContainer` provides GrainFactory, TimerRegistry, StreamManager, Logger
+- [x] Grain `__init__` with `@inject` + `Provide[...]` receives framework services
+- [x] User services injectable alongside framework services
+- [x] Container wiring works across grain modules
+- [x] Unit test: grain constructed with injected mock services
 
 ## Findings of code review
 _To be filled when task is complete._
@@ -98,7 +98,7 @@ _To be filled when task is complete._
 - Users can extend PyleansContainer or override individual providers.
 
 ### Deviations
-- StreamManager not included yet (deferred to Task 13 when it's implemented).
+- StreamManager was initially deferred; now added to the container (resolved).
 
 ### Test coverage
 - 10 tests: container creation, all providers resolve, singleton behavior, shared runtime instance, extension via subclass, provider override.

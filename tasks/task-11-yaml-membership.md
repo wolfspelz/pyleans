@@ -17,7 +17,7 @@ Implement a YAML-file-based membership provider. A single YAML file acts as the
 membership table. Human-readable so operators can inspect cluster state.
 
 ### Files to create
-- `src/pyleans/server/providers/yaml_membership.py`
+- `pyleans/pyleans/server/providers/yaml_membership.py`
 
 ### Design
 
@@ -81,16 +81,16 @@ table version row.
 
 ### Acceptance criteria
 
-- [ ] YAML file created on first `register_silo`
-- [ ] Multiple silos can be registered
-- [ ] `get_active_silos` filters by status
-- [ ] `heartbeat` updates the timestamp
-- [ ] `unregister_silo` removes the entry
-- [ ] `update_status` changes status field
-- [ ] Version increments on every write
-- [ ] File is valid, human-readable YAML
-- [ ] Concurrent access handled via file locking
-- [ ] Unit tests with temp directory
+- [x] YAML file created on first `register_silo`
+- [x] Multiple silos can be registered
+- [x] `get_active_silos` filters by status
+- [x] `heartbeat` updates the timestamp
+- [x] `unregister_silo` removes the entry
+- [x] `update_status` changes status field
+- [x] Version increments on every write
+- [x] File is valid, human-readable YAML
+- [ ] Concurrent access handled via file locking (deferred — not needed for Phase 1 single-silo)
+- [x] Unit tests with temp directory
 
 ## Findings of code review
 _To be filled when task is complete._

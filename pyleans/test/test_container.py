@@ -6,6 +6,7 @@ import pytest
 
 from pyleans.reference import GrainFactory
 from pyleans.server.container import PyleansContainer
+from pyleans.server.providers.memory_stream import InMemoryStreamProvider, StreamManager
 from pyleans.server.runtime import GrainRuntime
 from pyleans.server.timer import TimerRegistry
 
@@ -54,6 +55,16 @@ class TestPyleansContainer:
         runtime = container.runtime()
         registry = container.timer_registry()
         assert registry._runtime is runtime
+
+    def test_stream_manager_provider(self) -> None:
+        from dependency_injector import providers as di_providers
+
+        container = PyleansContainer()
+        container.stream_provider.override(
+            di_providers.Object(InMemoryStreamProvider())
+        )
+        manager = container.stream_manager()
+        assert isinstance(manager, StreamManager)
 
 
 class TestContainerExtension:

@@ -6,6 +6,7 @@ from dependency_injector import containers, providers
 
 from pyleans.reference import GrainFactory
 from pyleans.serialization import JsonSerializer, Serializer
+from pyleans.server.providers.memory_stream import StreamManager
 from pyleans.server.runtime import GrainRuntime
 from pyleans.server.timer import TimerRegistry
 
@@ -26,6 +27,7 @@ class PyleansContainer(containers.DeclarativeContainer):
 
     serializer = providers.Singleton(JsonSerializer)
     storage_providers = providers.Object({})
+    stream_provider = providers.Object(None)
 
     runtime = providers.Singleton(
         GrainRuntime,
@@ -34,4 +36,5 @@ class PyleansContainer(containers.DeclarativeContainer):
     )
     grain_factory = providers.Singleton(GrainFactory, runtime=runtime)
     timer_registry = providers.Singleton(TimerRegistry, runtime=runtime)
+    stream_manager = providers.Singleton(StreamManager, provider=stream_provider)
     logger = providers.Singleton(logging.getLogger, config.logger_name.as_(str))

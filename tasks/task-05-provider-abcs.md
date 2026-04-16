@@ -20,10 +20,10 @@ Define the three provider ABCs. These are the pluggable extension points of pyle
 following Orleans' provider model and hexagonal architecture principles.
 
 ### Files to create
-- `src/pyleans/providers/storage.py`
-- `src/pyleans/providers/membership.py`
-- `src/pyleans/providers/streaming.py`
-- `src/pyleans/providers/__init__.py` (re-exports)
+- `pyleans/pyleans/providers/storage.py`
+- `pyleans/pyleans/providers/membership.py`
+- `pyleans/pyleans/providers/streaming.py`
+- `pyleans/pyleans/providers/__init__.py` (re-exports)
 
 ### StorageProvider
 
@@ -107,10 +107,10 @@ class StreamSubscription:
 
 ### Acceptance criteria
 
-- [ ] All three ABCs defined with `@abstractmethod` on all methods
-- [ ] Importable from `pyleans.providers`
-- [ ] Type hints on all parameters and return types
-- [ ] `StreamSubscription` dataclass defined
+- [x] All three ABCs defined with `@abstractmethod` on all methods
+- [x] Importable from `pyleans.providers`
+- [x] Type hints on all parameters and return types
+- [x] `StreamSubscription` dataclass defined
 
 ## Findings of code review
 _To be filled when task is complete._

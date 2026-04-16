@@ -20,7 +20,7 @@ Implement the grain runtime: the core engine that manages grain activations,
 enforces turn-based execution, and handles idle collection.
 
 ### Files to create
-- `src/pyleans/server/runtime.py`
+- `pyleans/pyleans/server/runtime.py`
 
 ### GrainActivation
 
@@ -127,16 +127,16 @@ If `time.monotonic() - activation.last_activity > idle_timeout`, deactivate.
 
 ### Acceptance criteria
 
-- [ ] Grain activated on first call, instance created correctly
-- [ ] State loaded from storage on activation
-- [ ] Turn-based: concurrent calls to same grain execute sequentially
-- [ ] Concurrent calls to different grains execute concurrently
-- [ ] `on_activate` called after state load
-- [ ] `on_deactivate` called before deactivation
-- [ ] `save_state()` persists via storage provider
-- [ ] Idle grains deactivated after timeout
-- [ ] Errors in grain methods propagated to caller via future
-- [ ] Unit tests with mock storage provider
+- [x] Grain activated on first call, instance created correctly
+- [x] State loaded from storage on activation
+- [x] Turn-based: concurrent calls to same grain execute sequentially
+- [x] Concurrent calls to different grains execute concurrently
+- [x] `on_activate` called after state load
+- [x] `on_deactivate` called before deactivation
+- [x] `save_state()` persists via storage provider
+- [x] Idle grains deactivated after timeout
+- [x] Errors in grain methods propagated to caller via future
+- [x] Unit tests with mock storage provider
 
 ## Findings of code review
 _To be filled when task is complete._

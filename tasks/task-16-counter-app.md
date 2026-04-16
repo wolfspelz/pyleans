@@ -82,7 +82,7 @@ if __name__ == "__main__":
 ## Summary of implementation
 
 ### Files created
-- `counter-app/counter/main.py` — standalone silo entry point (existed from prior task, unchanged)
+- `counter-app/counter_app/main.py` — standalone silo entry point (existed from prior task, unchanged)
 - `counter-app/test/test_counter_app.py` — 9 integration tests using real file-based providers
 
 ### Key decisions

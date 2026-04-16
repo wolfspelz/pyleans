@@ -19,7 +19,7 @@ Implement `GrainRef` -- a proxy object that represents a grain and forwards
 method calls to the runtime (local or remote).
 
 ### Files to create
-- `src/pyleans/reference.py`
+- `pyleans/pyleans/reference.py`
 
 ### Design
 
@@ -93,12 +93,12 @@ class GrainFactory:
 
 ### Acceptance criteria
 
-- [ ] `grain_factory.get_grain(CounterGrain, "k")` returns a GrainRef
-- [ ] `await ref.method()` dispatches to the runtime
-- [ ] Private attributes (`_xxx`) raise AttributeError, not proxied
-- [ ] GrainRef is repr-able and inspectable
-- [ ] Multiple GrainRefs to same grain_id share the same activation
-- [ ] Unit tests for proxy dispatch
+- [x] `grain_factory.get_grain(CounterGrain, "k")` returns a GrainRef
+- [x] `await ref.method()` dispatches to the runtime
+- [x] Private attributes (`_xxx`) raise AttributeError, not proxied
+- [x] GrainRef is repr-able and inspectable
+- [x] Multiple GrainRefs to same grain_id share the same activation
+- [x] Unit tests for proxy dispatch
 
 ## Findings of code review
 _To be filled when task is complete._

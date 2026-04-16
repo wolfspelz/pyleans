@@ -16,7 +16,7 @@
 Implement the `@grain` decorator that marks a Python class as a virtual actor.
 
 ### Files to create
-- `src/pyleans/grain.py`
+- `pyleans/pyleans/grain.py`
 
 ### The @grain decorator
 
@@ -86,13 +86,13 @@ def get_grain_methods(grain_class: type) -> dict[str, Callable]:
 
 ### Acceptance criteria
 
-- [ ] `@grain` usable with and without arguments: `@grain` and `@grain(state_type=X)`
-- [ ] Grain class registered in global registry
-- [ ] Public async methods discoverable via `get_grain_methods()`
-- [ ] Private methods (starting with `_`) excluded from interface
-- [ ] `on_activate` and `on_deactivate` recognized as lifecycle hooks, not interface methods
-- [ ] Metadata accessible: `cls._grain_type`, `cls._state_type`, `cls._storage_name`
-- [ ] Unit tests for decorator, registry, method discovery
+- [x] `@grain` usable with and without arguments: `@grain` and `@grain(state_type=X)`
+- [x] Grain class registered in global registry
+- [x] Public async methods discoverable via `get_grain_methods()`
+- [x] Private methods (starting with `_`) excluded from interface
+- [x] `on_activate` and `on_deactivate` recognized as lifecycle hooks, not interface methods
+- [x] Metadata accessible: `cls._grain_type`, `cls._state_type`, `cls._storage_name`
+- [x] Unit tests for decorator, registry, method discovery
 
 ## Findings of code review
 _To be filled when task is complete._

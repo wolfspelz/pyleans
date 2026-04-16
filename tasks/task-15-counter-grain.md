@@ -16,7 +16,7 @@ Implement a `CounterGrain` -- the first sample grain. Demonstrates state
 persistence, the @grain decorator, and DI.
 
 ### Files to create
-- `examples/counter-app/grains.py`
+- `counter-app/counter_app/grains.py`
 
 ### Design
 
@@ -70,7 +70,7 @@ No issues found. The CounterGrain is pure application logic with no system bound
 ## Summary of implementation
 
 ### Files created/modified
-- **Created**: `counter-app/counter/grains.py` — CounterGrain with CounterState
+- **Created**: `counter-app/counter_app/grains.py` — CounterGrain with CounterState
 - **Created**: `counter-app/test/test_counter_grain.py` — 17 tests across 8 test classes
 - **Modified**: `counter-app/pyproject.toml` — Added hatch wheel packages config and asyncio_mode=auto
 
@@ -81,7 +81,7 @@ No issues found. The CounterGrain is pure application logic with no system bound
 
 ### Deviations from original design
 - Omitted the empty `on_activate` method — it adds no value since state is loaded automatically.
-- File location changed from task spec `examples/counter-app/grains.py` to `counter-app/counter/grains.py` to match existing project structure.
+- File location changed from task spec `examples/counter-app/grains.py` to `counter-app/counter_app/grains.py` to match existing project structure.
 
 ### Test coverage summary
 - 17 tests: registration (5), state defaults (2), get_value (1), increment (2), set_value (2), reset (1), state survival through deactivation and silo restart (2), multiple independent instances (1), concurrent counters (1).

@@ -22,9 +22,9 @@ Implement the `Silo` class -- the main entry point that wires everything togethe
 This is the class users create in their `main.py`.
 
 ### Files to create
-- `src/pyleans/server/silo.py`
-- `src/pyleans/server/__init__.py` (re-exports Silo)
-- Update `src/pyleans/__init__.py` (re-exports @grain, GrainRef, etc.)
+- `pyleans/pyleans/server/silo.py`
+- `pyleans/pyleans/server/__init__.py` (re-exports Silo)
+- Update `pyleans/pyleans/__init__.py` (re-exports @grain, GrainRef, etc.)
 
 ### Design
 
@@ -49,8 +49,8 @@ class Silo:
         storage_providers: dict[str, StorageProvider] | None = None,
         membership_provider: MembershipProvider | None = None,
         stream_providers: dict[str, StreamProvider] | None = None,
-        container: containers.DeclarativeContainer | None = None,
         port: int = 11111,
+        gateway_port: int = 30000,
         host: str = "localhost",
         idle_timeout: float = 900.0,
     ):
@@ -60,8 +60,8 @@ class Silo:
             storage_providers: Named storage providers. Default: FileStorageProvider.
             membership_provider: Membership provider. Default: YamlMembershipProvider.
             stream_providers: Named stream providers. Default: InMemoryStreamProvider.
-            container: DI container. Default: PyleansContainer.
             port: Silo port (for future TCP mesh).
+            gateway_port: TCP gateway port for client connections. Default: 30000.
             host: Silo host address.
             idle_timeout: Seconds before idle grains are deactivated.
         """
