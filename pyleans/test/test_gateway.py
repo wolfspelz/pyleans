@@ -30,12 +30,12 @@ class GwCounterGrain(Grain[GwCounterState]):
 
     async def increment(self) -> int:
         self.state.value += 1
-        await self.save_state()
+        await self.write_state()
         return self.state.value
 
     async def set_value(self, value: int) -> None:
         self.state.value = value
-        await self.save_state()
+        await self.write_state()
 
 
 @grain

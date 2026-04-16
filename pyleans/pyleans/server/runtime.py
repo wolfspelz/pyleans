@@ -168,7 +168,7 @@ class GrainRuntime:
 
             self._bind_state_methods(instance, activation, storage_name, state_type)
 
-        self._bind_request_deactivation(instance, grain_id)
+        self._bind_deactivate_on_idle(instance, grain_id)
 
         activation.worker_task = asyncio.create_task(self._grain_worker(activation))
         self._activations[grain_id] = activation
@@ -189,10 +189,10 @@ class GrainRuntime:
         storage_name: str,
         state_type: type,
     ) -> None:
-        """Bind save_state and clear_state methods to the grain instance."""
+        """Bind write_state and clear_state methods to the grain instance."""
         runtime = self
 
-        async def save_state() -> None:
+        async def write_state() -> None:
             storage = runtime._storage_providers.get(storage_name)
             if storage is None:
                 return
@@ -217,23 +217,23 @@ class GrainRuntime:
             activation.etag = None
             instance.state = state_type()
 
-        instance.save_state = save_state
+        instance.write_state = write_state
         instance.clear_state = clear_state
 
-    def _bind_request_deactivation(self, instance: Any, grain_id: GrainId) -> None:
-        """Bind request_deactivation to the grain instance.
+    def _bind_deactivate_on_idle(self, instance: Any, grain_id: GrainId) -> None:
+        """Bind deactivate_on_idle to the grain instance.
 
         Schedules deactivation after the current turn completes.
         Matches Orleans' DeactivateOnIdle().
         """
         runtime = self
 
-        def request_deactivation() -> None:
+        def deactivate_on_idle() -> None:
             asyncio.get_running_loop().call_soon(
                 lambda: asyncio.ensure_future(runtime.deactivate_grain(grain_id))
             )
 
-        instance.request_deactivation = request_deactivation
+        instance.deactivate_on_idle = deactivate_on_idle
 
     async def deactivate_grain(self, grain_id: GrainId) -> None:
         """Call on_deactivate, stop worker, remove from activations."""

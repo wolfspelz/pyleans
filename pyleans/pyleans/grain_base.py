@@ -23,14 +23,14 @@ class Grain[TState]:
     identity: GrainId
     state: TState
 
-    async def save_state(self) -> None:
+    async def write_state(self) -> None:
         """Persist the current state via the storage provider."""
-        raise GrainActivationError("save_state not bound -- grain not activated")
+        raise GrainActivationError("write_state not bound -- grain not activated")
 
     async def clear_state(self) -> None:
         """Clear persisted state and reset to defaults."""
         raise GrainActivationError("clear_state not bound -- grain not activated")
 
-    def request_deactivation(self) -> None:
+    def deactivate_on_idle(self) -> None:
         """Request deactivation after the current turn completes."""
-        raise GrainActivationError("request_deactivation not bound -- grain not activated")
+        raise GrainActivationError("deactivate_on_idle not bound -- grain not activated")

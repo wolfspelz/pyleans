@@ -112,17 +112,17 @@ Singleton services like `GrainFactory`, `TimerRegistry`, `SiloManagement`,
 `grain_class()` construction — the runtime does NOT set these.
 
 **Runtime-bound (per-grain-instance, set as attributes during activation):**
-`identity`, `state`, `save_state`, `clear_state`. These are unique per
+`identity`, `state`, `write_state`, `clear_state`. These are unique per
 grain activation and cannot be DI singletons.
 
 On activation:
 1. Create grain instance (`grain_class()` — DI resolves `@inject` defaults)
 2. Set `instance.identity = grain_id` (runtime-bound)
 3. If grain has `state_type`: read from storage, deserialize, set `instance.state`
-4. Bind `instance.save_state()` and `instance.clear_state()` closures
+4. Bind `instance.write_state()` and `instance.clear_state()` closures
 5. Call `instance.on_activate()` if defined
 
-`instance.save_state()`:
+`instance.write_state()`:
 1. Serialize `instance.state` via serializer
 2. Call `storage_provider.write(grain_type, key, state_dict, etag)`
 3. Update activation's etag
@@ -146,7 +146,7 @@ If `time.monotonic() - activation.last_activity > idle_timeout`, deactivate.
 - [x] Concurrent calls to different grains execute concurrently
 - [x] `on_activate` called after state load
 - [x] `on_deactivate` called before deactivation
-- [x] `save_state()` persists via storage provider
+- [x] `write_state()` persists via storage provider
 - [x] Idle grains deactivated after timeout
 - [x] Errors in grain methods propagated to caller via future
 - [x] Unit tests with mock storage provider
@@ -166,7 +166,7 @@ _To be filled when task is complete._
 ### Key decisions
 - Worker loop uses a sentinel object to signal shutdown (avoids cancellation races).
 - `_idle_collector_single_pass` extracted for deterministic test control.
-- `save_state` and `clear_state` are bound as closures on the instance (not class methods) to capture activation context.
+- `write_state` and `clear_state` are bound as closures on the instance (not class methods) to capture activation context.
 - `on_activate` is dispatched through the grain's inbox to maintain turn-based ordering.
 - `on_deactivate` is called directly (outside inbox) since the grain is shutting down.
 - `grain_factory` parameter allows DI integration (Task 10) without coupling to dependency-injector.

@@ -24,15 +24,15 @@ standalone silo process. Co-hosting is an advanced pattern for when the
 silo and a web API must share a process.
 
 ### Files to create
-- `counter-app/counter_app/main.py`
-- `counter-app/counter_app/answer_grain.py` (one grain per file)
+- `counter_app/main.py`
+- `counter_app/answer_grain.py` (one grain per file)
 
 ### AnswerGrain
 
 A minimal stateless grain to demonstrate hosting multiple grains in one silo:
 
 ```python
-# counter-app/counter_app/answer_grain.py
+# counter_app/answer_grain.py
 from pyleans import grain
 
 @grain
@@ -125,8 +125,8 @@ class CounterGrain:
 ## Summary of implementation
 
 ### Files created
-- `counter-app/counter_app/main.py` — standalone silo entry point (existed from prior task, unchanged)
-- `counter-app/test/test_counter_app.py` — 9 integration tests using real file-based providers
+- `counter_app/main.py` — standalone silo entry point (existed from prior task, unchanged)
+- `counter_app/test/test_counter_app.py` — 9 integration tests using real file-based providers
 
 ### Key decisions
 - Tests use `tmp_path` pytest fixture for isolation (no shared state between tests)

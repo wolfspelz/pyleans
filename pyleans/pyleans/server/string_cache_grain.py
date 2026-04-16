@@ -32,7 +32,7 @@ class StringCacheGrain(Grain[StringCacheState]):
     async def set(self, value: str) -> None:
         """Set the cached value and persist."""
         self.state.value = value
-        await self.save_state()
+        await self.write_state()
 
     async def get(self) -> str:
         """Return the cached value (empty string if never set)."""
@@ -47,4 +47,4 @@ class StringCacheGrain(Grain[StringCacheState]):
 
         The next call to this grain will re-activate it from persistence.
         """
-        self.request_deactivation()
+        self.deactivate_on_idle()

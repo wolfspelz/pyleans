@@ -11,7 +11,7 @@ from pyleans.grain_base import Grain
 _grain_registry: dict[str, type] = {}
 
 LIFECYCLE_METHODS = frozenset({"on_activate", "on_deactivate"})
-_BASE_CLASS_METHODS = frozenset({"save_state", "clear_state", "request_deactivation"})
+_BASE_CLASS_METHODS = frozenset({"write_state", "clear_state", "deactivate_on_idle"})
 
 
 def _set_grain_metadata(cls: type, name: str, value: Any) -> None:

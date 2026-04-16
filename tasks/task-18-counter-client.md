@@ -17,9 +17,9 @@ counter-app silo via the pyleans client library and the gateway protocol.
 Demonstrates how external processes call grains without being a silo.
 
 ### Files to create
-- `counter-client/counter_client/main.py`
-- `counter-client/counter_client/__init__.py`
-- `counter-client/pyproject.toml`
+- `counter_client/main.py`
+- `counter_client/__init__.py`
+- `counter_client/pyproject.toml (removed — sample apps are now top-level modules)`
 
 ### CLI interface
 
@@ -155,20 +155,20 @@ allows the client to call grains on a locally-running silo.
 - `pyleans/pyleans/gateway/protocol.py` — binary frame encoding/decoding following the documented wire format
 - `pyleans/pyleans/gateway/listener.py` — `GatewayListener` TCP server that dispatches grain calls to runtime
 - `pyleans/pyleans/client/cluster_client.py` — `ClusterClient` and `RemoteGrainRef` for remote grain calls
-- `counter-client/counter_client/__init__.py` — package marker
-- `counter-client/counter_client/main.py` — CLI with get/inc/set commands
-- `counter-client/counter_client/__main__.py` — `python -m counter_client` entry point
+- `counter_client/__init__.py` — package marker
+- `counter_client/main.py` — CLI with get/inc/set commands
+- `counter_client/__main__.py` — `python -m counter_client` entry point
 - `pyleans/test/test_gateway_protocol.py` — 14 tests for frame encoding/decoding
 - `pyleans/test/test_gateway.py` — 12 tests for gateway listener + client integration
-- `counter-client/test/test_counter_client.py` — 9 tests for CLI and client
+- `counter_client/test/test_counter_client.py` — 9 tests for CLI and client
 
 ### Files modified
 - `pyleans/pyleans/server/silo.py` — added `gateway_port` parameter, wired `GatewayListener` into start/stop
 - `pyleans/pyleans/client/__init__.py` — exports `ClusterClient` and `RemoteGrainRef`
-- `counter-client/pyproject.toml` — added `asyncio_mode` for pytest
+- `counter_client/pyproject.toml (removed — sample apps are now top-level modules)` — added `asyncio_mode` for pytest
 - `pyleans/test/test_silo.py` — added `gateway_port=0` to test helper
-- `counter-app/test/test_counter_grain.py` — added `gateway_port=0` to test helper
-- `counter-app/test/test_counter_app.py` — added `gateway_port=0` to test helper
+- `counter_app/test/test_counter_grain.py` — added `gateway_port=0` to test helper
+- `counter_app/test/test_counter_app.py` — added `gateway_port=0` to test helper
 
 ### Key decisions
 - Phase 1 gateway uses a minimal TCP protocol with length-prefixed binary framing (matches the documented wire format from pyleans-transport.md)

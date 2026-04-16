@@ -15,6 +15,7 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+testpaths = ["pyleans/test", "counter_app/test", "counter_client/test"]
 
 [tool.mypy]
 strict = true

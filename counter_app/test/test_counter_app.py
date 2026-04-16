@@ -7,12 +7,13 @@ with temporary directories to verify end-to-end behavior.
 from pathlib import Path
 
 import yaml
-from counter_app.counter_grain import CounterGrain
 from pyleans.identity import GrainId
 from pyleans.server.providers.file_storage import FileStorageProvider
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.providers.yaml_membership import YamlMembershipProvider
 from pyleans.server.silo import Silo
+
+from counter_app.counter_grain import CounterGrain
 
 
 def make_silo(tmp_path: Path) -> Silo:

@@ -59,7 +59,7 @@ class CounterGrain(Grain[CounterState]):
 
     async def increment(self) -> int:
         self.state.value += 1
-        await self.save_state()
+        await self.write_state()
         return self.state.value
 
 
@@ -177,7 +177,7 @@ class TestStateManagement:
         assert result == 0
         await runtime.stop()
 
-    async def test_save_state_persists(self) -> None:
+    async def test_write_state_persists(self) -> None:
         storage = FakeStorageProvider()
         runtime = make_runtime(storage)
         gid = GrainId("CounterGrain", "c1")

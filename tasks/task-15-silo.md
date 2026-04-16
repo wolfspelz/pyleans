@@ -197,7 +197,7 @@ class CounterGrain:
 ```
 
 Grains that don't need services keep a plain `__init__` (or none at all).
-Only per-grain-instance data (`identity`, `state`, `save_state`, `clear_state`)
+Only per-grain-instance data (`identity`, `state`, `write_state`, `clear_state`)
 is bound by the runtime — all singleton services come through DI.
 
 #### Acceptance criteria (SiloManagement)
@@ -246,7 +246,7 @@ class StringCacheGrain:
     async def set(self, value: str) -> None:
         """Set the cached value and persist."""
         self.state.value = value
-        await self.save_state()
+        await self.write_state()
 
     async def get(self) -> str:
         """Return the cached value (empty string if never set)."""
@@ -286,8 +286,8 @@ Users can also import `StringCacheGrain` directly.
 
 The `deactivate()` method needs the runtime to deactivate the grain after
 the method returns. Options:
-1. The grain calls `self.request_deactivation()` (a runtime-bound method,
-   like `save_state`), which schedules deactivation after the current turn.
+1. The grain calls `self.deactivate_on_idle()` (a runtime-bound method,
+   like `write_state`), which schedules deactivation after the current turn.
 2. The runtime checks a flag on the activation after each method call.
 
 Option 1 is cleaner and matches Orleans' `DeactivateOnIdle()`.

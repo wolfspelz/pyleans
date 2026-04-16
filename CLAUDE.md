@@ -153,7 +153,7 @@ python -m venv .venv             # create virtual environment
 pip install -e "pyleans[dev]"    # install pyleans + dev deps in editable mode
 pytest                           # run all tests across workspace
 pytest pyleans/test              # run only pyleans tests
-pytest counter-app/test           # run only counter-app tests
+pytest counter_app/test           # run only counter-app tests
 mypy pyleans/src                 # type-check pyleans
 ruff check .                     # lint everything
 ruff format .                    # format everything
@@ -162,8 +162,8 @@ ruff format .                    # format everything
 ## Package Relationships
 
 - `pyleans` is the framework library (no CLI entry point)
-- `counter-app` is a sample silo app that depends on `pyleans` (module: `counter_app`)
-- `counter-client` is a sample CLI that talks to counter-app via `pyleans.client` (module: `counter_client`)
+- `counter_app` is a sample silo app (top-level module, no pip install needed)
+- `counter_client` is a sample CLI that talks to counter_app via `pyleans.client` (top-level module)
 - `pyleans.server` is the silo runtime (import only in silo processes)
 - `pyleans.client` is the lightweight client (import in external apps)
 - `pyleans.gateway` is the TCP gateway protocol (used by both server and client)

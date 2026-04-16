@@ -28,14 +28,14 @@ def _clear_registry() -> None:
 class TestGrainBaseStubs:
     """Stub methods raise GrainActivationError before runtime activation."""
 
-    def test_save_state_raises_before_activation(self) -> None:
+    def test_write_state_raises_before_activation(self) -> None:
         instance: Grain[CounterState] = Grain()
-        with pytest.raises(GrainActivationError, match="save_state not bound"):
-            # save_state is async, but we just need to see it raises synchronously
+        with pytest.raises(GrainActivationError, match="write_state not bound"):
+            # write_state is async, but we just need to see it raises synchronously
             # when the coroutine is awaited
             import asyncio
 
-            asyncio.get_event_loop().run_until_complete(instance.save_state())
+            asyncio.get_event_loop().run_until_complete(instance.write_state())
 
     def test_clear_state_raises_before_activation(self) -> None:
         instance: Grain[CounterState] = Grain()
@@ -44,10 +44,10 @@ class TestGrainBaseStubs:
 
             asyncio.get_event_loop().run_until_complete(instance.clear_state())
 
-    def test_request_deactivation_raises_before_activation(self) -> None:
+    def test_deactivate_on_idle_raises_before_activation(self) -> None:
         instance: Grain[CounterState] = Grain()
-        with pytest.raises(GrainActivationError, match="request_deactivation not bound"):
-            instance.request_deactivation()
+        with pytest.raises(GrainActivationError, match="deactivate_on_idle not bound"):
+            instance.deactivate_on_idle()
 
     def test_identity_not_set_before_activation(self) -> None:
         instance: Grain[CounterState] = Grain()
@@ -74,7 +74,7 @@ class TestGrainBaseRuntimeBinding:
         instance.state = CounterState(value=42)
         assert instance.state.value == 42
 
-    def test_save_state_can_be_overridden(self) -> None:
+    def test_write_state_can_be_overridden(self) -> None:
         instance: Grain[CounterState] = Grain()
         called = False
 
@@ -82,13 +82,13 @@ class TestGrainBaseRuntimeBinding:
             nonlocal called
             called = True
 
-        instance.save_state = mock_save  # type: ignore[method-assign]
+        instance.write_state = mock_save  # type: ignore[method-assign]
         import asyncio
 
-        asyncio.get_event_loop().run_until_complete(instance.save_state())
+        asyncio.get_event_loop().run_until_complete(instance.write_state())
         assert called
 
-    def test_request_deactivation_can_be_overridden(self) -> None:
+    def test_deactivate_on_idle_can_be_overridden(self) -> None:
         instance: Grain[CounterState] = Grain()
         called = False
 
@@ -96,8 +96,8 @@ class TestGrainBaseRuntimeBinding:
             nonlocal called
             called = True
 
-        instance.request_deactivation = mock_deactivate  # type: ignore[method-assign]
-        instance.request_deactivation()
+        instance.deactivate_on_idle = mock_deactivate  # type: ignore[method-assign]
+        instance.deactivate_on_idle()
         assert called
 
 
@@ -149,18 +149,18 @@ class TestStateTypeInference:
 class TestBaseClassMethodExclusion:
     """Base class infrastructure methods are excluded from grain interface."""
 
-    def test_save_state_excluded_from_methods(self) -> None:
+    def test_write_state_excluded_from_methods(self) -> None:
         @grain
         class MyGrain(Grain[CounterState]):
             async def get_value(self) -> int:
                 return 0
 
         methods = get_grain_methods(MyGrain)
-        assert "save_state" not in methods
+        assert "write_state" not in methods
         assert "clear_state" not in methods
 
-    def test_request_deactivation_excluded(self) -> None:
-        """request_deactivation is sync so already excluded, but verify."""
+    def test_deactivate_on_idle_excluded(self) -> None:
+        """deactivate_on_idle is sync so already excluded, but verify."""
 
         @grain
         class MyGrain(Grain[CounterState]):
@@ -168,7 +168,7 @@ class TestBaseClassMethodExclusion:
                 return 0
 
         methods = get_grain_methods(MyGrain)
-        assert "request_deactivation" not in methods
+        assert "deactivate_on_idle" not in methods
 
     def test_business_methods_still_discovered(self) -> None:
         @grain

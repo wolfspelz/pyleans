@@ -17,7 +17,7 @@ Implement a `CounterGrain` -- the first sample grain. Demonstrates state
 persistence, the @grain decorator, and DI.
 
 ### Files to create
-- `counter-app/counter_app/counter_grain.py` (one grain per file)
+- `counter_app/counter_grain.py` (one grain per file)
 
 ### Design
 
@@ -48,22 +48,22 @@ class CounterGrain:
 
     async def increment(self) -> int:
         self.state.value += 1
-        await self.save_state()
+        await self.write_state()
         return self.state.value
 
     async def set_value(self, value: int) -> None:
         self.state.value = value
-        await self.save_state()
+        await self.write_state()
 
     async def reset(self) -> None:
         self.state.value = 0
-        await self.save_state()
+        await self.write_state()
 
     async def get_silo_info(self) -> dict[str, Any]:
         return self._silo_mgmt.get_info()
 ```
 
-Note: `identity`, `state`, `save_state`, `clear_state` are still runtime-bound
+Note: `identity`, `state`, `write_state`, `clear_state` are still runtime-bound
 (per-grain-instance). Singleton services like `SiloManagement` come through DI.
 
 ### Acceptance criteria
@@ -79,7 +79,7 @@ Note: `identity`, `state`, `save_state`, `clear_state` are still runtime-bound
 
 ## Findings of code review
 
-No issues found. The grain is simple, follows the decorator pattern correctly, and all methods persist state via `save_state()`. Type ignore comments are necessary because `state` and `save_state` are dynamically bound by the runtime.
+No issues found. The grain is simple, follows the decorator pattern correctly, and all methods persist state via `write_state()`. Type ignore comments are necessary because `state` and `write_state` are dynamically bound by the runtime.
 
 ## Findings of security review
 
@@ -88,18 +88,18 @@ No issues found. The CounterGrain is pure application logic with no system bound
 ## Summary of implementation
 
 ### Files created/modified
-- **Created**: `counter-app/counter_app/counter_grain.py` — CounterGrain with CounterState (renamed from `grains.py`)
-- **Created**: `counter-app/test/test_counter_grain.py` — 17 tests across 8 test classes
-- **Modified**: `counter-app/pyproject.toml` — Added hatch wheel packages config and asyncio_mode=auto
+- **Created**: `counter_app/counter_grain.py` — CounterGrain with CounterState (renamed from `grains.py`)
+- **Created**: `counter_app/test/test_counter_grain.py` — 17 tests across 8 test classes
+- **Modified**: `counter_app/pyproject.toml (removed — sample apps are now top-level modules)` — Added hatch wheel packages config and asyncio_mode=auto
 
 ### Key implementation decisions
-- Placed grain in `counter-app/counter/grains.py` (existing package structure) instead of `examples/counter-app/grains.py` (task spec path doesn't match project layout).
-- Used `# type: ignore[attr-defined]` for `self.state`, `self.save_state` since these are dynamically bound by the runtime during activation.
+- Placed grain in `counter_app/counter_grain.py` (existing package structure) instead of `examples/counter-app/grains.py` (task spec path doesn't match project layout).
+- Used `# type: ignore[attr-defined]` for `self.state`, `self.write_state` since these are dynamically bound by the runtime during activation.
 - Tests use the full Silo with fake providers rather than testing the grain in isolation, ensuring end-to-end correctness.
 
 ### Deviations from original design
 - Omitted the empty `on_activate` method — it adds no value since state is loaded automatically.
-- File location changed from task spec `examples/counter-app/grains.py` to `counter-app/counter_app/counter_grain.py` — one grain per file convention.
+- File location changed from task spec `examples/counter-app/grains.py` to `counter_app/counter_grain.py` — one grain per file convention.
 
 ### Test coverage summary
 - 17 tests: registration (5), state defaults (2), get_value (1), increment (2), set_value (2), reset (1), state survival through deactivation and silo restart (2), multiple independent instances (1), concurrent counters (1).

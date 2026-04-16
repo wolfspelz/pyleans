@@ -33,7 +33,7 @@ class SiloCounterGrain(Grain[CounterState]):
 
     async def increment(self) -> int:
         self.state.value += 1
-        await self.save_state()
+        await self.write_state()
         return self.state.value
 
 

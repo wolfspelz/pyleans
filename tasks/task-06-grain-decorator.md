@@ -61,7 +61,7 @@ class CounterGrain:
 
     async def increment(self) -> int:
         self.state.value += 1
-        await self.save_state()  # explicit save, like Orleans
+        await self.write_state()  # explicit save, like Orleans
         return self.state.value
 ```
 
@@ -81,7 +81,7 @@ def get_grain_methods(grain_class: type) -> dict[str, Callable]:
 
 - `self.identity: GrainId` -- set by runtime before `on_activate`
 - `self.state: T` -- loaded from storage before `on_activate` (if state_type configured)
-- `self.save_state()` -- async method to persist current state
+- `self.write_state()` -- async method to persist current state
 - `self.clear_state()` -- async method to clear persisted state
 
 ### Acceptance criteria
@@ -110,7 +110,7 @@ _To be filled when task is complete._
 - Decorator stores metadata as class attributes (`_grain_type`, `_state_type`, `_storage_name`).
 - `get_grain_methods` uses `inspect.isfunction` + `asyncio.iscoroutinefunction` to discover only public async methods.
 - `LIFECYCLE_METHODS` is a frozenset for O(1) lookups.
-- `identity`, `state`, `save_state`, `clear_state` are NOT added by the decorator — they will be set by the runtime (Task 08).
+- `identity`, `state`, `write_state`, `clear_state` are NOT added by the decorator — they will be set by the runtime (Task 08).
 
 ### Deviations
 - None.

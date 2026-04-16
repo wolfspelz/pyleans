@@ -4,13 +4,14 @@ import asyncio
 from typing import Any
 
 import pytest
-from counter_app.counter_grain import CounterGrain, CounterState
 from pyleans.grain import _grain_registry, get_grain_class, get_grain_methods
 from pyleans.identity import GrainId
 from pyleans.providers.membership import MembershipProvider
 from pyleans.providers.storage import StorageProvider
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.silo import Silo
+
+from counter_app.counter_grain import CounterGrain, CounterState
 
 # --- Fake providers for testing ---
 

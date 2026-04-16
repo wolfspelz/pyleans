@@ -3,8 +3,6 @@
 from typing import Any
 
 import pytest
-from counter_app.counter_grain import CounterGrain
-from counter_client.main import run
 from pyleans.client import ClusterClient
 from pyleans.grain import _grain_registry
 from pyleans.identity import SiloStatus
@@ -12,6 +10,9 @@ from pyleans.providers.membership import MembershipProvider
 from pyleans.providers.storage import StorageProvider
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.silo import Silo
+
+from counter_app.counter_grain import CounterGrain
+from counter_client.main import run
 
 # --- Fake providers ---
 

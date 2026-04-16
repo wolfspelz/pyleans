@@ -310,7 +310,7 @@ class PlayerGrain:
 **Grain identity and state** are provided by the `Grain[TState]` base class / runtime:
 - `self.identity` -- set by the runtime during activation
 - `self.state` -- loaded from storage on activation (configured via `@grain(state_type=...)`)
-- `self.save_state()`, `self.clear_state()`, `self.request_deactivation()` -- bound by runtime
+- `self.write_state()`, `self.clear_state()`, `self.deactivate_on_idle()` -- bound by runtime
 - See Decision 11 for the `Grain[TState]` base class that provides these
 
 **Testing**: Clean -- just pass mocks to the constructor. The app interface
@@ -395,7 +395,7 @@ Each provider gets a simple default implementation:
 ### Decision 11: Grain Base Class -- `Grain[TState]`
 
 **The problem**: Every stateful grain must declare 5 identical runtime-bound attributes
-(`identity`, `state`, `save_state`, `clear_state`, `request_deactivation`) plus their
+(`identity`, `state`, `write_state`, `clear_state`, `deactivate_on_idle`) plus their
 imports. This is pure boilerplate that adds noise and violates DRY.
 
 **C# Orleans**: Grains inherit from `Grain<TState>`, which provides `State`, `WriteStateAsync()`,
@@ -411,9 +411,9 @@ class CounterGrain:
     # 5 lines of identical boilerplate in every stateful grain
     identity: GrainId
     state: CounterState
-    save_state: Callable[[], Awaitable[None]]
+    write_state: Callable[[], Awaitable[None]]
     clear_state: Callable[[], Awaitable[None]]
-    request_deactivation: Callable[[], None]
+    deactivate_on_idle: Callable[[], None]
 
     async def get_value(self) -> int:
         return self.state.value
@@ -428,17 +428,17 @@ class Grain(Generic[TState]):
     identity: GrainId
     state: TState
 
-    async def save_state(self) -> None:
+    async def write_state(self) -> None:
         """Persist the current state. Bound by runtime during activation."""
-        raise GrainActivationError("save_state not bound -- grain not activated")
+        raise GrainActivationError("write_state not bound -- grain not activated")
 
     async def clear_state(self) -> None:
         """Clear persisted state. Bound by runtime during activation."""
         raise GrainActivationError("clear_state not bound -- grain not activated")
 
-    def request_deactivation(self) -> None:
+    def deactivate_on_idle(self) -> None:
         """Request deactivation after current turn. Bound by runtime during activation."""
-        raise GrainActivationError("request_deactivation not bound -- grain not activated")
+        raise GrainActivationError("deactivate_on_idle not bound -- grain not activated")
 ```
 
 After refactoring, grains become:
@@ -450,12 +450,12 @@ class CounterGrain(Grain[CounterState]):
 
     async def increment(self) -> int:
         self.state.value += 1
-        await self.save_state()
+        await self.write_state()
         return self.state.value
 ```
 
 Stateless grains may optionally inherit `Grain[None]` if they need `identity` or
-`request_deactivation`, but are not required to.
+`deactivate_on_idle`, but are not required to.
 
 **Implementation approach**: The base class provides stub methods that raise if called
 before activation. The runtime overrides them with `setattr()` during activation
@@ -464,6 +464,35 @@ before activation. The runtime overrides them with `setattr()` during activation
 **Bonus**: `state_type` can be inferred from the generic type argument, making
 `@grain(storage="default")` sufficient — the `state_type` parameter becomes optional
 for grains that inherit `Grain[TState]`.
+
+---
+
+### Decision 12: Naming Convention -- Follow Orleans, Python Case
+
+**Rule**: pyleans method and property names follow Orleans naming but apply Python
+conventions:
+
+1. **snake_case** instead of PascalCase (standard Python).
+2. **No `Async` suffix** on async methods — Python's `async def` already marks them.
+3. **Same semantics and intent** as the Orleans equivalent.
+
+**Mapping**:
+
+| Orleans C# | pyleans Python | Notes |
+|---|---|---|
+| `State` (property) | `state` | snake_case |
+| `WriteStateAsync()` | `write_state()` | no Async suffix |
+| `ReadStateAsync()` | *(auto on activation)* | not exposed; same as Orleans default |
+| `ClearStateAsync()` | `clear_state()` | no Async suffix |
+| `DeactivateOnIdle()` | `deactivate_on_idle()` | snake_case |
+| `OnActivateAsync()` | `on_activate()` | snake_case, no Async |
+| `OnDeactivateAsync()` | `on_deactivate()` | snake_case, no Async |
+| `GetPrimaryKeyString()` | `identity` (GrainId) | simplified — single key type |
+| `GrainFactory.GetGrain<T>(key)` | `grain_factory.get_grain(T, key)` | snake_case |
+| `RegisterTimer()` | `register_timer()` | snake_case |
+
+This convention applies to all public API surfaces. Internal implementation names
+follow standard Python conventions without requiring Orleans alignment.
 
 ---
 
@@ -529,33 +558,28 @@ pyleans/                         # framework package
     gateway/                     # TCP gateway protocol
     providers/                   # provider ABCs (ports)
   test/
-counter-app/                     # sample silo app (depends on pyleans)
-  pyproject.toml
-  counter_app/                   # Python module: counter_app
-    counter_grain.py             # one file per grain
-    main.py                      # Standalone silo
-    __main__.py                  # python -m counter_app
+counter_app/                     # sample silo app (top-level module)
+  counter_grain.py               # one file per grain
+  main.py                        # Standalone silo
+  __main__.py                    # python -m counter_app
   test/
-counter-client/                  # CLI client tool (depends on pyleans + counter-app)
-  pyproject.toml
-  counter_client/                # Python module: counter_client
-    main.py                      # CLI entry point
-    __main__.py                  # python -m counter_client
+counter_client/                  # sample CLI client (top-level module)
+  main.py                        # CLI entry point
+  __main__.py                    # python -m counter_client
   test/
 ```
 
 ### Naming convention
 
-Directory names use hyphens (`counter-app`), Python module names use underscores
-(`counter_app`). This is standard Python packaging practice. The pip package name
-(in `pyproject.toml`) matches the directory name; the importable module name
-matches the inner directory.
+`pyleans` is a pip-installable package (`pip install -e pyleans`). The sample apps
+(`counter_app`, `counter_client`) are top-level Python modules — no pip install
+needed, just run from the project root.
 
-| pip package | Python module | Run with |
+| Module | Type | Run with |
 |---|---|---|
-| `pyleans` | `pyleans` | Library, not runnable |
-| `counter-app` | `counter_app` | `python -m counter_app` |
-| `counter-client` | `counter_client` | `python -m counter_client` |
+| `pyleans` | Framework (pip-installed) | Library, not runnable |
+| `counter_app` | Sample app (top-level module) | `python -m counter_app` |
+| `counter_client` | Sample CLI (top-level module) | `python -m counter_client` |
 
 ### One grain per file
 
@@ -574,8 +598,8 @@ All applications are run as Python modules. There are no installed console
 scripts -- everything uses `python -m`.
 
 ```bash
-# Install all packages in editable mode
-pip install -e pyleans -e counter-app -e counter-client
+# Install the framework in editable mode
+pip install -e pyleans
 
 # Terminal 1: start the silo (blocks, Ctrl+C to stop)
 python -m counter_app
@@ -686,6 +710,7 @@ All design decisions have been resolved:
 | 9 | Library vs CLI | Library only. User writes `main.py`, creates `Silo`, calls `silo.start()`. No CLI. |
 | 10 | Package split | One package (`pyleans`), two entry points: `pyleans.server` (silo) and `pyleans.client` (lightweight). |
 | 11 | Grain base class | `Grain[TState]` generic base class for runtime-bound attributes. Eliminates per-grain boilerplate. |
+| 12 | Naming convention | Follow Orleans names in snake_case. No `Async` suffix — `async def` is sufficient. |
 
 ---
 

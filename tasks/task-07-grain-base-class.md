@@ -23,9 +23,9 @@ Every stateful grain currently repeats:
 ```python
 identity: GrainId
 state: CounterState
-save_state: Callable[[], Awaitable[None]]
+write_state: Callable[[], Awaitable[None]]
 clear_state: Callable[[], Awaitable[None]]
-request_deactivation: Callable[[], None]
+deactivate_on_idle: Callable[[], None]
 ```
 Plus the imports for `Callable`, `Awaitable`, and `GrainId`. This is pure boilerplate
 that adds noise and violates DRY.
@@ -39,7 +39,7 @@ that adds noise and violates DRY.
 - `pyleans/pyleans/grain.py` -- `@grain` decorator: infer `state_type` from generic
   type argument when grain inherits `Grain[TState]`
 - `pyleans/pyleans/server/runtime.py` -- verify compatibility (binding mechanism unchanged)
-- `counter-app/counter_app/counter_grain.py` -- inherit `Grain[CounterState]`, remove boilerplate
+- `counter_app/counter_grain.py` -- inherit `Grain[CounterState]`, remove boilerplate
 - `pyleans/pyleans/server/string_cache_grain.py` -- inherit `Grain[StringCacheState]`, remove boilerplate
 - Tests for all modified files
 
@@ -61,17 +61,17 @@ class Grain(Generic[TState]):
     identity: GrainId
     state: TState
 
-    async def save_state(self) -> None:
+    async def write_state(self) -> None:
         """Persist current state. Overridden by runtime during activation."""
-        raise GrainActivationError("save_state not bound -- grain not activated")
+        raise GrainActivationError("write_state not bound -- grain not activated")
 
     async def clear_state(self) -> None:
         """Clear persisted state. Overridden by runtime during activation."""
         raise GrainActivationError("clear_state not bound -- grain not activated")
 
-    def request_deactivation(self) -> None:
+    def deactivate_on_idle(self) -> None:
         """Request deactivation after current turn. Overridden by runtime during activation."""
-        raise GrainActivationError("request_deactivation not bound -- grain not activated")
+        raise GrainActivationError("deactivate_on_idle not bound -- grain not activated")
 ```
 
 After refactoring, a stateful grain looks like:
@@ -83,7 +83,7 @@ class CounterGrain(Grain[CounterState]):
 
     async def increment(self) -> int:
         self.state.value += 1
-        await self.save_state()
+        await self.write_state()
         return self.state.value
 ```
 
@@ -114,7 +114,7 @@ stubs exist only to provide:
 
 - [x] `Grain[TState]` base class in `pyleans/pyleans/grain_base.py`
 - [x] `identity`, `state` declared as attributes
-- [x] `save_state`, `clear_state`, `request_deactivation` as stub methods that raise before activation
+- [x] `write_state`, `clear_state`, `deactivate_on_idle` as stub methods that raise before activation
 - [x] `@grain` decorator infers `state_type` from `Grain[TState]` generic argument
 - [x] Explicit `state_type` takes precedence over inferred type
 - [x] `CounterGrain` refactored to use `Grain[CounterState]`
@@ -148,7 +148,7 @@ type system — no user input, no deserialization, no external I/O.
 ### Files modified
 - `pyleans/pyleans/grain.py` — `_infer_state_type()`, `_BASE_CLASS_METHODS` exclusion set
 - `pyleans/pyleans/__init__.py` — export `Grain`
-- `counter-app/counter_app/counter_grain.py` — inherits `Grain[CounterState]`, removed boilerplate
+- `counter_app/counter_grain.py` — inherits `Grain[CounterState]`, removed boilerplate
 - `pyleans/pyleans/server/string_cache_grain.py` — inherits `Grain[StringCacheState]`, removed boilerplate
 - `pyleans/test/test_runtime.py` — test grain uses `Grain[CounterState]`
 - `pyleans/test/test_silo.py` — test grain uses `Grain[CounterState]`
@@ -161,7 +161,7 @@ type system — no user input, no deserialization, no external I/O.
 - Stub methods raise `GrainActivationError` (not `NotImplementedError`) for clear diagnostics.
 - `_infer_state_type` uses `__orig_bases__` + `get_origin`/`get_args` to extract generic arg.
 - `Grain[None]` is treated as stateless (state_type = None).
-- Added `_BASE_CLASS_METHODS` frozenset to exclude `save_state`, `clear_state`, `request_deactivation` from `get_grain_methods()` discovery.
+- Added `_BASE_CLASS_METHODS` frozenset to exclude `write_state`, `clear_state`, `deactivate_on_idle` from `get_grain_methods()` discovery.
 - Cleaned up unused `# type: ignore` comments across test files that became stale after adopting the base class.
 
 ### Deviations

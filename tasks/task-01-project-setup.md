@@ -28,10 +28,10 @@ pyleans/
     providers/
       __init__.py
   test/
-counter-app/                # at workspace root, not nested
+counter_app/                # at workspace root, not nested
   pyproject.toml
   counter_app/
-counter-client/
+counter_client/
   pyproject.toml
   counter_client/
 ```
@@ -68,12 +68,12 @@ _To be filled when task is complete._
 - `pyleans/pyleans/providers/__init__.py` — Created providers subpackage.
 
 ### Key decisions
-- Kept `counter-app/` and `counter-client/` at workspace root (matching the plan doc Section 4) rather than nesting under `pyleans/examples/`.
+- Kept `counter_app/` and `counter_client/` at workspace root (matching the plan doc Section 4) rather than nesting under `pyleans/examples/`.
 - Used `[tool.hatch.build.targets.wheel] packages = ["pyleans"]` so hatchling finds the package correctly in the flat layout.
 
 ### Deviations
 - Task originally specified `src/pyleans/` layout — changed to flat `pyleans/pyleans/` layout (decision: keep flat).
-- Task originally nested examples under `pyleans/examples/` — moved `counter-app/` and `counter-client/` to workspace root.
+- Task originally nested examples under `pyleans/examples/` — moved `counter_app/` and `counter_client/` to workspace root.
 - Test directory is `test/` (singular), not `tests/`.
 
 ### Test coverage
