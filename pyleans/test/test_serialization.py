@@ -3,7 +3,6 @@
 from dataclasses import dataclass, field
 
 import pytest
-
 from pyleans.errors import SerializationError
 from pyleans.serialization import JsonSerializer, Serializer
 

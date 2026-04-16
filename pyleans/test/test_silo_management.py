@@ -17,7 +17,6 @@ from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.silo import Silo
 from pyleans.server.silo_management import SiloManagement
 
-
 # --- Test grain that uses DI for SiloManagement ---
 
 

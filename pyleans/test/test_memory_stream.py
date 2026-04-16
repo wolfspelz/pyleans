@@ -4,14 +4,12 @@ import asyncio
 from typing import Any
 
 import pytest
-
 from pyleans.providers.streaming import StreamProvider, StreamSubscription
 from pyleans.server.providers.memory_stream import (
     InMemoryStreamProvider,
     StreamManager,
     StreamRef,
 )
-
 
 # ---------------------------------------------------------------------------
 # InMemoryStreamProvider

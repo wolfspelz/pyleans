@@ -191,8 +191,10 @@ After completing each task (code + tests passing), you MUST perform both reviews
 4. **Security review** (see checklist below) and put the findings as open issues into the task file.
 5. Fix all issues found in steps 3–4 and update the issues in the task file.
 6. Re-run tests to confirm fixes don't break anything
-7. Add a summary of changes to the task file
-8. Only then: commit
+7. Run `ruff check .` and `ruff format --check .` — fix all lint and formatting issues
+8. Run `mypy .` — fix all type errors
+9. Add a summary of changes to the task file
+10. Only then: commit
 
 ### Code Review Checklist
 

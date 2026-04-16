@@ -3,7 +3,6 @@
 from dataclasses import dataclass
 
 import pytest
-
 from pyleans.errors import GrainNotFoundError
 from pyleans.grain import (
     LIFECYCLE_METHODS,

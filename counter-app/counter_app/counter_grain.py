@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from dependency_injector.wiring import Provide, inject
-
-from pyleans import grain
 from pyleans.server.container import PyleansContainer
 from pyleans.server.silo_management import SiloManagement
+
+from pyleans import grain
 
 
 @dataclass

@@ -14,7 +14,6 @@ from pyleans.providers.storage import StorageProvider
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.silo import Silo
 
-
 # --- Fake providers ---
 
 

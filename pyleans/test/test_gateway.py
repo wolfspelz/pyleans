@@ -14,7 +14,6 @@ from pyleans.providers.membership import MembershipProvider
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.silo import Silo
 
-
 # --- Test grains ---
 
 

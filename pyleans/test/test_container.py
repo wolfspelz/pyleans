@@ -3,7 +3,6 @@
 import logging
 
 import pytest
-
 from pyleans.reference import GrainFactory
 from pyleans.server.container import PyleansContainer
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider, StreamManager

@@ -5,7 +5,6 @@ import time
 from dataclasses import dataclass
 
 import pytest
-
 from conftest import FakeStorageProvider
 from pyleans.errors import GrainMethodError, GrainNotFoundError
 from pyleans.grain import _grain_registry, grain

@@ -1,7 +1,6 @@
 """Tests for pyleans.errors — exception hierarchy."""
 
 import pytest
-
 from pyleans.errors import (
     GrainActivationError,
     GrainDeactivationError,

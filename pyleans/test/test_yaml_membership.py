@@ -4,7 +4,6 @@ import time
 
 import pytest
 import yaml
-
 from pyleans.errors import MembershipError
 from pyleans.identity import SiloAddress, SiloInfo, SiloStatus
 from pyleans.server.providers.yaml_membership import YamlMembershipProvider

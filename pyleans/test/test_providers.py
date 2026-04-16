@@ -1,7 +1,6 @@
 """Tests for pyleans.providers — provider ABCs."""
 
 import pytest
-
 from pyleans.providers import (
     MembershipProvider,
     StorageProvider,

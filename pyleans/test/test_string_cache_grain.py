@@ -12,7 +12,6 @@ from pyleans.server.grains import StringCacheGrain, system_grains
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.silo import Silo
 
-
 # --- Fake membership ---
 
 
