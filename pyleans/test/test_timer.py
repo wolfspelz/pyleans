@@ -1,7 +1,6 @@
 """Tests for grain timers."""
 
 import asyncio
-from dataclasses import dataclass
 
 import pytest
 from pyleans.grain import _grain_registry, grain

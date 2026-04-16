@@ -225,9 +225,7 @@ class TestRemoteErrorHandling:
         await client.connect()
 
         # Manually create a ref for a non-existent grain type
-        ref = RemoteGrainRef(
-            grain_id=GrainId("NoSuchGrain", "x"), client=client
-        )
+        ref = RemoteGrainRef(grain_id=GrainId("NoSuchGrain", "x"), client=client)
         with pytest.raises(TransportError):
             await ref.some_method()
 
@@ -236,9 +234,7 @@ class TestRemoteErrorHandling:
 
     async def test_invoke_without_connection_raises(self) -> None:
         client = ClusterClient(gateways=["localhost:59999"])
-        ref = RemoteGrainRef(
-            grain_id=GrainId("Counter", "x"), client=client
-        )
+        ref = RemoteGrainRef(grain_id=GrainId("Counter", "x"), client=client)
         with pytest.raises(ConnectionError, match="Not connected"):
             await ref.some_method()
 

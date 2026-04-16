@@ -4,4 +4,4 @@ from pyleans.grain import grain
 from pyleans.identity import GrainId
 from pyleans.reference import GrainFactory, GrainRef
 
-__all__ = ["GrainId", "GrainRef", "GrainFactory", "grain"]
+__all__ = ["GrainFactory", "GrainId", "GrainRef", "grain"]

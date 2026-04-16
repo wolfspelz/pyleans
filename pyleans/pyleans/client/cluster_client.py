@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from typing import Any
 
@@ -58,35 +59,27 @@ class ClusterClient:
         for addr in self._gateways:
             host, port = _parse_address(addr)
             try:
-                self._reader, self._writer = await asyncio.open_connection(
-                    host, port
-                )
+                self._reader, self._writer = await asyncio.open_connection(host, port)
                 self._read_task = asyncio.create_task(self._read_loop())
                 logger.info("Connected to gateway %s:%s", host, port)
                 return
             except OSError as e:
                 last_error = e
                 logger.debug("Failed to connect to %s:%s: %s", host, port, e)
-        raise ConnectionError(
-            f"Could not connect to any gateway: {self._gateways}"
-        ) from last_error
+        raise ConnectionError(f"Could not connect to any gateway: {self._gateways}") from last_error
 
     async def close(self) -> None:
         """Disconnect from the gateway."""
         if self._read_task is not None:
             self._read_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._read_task
-            except asyncio.CancelledError:
-                pass
             self._read_task = None
 
         if self._writer is not None:
             self._writer.close()
-            try:
+            with contextlib.suppress(OSError):
                 await self._writer.wait_closed()
-            except OSError:
-                pass
             self._writer = None
             self._reader = None
 
@@ -154,7 +147,7 @@ class ClusterClient:
         try:
             while True:
                 frame_data = await read_frame(self._reader)
-                msg_type, correlation_id, payload = decode_frame(frame_data)
+                _msg_type, correlation_id, payload = decode_frame(frame_data)
                 future = self._pending.pop(correlation_id, None)
                 if future is not None and not future.done():
                     future.set_result(payload)
@@ -191,9 +184,7 @@ class RemoteGrainRef:
             raise AttributeError(name)
 
         async def _proxy_call(*args: Any, **kwargs: Any) -> Any:
-            return await self._client.invoke(
-                self._grain_id, name, list(args), kwargs
-            )
+            return await self._client.invoke(self._grain_id, name, list(args), kwargs)
 
         return _proxy_call
 
@@ -218,7 +209,5 @@ def _parse_address(addr: str) -> tuple[str, int]:
     try:
         port = int(parts[1])
     except ValueError as e:
-        raise ValueError(
-            f"Invalid port in gateway address: {addr!r}"
-        ) from e
+        raise ValueError(f"Invalid port in gateway address: {addr!r}") from e
     return host, port

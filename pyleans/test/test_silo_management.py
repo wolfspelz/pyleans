@@ -9,7 +9,7 @@ import pytest
 from conftest import FakeStorageProvider
 from dependency_injector.wiring import Provide, inject
 from pyleans.grain import _grain_registry, grain
-from pyleans.identity import GrainId, SiloStatus
+from pyleans.identity import SiloStatus
 from pyleans.providers.membership import MembershipProvider
 from pyleans.server.container import PyleansContainer
 from pyleans.server.grains import StringCacheGrain, system_grains
@@ -154,9 +154,17 @@ class TestSiloManagementGetInfo:
         info = await ref.get_silo_info()
 
         expected_keys = {
-            "silo_id", "host", "hostname", "platform", "port",
-            "gateway_port", "epoch", "status", "uptime_seconds",
-            "grain_count", "idle_timeout",
+            "silo_id",
+            "host",
+            "hostname",
+            "platform",
+            "port",
+            "gateway_port",
+            "epoch",
+            "status",
+            "uptime_seconds",
+            "grain_count",
+            "idle_timeout",
         }
         assert set(info.keys()) == expected_keys
 

@@ -35,9 +35,7 @@ class StorageInconsistencyError(StorageError):
     def __init__(self, expected_etag: str | None, actual_etag: str | None) -> None:
         self.expected_etag = expected_etag
         self.actual_etag = actual_etag
-        super().__init__(
-            f"ETag mismatch: expected {expected_etag!r}, got {actual_etag!r}"
-        )
+        super().__init__(f"ETag mismatch: expected {expected_etag!r}, got {actual_etag!r}")
 
 
 class MembershipError(PyleansError):

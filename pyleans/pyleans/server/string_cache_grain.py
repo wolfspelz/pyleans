@@ -35,7 +35,7 @@ class StringCacheGrain:
 
     async def get(self) -> str:
         """Return the cached value (empty string if never set)."""
-        return self.state.value  # type: ignore[attr-defined]
+        return self.state.value  # type: ignore[attr-defined, no-any-return]
 
     async def delete(self) -> None:
         """Clear the persisted state (resets value to empty string)."""

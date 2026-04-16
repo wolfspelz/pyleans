@@ -3,9 +3,7 @@
 import asyncio
 from typing import Any
 
-import pytest
 from conftest import FakeStorageProvider
-from pyleans.grain import _grain_registry
 from pyleans.identity import GrainId, SiloStatus
 from pyleans.providers.membership import MembershipProvider
 from pyleans.server.grains import StringCacheGrain, system_grains

@@ -10,8 +10,8 @@ from pyleans.gateway.protocol import (
 )
 
 __all__ = [
-    "GatewayListener",
     "MAX_FRAME_SIZE",
+    "GatewayListener",
     "MessageType",
     "decode_frame",
     "encode_frame",

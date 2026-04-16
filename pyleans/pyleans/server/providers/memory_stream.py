@@ -29,9 +29,7 @@ class InMemoryStreamProvider(StreamProvider):
     def __init__(self) -> None:
         self._subscriptions: dict[StreamKey, list[_Subscription]] = {}
 
-    async def publish(
-        self, stream_namespace: str, stream_key: str, event: Any
-    ) -> None:
+    async def publish(self, stream_namespace: str, stream_key: str, event: Any) -> None:
         """Publish an event, delivering to all current subscribers."""
         key: StreamKey = (stream_namespace, stream_key)
         subscribers = self._subscriptions.get(key, [])
@@ -73,9 +71,7 @@ class InMemoryStreamProvider(StreamProvider):
 class StreamRef:
     """Reference to a specific stream, providing publish/subscribe operations."""
 
-    def __init__(
-        self, namespace: str, key: str, provider: StreamProvider
-    ) -> None:
+    def __init__(self, namespace: str, key: str, provider: StreamProvider) -> None:
         self._namespace = namespace
         self._key = key
         self._provider = provider
@@ -92,13 +88,9 @@ class StreamRef:
         """Publish an event to this stream."""
         await self._provider.publish(self._namespace, self._key, event)
 
-    async def subscribe(
-        self, callback: Callable[[Any], Awaitable[None]]
-    ) -> StreamSubscription:
+    async def subscribe(self, callback: Callable[[Any], Awaitable[None]]) -> StreamSubscription:
         """Subscribe to this stream."""
-        return await self._provider.subscribe(
-            self._namespace, self._key, callback
-        )
+        return await self._provider.subscribe(self._namespace, self._key, callback)
 
     async def unsubscribe(self, subscription: StreamSubscription) -> None:
         """Unsubscribe from this stream."""

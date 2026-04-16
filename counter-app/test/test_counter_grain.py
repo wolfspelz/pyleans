@@ -21,9 +21,7 @@ class FakeStorageProvider(StorageProvider):
     def __init__(self) -> None:
         self._store: dict[str, tuple[dict[str, Any], str]] = {}
 
-    async def read(
-        self, grain_type: str, grain_key: str
-    ) -> tuple[dict[str, Any], str | None]:
+    async def read(self, grain_type: str, grain_key: str) -> tuple[dict[str, Any], str | None]:
         key = f"{grain_type}/{grain_key}"
         if key in self._store:
             state, etag = self._store[key]
@@ -115,7 +113,8 @@ class TestCounterGrainRegistration:
 
     def test_public_methods_discovered(self) -> None:
         methods = get_grain_methods(CounterGrain)
-        assert set(methods.keys()) == {"get_value", "increment", "set_value", "reset", "get_silo_info"}
+        expected = {"get_value", "increment", "set_value", "reset", "get_silo_info"}
+        assert set(methods.keys()) == expected
 
 
 class TestCounterState:
@@ -268,9 +267,7 @@ class TestMultipleCounterInstances:
         silo = make_silo()
         await silo.start_background()
 
-        refs = [
-            silo.grain_factory.get_grain(CounterGrain, f"c{i}") for i in range(5)
-        ]
+        refs = [silo.grain_factory.get_grain(CounterGrain, f"c{i}") for i in range(5)]
         await asyncio.gather(*(r.increment() for r in refs))
         results = await asyncio.gather(*(r.get_value() for r in refs))
         assert results == [1, 1, 1, 1, 1]

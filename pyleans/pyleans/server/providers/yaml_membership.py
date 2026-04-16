@@ -84,7 +84,7 @@ class YamlMembershipProvider(MembershipProvider):
             raise MembershipError(f"Failed to read membership file: {e}") from e
         if not isinstance(data, dict):
             return {"version": 0, "silos": []}
-        return data  # type: ignore[return-value]
+        return data
 
     def _write_file(self, data: dict[str, Any]) -> None:
         data["version"] = data.get("version", 0) + 1
@@ -123,6 +123,4 @@ class YamlMembershipProvider(MembershipProvider):
                 start_time=float(entry["start_time"]),
             )
         except (KeyError, ValueError, TypeError) as e:
-            raise MembershipError(
-                f"Malformed silo entry in membership file: {e}"
-            ) from e
+            raise MembershipError(f"Malformed silo entry in membership file: {e}") from e

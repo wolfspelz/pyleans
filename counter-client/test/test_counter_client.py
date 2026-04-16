@@ -1,6 +1,5 @@
 """Tests for the counter-client CLI."""
 
-import asyncio
 from typing import Any
 
 import pytest
@@ -21,9 +20,7 @@ class FakeStorageProvider(StorageProvider):
     def __init__(self) -> None:
         self._store: dict[str, tuple[dict[str, Any], str]] = {}
 
-    async def read(
-        self, grain_type: str, grain_key: str
-    ) -> tuple[dict[str, Any], str | None]:
+    async def read(self, grain_type: str, grain_key: str) -> tuple[dict[str, Any], str | None]:
         key = f"{grain_type}/{grain_key}"
         if key in self._store:
             state, etag = self._store[key]

@@ -5,7 +5,7 @@ import logging
 from dependency_injector import containers, providers
 
 from pyleans.reference import GrainFactory
-from pyleans.serialization import JsonSerializer, Serializer
+from pyleans.serialization import JsonSerializer
 from pyleans.server.providers.memory_stream import StreamManager
 from pyleans.server.runtime import GrainRuntime
 from pyleans.server.silo_management import SiloManagement
@@ -27,8 +27,8 @@ class PyleansContainer(containers.DeclarativeContainer):
     config = providers.Configuration()
 
     serializer = providers.Singleton(JsonSerializer)
-    storage_providers = providers.Object({})
-    stream_provider = providers.Object(None)
+    storage_providers: providers.Object[dict[str, object]] = providers.Object({})
+    stream_provider: providers.Object[None] = providers.Object(None)
 
     runtime = providers.Singleton(
         GrainRuntime,

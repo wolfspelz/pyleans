@@ -36,14 +36,13 @@ class GatewayListener:
     def port(self) -> int:
         """The port the listener is bound to (useful when port=0)."""
         if self._server is not None and self._server.sockets:
-            return self._server.sockets[0].getsockname()[1]
+            port: int = self._server.sockets[0].getsockname()[1]
+            return port
         return self._port
 
     async def start(self) -> None:
         """Start accepting client connections."""
-        self._server = await asyncio.start_server(
-            self._handle_client, self._host, self._port
-        )
+        self._server = await asyncio.start_server(self._handle_client, self._host, self._port)
         actual_port = self.port
         logger.info("Gateway listening on %s:%s", self._host, actual_port)
 
@@ -88,9 +87,7 @@ class GatewayListener:
         try:
             msg_type, correlation_id, payload = decode_frame(frame_data)
         except TransportError as e:
-            return encode_frame(
-                MessageType.RESPONSE, 0, {"ok": False, "error": str(e)}
-            )
+            return encode_frame(MessageType.RESPONSE, 0, {"ok": False, "error": str(e)})
 
         if msg_type != MessageType.REQUEST:
             return encode_frame(

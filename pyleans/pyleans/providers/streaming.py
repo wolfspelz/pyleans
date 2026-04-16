@@ -19,9 +19,7 @@ class StreamProvider(ABC):
     """Pluggable stream interface for pub/sub event delivery."""
 
     @abstractmethod
-    async def publish(
-        self, stream_namespace: str, stream_key: str, event: Any
-    ) -> None:
+    async def publish(self, stream_namespace: str, stream_key: str, event: Any) -> None:
         """Publish an event to a stream."""
         ...
 

@@ -2,13 +2,11 @@
 
 import dataclasses
 from abc import ABC, abstractmethod
-from typing import Any, TypeVar
+from typing import Any
 
 import orjson
 
 from pyleans.errors import SerializationError
-
-T = TypeVar("T")
 
 
 class Serializer(ABC):
@@ -20,7 +18,7 @@ class Serializer(ABC):
         ...
 
     @abstractmethod
-    def deserialize(self, data: bytes, target_type: type[T]) -> T:
+    def deserialize[T](self, data: bytes, target_type: type[T]) -> T:
         """Deserialize bytes into an instance of target_type."""
         ...
 
@@ -39,10 +37,10 @@ def _dataclass_to_dict(obj: Any) -> Any:
     return obj
 
 
-def _dict_to_dataclass(data: Any, target_type: type[T]) -> T:
+def _dict_to_dataclass[T](data: Any, target_type: type[T]) -> T:
     """Recursively reconstruct a dataclass from a dict."""
     if not dataclasses.is_dataclass(target_type):
-        return data  # type: ignore[return-value]
+        return data  # type: ignore[no-any-return]
 
     field_values: dict[str, Any] = {}
     for field in dataclasses.fields(target_type):
@@ -61,7 +59,7 @@ def _dict_to_dataclass(data: Any, target_type: type[T]) -> T:
         else:
             field_values[field.name] = value
 
-    return target_type(**field_values)  # type: ignore[return-value]
+    return target_type(**field_values)
 
 
 class JsonSerializer(Serializer):
@@ -79,7 +77,7 @@ class JsonSerializer(Serializer):
         except TypeError as e:
             raise SerializationError(f"Cannot serialize {type(obj).__name__}: {e}") from e
 
-    def deserialize(self, data: bytes, target_type: type[T]) -> T:
+    def deserialize[T](self, data: bytes, target_type: type[T]) -> T:
         """Deserialize JSON bytes into an instance of target_type."""
         try:
             parsed = orjson.loads(data)
@@ -98,4 +96,4 @@ class JsonSerializer(Serializer):
                     f"Cannot deserialize into {target_type.__name__}: {e}"
                 ) from e
 
-        return parsed  # type: ignore[return-value]
+        return parsed  # type: ignore[no-any-return]

@@ -33,9 +33,7 @@ class GrainRef:
             raise AttributeError(name)
 
         async def _proxy_call(*args: Any, **kwargs: Any) -> Any:
-            return await self._runtime.invoke(
-                self._grain_id, name, list(args), kwargs
-            )
+            return await self._runtime.invoke(self._grain_id, name, list(args), kwargs)
 
         return _proxy_call
 

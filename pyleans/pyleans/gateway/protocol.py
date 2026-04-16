@@ -32,9 +32,7 @@ class MessageType(enum.IntEnum):
     RESPONSE = 0x02
 
 
-def encode_frame(
-    msg_type: MessageType, correlation_id: int, payload: dict[str, Any]
-) -> bytes:
+def encode_frame(msg_type: MessageType, correlation_id: int, payload: dict[str, Any]) -> bytes:
     """Encode a gateway frame as bytes ready to send on the wire.
 
     Returns the complete frame including the 4-byte length prefix.
@@ -42,9 +40,7 @@ def encode_frame(
     body = orjson.dumps(payload)
     frame_len = MIN_FRAME_SIZE + len(body)
     if frame_len > MAX_FRAME_SIZE:
-        raise TransportError(
-            f"Frame size {frame_len} exceeds maximum {MAX_FRAME_SIZE}"
-        )
+        raise TransportError(f"Frame size {frame_len} exceeds maximum {MAX_FRAME_SIZE}")
     header = HEADER_STRUCT.pack(frame_len, msg_type, correlation_id)
     return header + body
 
@@ -56,7 +52,7 @@ def decode_frame(data: bytes) -> tuple[MessageType, int, dict[str, Any]]:
     """
     if len(data) < HEADER_SIZE:
         raise TransportError(f"Frame too short: {len(data)} bytes")
-    frame_len, msg_type_raw, correlation_id = HEADER_STRUCT.unpack_from(data)
+    _frame_len, msg_type_raw, correlation_id = HEADER_STRUCT.unpack_from(data)
     try:
         msg_type = MessageType(msg_type_raw)
     except ValueError as e:
@@ -81,8 +77,6 @@ async def read_frame(reader: asyncio.StreamReader) -> bytes:
     if frame_len < MIN_FRAME_SIZE:
         raise TransportError(f"Frame length too small: {frame_len}")
     if frame_len > MAX_FRAME_SIZE:
-        raise TransportError(
-            f"Frame length {frame_len} exceeds maximum {MAX_FRAME_SIZE}"
-        )
+        raise TransportError(f"Frame length {frame_len} exceeds maximum {MAX_FRAME_SIZE}")
     body = await reader.readexactly(frame_len)
     return length_bytes + body

@@ -25,9 +25,7 @@ class TestStorageProviderABC:
 
     def test_concrete_subclass(self) -> None:
         class FakeStorage(StorageProvider):
-            async def read(
-                self, grain_type: str, grain_key: str
-            ) -> tuple[dict, str | None]:
+            async def read(self, grain_type: str, grain_key: str) -> tuple[dict, str | None]:
                 return {}, None
 
             async def write(
@@ -103,9 +101,7 @@ class TestStreamProviderABC:
         from typing import Any
 
         class FakeStream(StreamProvider):
-            async def publish(
-                self, stream_namespace: str, stream_key: str, event: Any
-            ) -> None:
+            async def publish(self, stream_namespace: str, stream_key: str, event: Any) -> None:
                 pass
 
             async def subscribe(

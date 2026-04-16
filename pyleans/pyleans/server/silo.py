@@ -73,9 +73,7 @@ class Silo:
         }
 
         epoch = int(time.time())
-        self._silo_address = SiloAddress(
-            host=self._host, port=self._port, epoch=epoch
-        )
+        self._silo_address = SiloAddress(host=self._host, port=self._port, epoch=epoch)
         self._silo_id = self._silo_address.encoded
 
         self._silo_management = SiloManagement(silo=self)
@@ -93,9 +91,7 @@ class Silo:
         self._container.runtime.override(di_providers.Object(self._runtime))
         self._container.grain_factory.override(di_providers.Object(self._grain_factory))
         self._container.timer_registry.override(di_providers.Object(self._timer_registry))
-        self._container.silo_management.override(
-            di_providers.Object(self._silo_management)
-        )
+        self._container.silo_management.override(di_providers.Object(self._silo_management))
 
         self._gateway = GatewayListener(
             runtime=self._runtime, host=self._host, port=self._gateway_port
@@ -147,7 +143,9 @@ class Silo:
 
         logger.info(
             "Silo started on %s:%s (gateway %s)",
-            self._host, self._port, self._gateway.port,
+            self._host,
+            self._port,
+            self._gateway.port,
         )
 
         await self._stop_event.wait()
@@ -169,7 +167,9 @@ class Silo:
 
         logger.info(
             "Silo started on %s:%s (gateway %s, background)",
-            self._host, self._port, self._gateway.port,
+            self._host,
+            self._port,
+            self._gateway.port,
         )
 
     async def stop(self) -> None:
@@ -179,9 +179,7 @@ class Silo:
 
         logger.info("Silo shutting down...")
 
-        await self._membership_provider.update_status(
-            self._silo_id, SiloStatus.SHUTTING_DOWN
-        )
+        await self._membership_provider.update_status(self._silo_id, SiloStatus.SHUTTING_DOWN)
 
         if self._heartbeat_task is not None:
             self._heartbeat_task.cancel()

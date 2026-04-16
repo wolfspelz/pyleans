@@ -1,6 +1,5 @@
 """Tests for the in-memory stream provider, StreamRef, and StreamManager."""
 
-import asyncio
 from typing import Any
 
 import pytest
@@ -31,9 +30,7 @@ class TestPublishSubscribe:
         return InMemoryStreamProvider()
 
     @pytest.mark.asyncio()
-    async def test_publish_delivers_to_subscriber(
-        self, provider: InMemoryStreamProvider
-    ) -> None:
+    async def test_publish_delivers_to_subscriber(self, provider: InMemoryStreamProvider) -> None:
         received: list[Any] = []
 
         async def handler(event: Any) -> None:
@@ -59,9 +56,7 @@ class TestPublishSubscribe:
         assert len(sub.id) > 0
 
     @pytest.mark.asyncio()
-    async def test_multiple_subscribers_all_receive(
-        self, provider: InMemoryStreamProvider
-    ) -> None:
+    async def test_multiple_subscribers_all_receive(self, provider: InMemoryStreamProvider) -> None:
         received_a: list[Any] = []
         received_b: list[Any] = []
 
@@ -79,9 +74,7 @@ class TestPublishSubscribe:
         assert received_b == [42]
 
     @pytest.mark.asyncio()
-    async def test_independent_streams_isolated(
-        self, provider: InMemoryStreamProvider
-    ) -> None:
+    async def test_independent_streams_isolated(self, provider: InMemoryStreamProvider) -> None:
         received_1: list[Any] = []
         received_2: list[Any] = []
 
@@ -101,9 +94,7 @@ class TestPublishSubscribe:
         assert received_2 == ["event-for-2"]
 
     @pytest.mark.asyncio()
-    async def test_different_namespaces_isolated(
-        self, provider: InMemoryStreamProvider
-    ) -> None:
+    async def test_different_namespaces_isolated(self, provider: InMemoryStreamProvider) -> None:
         received_a: list[Any] = []
         received_b: list[Any] = []
 
@@ -122,16 +113,12 @@ class TestPublishSubscribe:
         assert received_b == []
 
     @pytest.mark.asyncio()
-    async def test_publish_no_subscribers_is_noop(
-        self, provider: InMemoryStreamProvider
-    ) -> None:
+    async def test_publish_no_subscribers_is_noop(self, provider: InMemoryStreamProvider) -> None:
         # Should not raise
         await provider.publish("ns", "nobody", "event")
 
     @pytest.mark.asyncio()
-    async def test_publish_multiple_events_ordered(
-        self, provider: InMemoryStreamProvider
-    ) -> None:
+    async def test_publish_multiple_events_ordered(self, provider: InMemoryStreamProvider) -> None:
         received: list[int] = []
 
         async def handler(event: Any) -> None:
@@ -150,9 +137,7 @@ class TestUnsubscribe:
         return InMemoryStreamProvider()
 
     @pytest.mark.asyncio()
-    async def test_unsubscribe_stops_delivery(
-        self, provider: InMemoryStreamProvider
-    ) -> None:
+    async def test_unsubscribe_stops_delivery(self, provider: InMemoryStreamProvider) -> None:
         received: list[Any] = []
 
         async def handler(event: Any) -> None:
@@ -166,9 +151,7 @@ class TestUnsubscribe:
         assert received == ["before"]
 
     @pytest.mark.asyncio()
-    async def test_unsubscribe_one_of_many(
-        self, provider: InMemoryStreamProvider
-    ) -> None:
+    async def test_unsubscribe_one_of_many(self, provider: InMemoryStreamProvider) -> None:
         received_a: list[Any] = []
         received_b: list[Any] = []
 
@@ -188,19 +171,13 @@ class TestUnsubscribe:
         assert received_b == ["after-unsub"]
 
     @pytest.mark.asyncio()
-    async def test_unsubscribe_nonexistent_is_safe(
-        self, provider: InMemoryStreamProvider
-    ) -> None:
-        fake_sub = StreamSubscription(
-            id="does-not-exist", stream_namespace="ns", stream_key="k"
-        )
+    async def test_unsubscribe_nonexistent_is_safe(self, provider: InMemoryStreamProvider) -> None:
+        fake_sub = StreamSubscription(id="does-not-exist", stream_namespace="ns", stream_key="k")
         # Should not raise
         await provider.unsubscribe(fake_sub)
 
     @pytest.mark.asyncio()
-    async def test_double_unsubscribe_is_safe(
-        self, provider: InMemoryStreamProvider
-    ) -> None:
+    async def test_double_unsubscribe_is_safe(self, provider: InMemoryStreamProvider) -> None:
         async def handler(event: Any) -> None:
             pass
 
@@ -278,9 +255,7 @@ class TestStreamRef:
         assert ref.key == "room-1"
 
     @pytest.mark.asyncio()
-    async def test_publish_through_ref(
-        self, provider: InMemoryStreamProvider
-    ) -> None:
+    async def test_publish_through_ref(self, provider: InMemoryStreamProvider) -> None:
         received: list[Any] = []
 
         async def handler(event: Any) -> None:
@@ -293,9 +268,7 @@ class TestStreamRef:
         assert received == ["hello"]
 
     @pytest.mark.asyncio()
-    async def test_subscribe_through_ref(
-        self, provider: InMemoryStreamProvider
-    ) -> None:
+    async def test_subscribe_through_ref(self, provider: InMemoryStreamProvider) -> None:
         received: list[Any] = []
 
         async def handler(event: Any) -> None:
@@ -310,9 +283,7 @@ class TestStreamRef:
         assert received == ["via-provider"]
 
     @pytest.mark.asyncio()
-    async def test_unsubscribe_through_ref(
-        self, provider: InMemoryStreamProvider
-    ) -> None:
+    async def test_unsubscribe_through_ref(self, provider: InMemoryStreamProvider) -> None:
         received: list[Any] = []
 
         async def handler(event: Any) -> None:
@@ -341,18 +312,14 @@ class TestStreamManager:
     def manager(self, provider: InMemoryStreamProvider) -> StreamManager:
         return StreamManager(provider)
 
-    def test_get_stream_returns_stream_ref(
-        self, manager: StreamManager
-    ) -> None:
+    def test_get_stream_returns_stream_ref(self, manager: StreamManager) -> None:
         ref = manager.get_stream("chat", "room-1")
         assert isinstance(ref, StreamRef)
         assert ref.namespace == "chat"
         assert ref.key == "room-1"
 
     @pytest.mark.asyncio()
-    async def test_end_to_end_through_manager(
-        self, manager: StreamManager
-    ) -> None:
+    async def test_end_to_end_through_manager(self, manager: StreamManager) -> None:
         received: list[Any] = []
 
         async def handler(event: Any) -> None:
@@ -369,9 +336,7 @@ class TestStreamManager:
 
         assert received == [{"action": "login"}]
 
-    def test_different_get_stream_calls_same_underlying(
-        self, manager: StreamManager
-    ) -> None:
+    def test_different_get_stream_calls_same_underlying(self, manager: StreamManager) -> None:
         ref_a = manager.get_stream("ns", "k")
         ref_b = manager.get_stream("ns", "k")
         # They share the same provider so publish on one is visible to subscriptions on the other

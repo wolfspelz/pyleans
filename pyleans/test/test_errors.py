@@ -56,7 +56,7 @@ class TestPyleansError:
         assert str(err) == "something broke"
 
     def test_catchable_as_exception(self) -> None:
-        with pytest.raises(Exception):
+        with pytest.raises(PyleansError):
             raise PyleansError("test")
 
 

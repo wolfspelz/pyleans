@@ -1,6 +1,7 @@
 """Grain runtime — activation, turn-based scheduling, idle collection."""
 
 import asyncio
+import contextlib
 import dataclasses
 import logging
 import time
@@ -9,9 +10,7 @@ from typing import Any
 
 from pyleans.errors import (
     GrainActivationError,
-    GrainDeactivationError,
     GrainMethodError,
-    GrainNotFoundError,
 )
 from pyleans.grain import get_grain_class, get_grain_methods
 from pyleans.identity import GrainId
@@ -83,10 +82,8 @@ class GrainRuntime:
         """Stop the runtime, deactivating all grains."""
         if self._idle_collector_task is not None:
             self._idle_collector_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._idle_collector_task
-            except asyncio.CancelledError:
-                pass
             self._idle_collector_task = None
 
         grain_ids = list(self._activations.keys())
@@ -114,9 +111,7 @@ class GrainRuntime:
         grain_class = get_grain_class(grain_id.grain_type)
         methods = get_grain_methods(grain_class)
         if method_name not in methods:
-            raise GrainMethodError(
-                f"Method {method_name!r} not found on {grain_id.grain_type}"
-            )
+            raise GrainMethodError(f"Method {method_name!r} not found on {grain_id.grain_type}")
 
         loop = asyncio.get_running_loop()
         future: asyncio.Future[Any] = loop.create_future()
@@ -157,22 +152,16 @@ class GrainRuntime:
             storage = self._storage_providers.get(storage_name)
             if storage is not None:
                 try:
-                    state_dict, etag = await storage.read(
-                        grain_id.grain_type, grain_id.key
-                    )
+                    state_dict, etag = await storage.read(grain_id.grain_type, grain_id.key)
                     if state_dict:
                         serialized = self._serializer.serialize(state_dict)
-                        instance.state = self._serializer.deserialize(
-                            serialized, state_type
-                        )
+                        instance.state = self._serializer.deserialize(serialized, state_type)
                     else:
                         instance.state = state_type()
                     activation.etag = etag
                     activation.state_loaded = True
                 except Exception as e:
-                    raise GrainActivationError(
-                        f"Failed to load state for {grain_id}: {e}"
-                    ) from e
+                    raise GrainActivationError(f"Failed to load state for {grain_id}: {e}") from e
             else:
                 instance.state = state_type()
                 activation.state_loaded = True
@@ -187,9 +176,7 @@ class GrainRuntime:
         if hasattr(instance, "on_activate"):
             loop = asyncio.get_running_loop()
             future: asyncio.Future[Any] = loop.create_future()
-            call = _MethodCall(
-                method_name="on_activate", args=[], kwargs={}, future=future
-            )
+            call = _MethodCall(method_name="on_activate", args=[], kwargs={}, future=future)
             await activation.inbox.put(call)
             await future
 
@@ -233,9 +220,7 @@ class GrainRuntime:
         instance.save_state = save_state
         instance.clear_state = clear_state
 
-    def _bind_request_deactivation(
-        self, instance: Any, grain_id: GrainId
-    ) -> None:
+    def _bind_request_deactivation(self, instance: Any, grain_id: GrainId) -> None:
         """Bind request_deactivation to the grain instance.
 
         Schedules deactivation after the current turn completes.
@@ -245,9 +230,7 @@ class GrainRuntime:
 
         def request_deactivation() -> None:
             asyncio.get_running_loop().call_soon(
-                lambda: asyncio.ensure_future(
-                    runtime.deactivate_grain(grain_id)
-                )
+                lambda: asyncio.ensure_future(runtime.deactivate_grain(grain_id))
             )
 
         instance.request_deactivation = request_deactivation
@@ -267,10 +250,8 @@ class GrainRuntime:
         await activation.inbox.put(_SENTINEL)
         if activation.worker_task is not None:
             try:
-                await asyncio.wait_for(
-                    activation.worker_task, timeout=_WORKER_SHUTDOWN_TIMEOUT
-                )
-            except (asyncio.TimeoutError, asyncio.CancelledError):
+                await asyncio.wait_for(activation.worker_task, timeout=_WORKER_SHUTDOWN_TIMEOUT)
+            except (TimeoutError, asyncio.CancelledError):
                 activation.worker_task.cancel()
 
         self._activations.pop(grain_id, None)

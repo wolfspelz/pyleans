@@ -87,9 +87,7 @@ class TimerRegistry:
                 await asyncio.sleep(timer.due_time)
             while True:
                 try:
-                    await self._runtime.invoke(
-                        timer.grain_id, timer.callback_name, [], {}
-                    )
+                    await self._runtime.invoke(timer.grain_id, timer.callback_name, [], {})
                 except Exception:
                     logger.warning(
                         "Timer %s callback %s on %s raised an error",

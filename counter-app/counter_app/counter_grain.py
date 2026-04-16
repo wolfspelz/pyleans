@@ -27,19 +27,19 @@ class CounterGrain:
     @inject
     def __init__(
         self,
-        silo_mgmt: SiloManagement = Provide[PyleansContainer.silo_management],  # type: ignore[assignment]
+        silo_mgmt: SiloManagement = Provide[PyleansContainer.silo_management],
     ) -> None:
         self._silo_mgmt = silo_mgmt
 
     async def get_value(self) -> int:
         """Return the current counter value."""
-        return self.state.value  # type: ignore[attr-defined]
+        return self.state.value  # type: ignore[attr-defined, no-any-return]
 
     async def increment(self) -> int:
         """Increment the counter by 1 and persist. Returns the new value."""
         self.state.value += 1  # type: ignore[attr-defined]
         await self.save_state()  # type: ignore[attr-defined]
-        return self.state.value  # type: ignore[attr-defined]
+        return self.state.value  # type: ignore[attr-defined, no-any-return]
 
     async def set_value(self, value: int) -> None:
         """Set the counter to a specific value and persist."""

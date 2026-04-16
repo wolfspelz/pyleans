@@ -2,7 +2,6 @@
 
 import logging
 
-import pytest
 from pyleans.reference import GrainFactory
 from pyleans.server.container import PyleansContainer
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider, StreamManager
@@ -59,9 +58,7 @@ class TestPyleansContainer:
         from dependency_injector import providers as di_providers
 
         container = PyleansContainer()
-        container.stream_provider.override(
-            di_providers.Object(InMemoryStreamProvider())
-        )
+        container.stream_provider.override(di_providers.Object(InMemoryStreamProvider()))
         manager = container.stream_manager()
         assert isinstance(manager, StreamManager)
 

@@ -6,7 +6,6 @@ from collections.abc import Callable
 from typing import Any
 
 from pyleans.errors import GrainNotFoundError
-from pyleans.identity import GrainId
 
 _grain_registry: dict[str, type] = {}
 
@@ -28,6 +27,7 @@ def grain(
         @grain(state_type=MyState, storage="default")
         class MyGrain: ...
     """
+
     def decorator(cls: type) -> type:
         cls._grain_type = cls.__name__  # type: ignore[attr-defined]
         cls._state_type = state_type  # type: ignore[attr-defined]

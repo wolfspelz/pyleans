@@ -6,7 +6,6 @@ with temporary directories to verify end-to-end behavior.
 
 from pathlib import Path
 
-import pytest
 import yaml
 from counter_app.counter_grain import CounterGrain
 from pyleans.identity import GrainId
@@ -47,9 +46,7 @@ class TestSiloStartStop:
 
         await silo.stop()
 
-    async def test_membership_empty_after_clean_shutdown(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_membership_empty_after_clean_shutdown(self, tmp_path: Path) -> None:
         silo = make_silo(tmp_path)
         await silo.start_background()
         await silo.stop()
@@ -68,9 +65,7 @@ class TestSiloStartStop:
 class TestGrainStatePersistence:
     """Verify grain state is persisted to files and survives silo restarts."""
 
-    async def test_state_file_created_on_grain_call(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_state_file_created_on_grain_call(self, tmp_path: Path) -> None:
         silo = make_silo(tmp_path)
         await silo.start_background()
 
@@ -105,9 +100,7 @@ class TestGrainStatePersistence:
 
         await silo2.stop()
 
-    async def test_multiple_grains_create_separate_files(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_multiple_grains_create_separate_files(self, tmp_path: Path) -> None:
         silo = make_silo(tmp_path)
         await silo.start_background()
 
@@ -125,9 +118,7 @@ class TestGrainStatePersistence:
 class TestGrainLifecycle:
     """Verify grain deactivation saves state and silo shutdown deactivates all."""
 
-    async def test_deactivate_saves_state_to_file(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_deactivate_saves_state_to_file(self, tmp_path: Path) -> None:
         silo = make_silo(tmp_path)
         await silo.start_background()
 
@@ -143,9 +134,7 @@ class TestGrainLifecycle:
 
         await silo.stop()
 
-    async def test_shutdown_deactivates_all_grains(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_shutdown_deactivates_all_grains(self, tmp_path: Path) -> None:
         silo = make_silo(tmp_path)
         await silo.start_background()
 
