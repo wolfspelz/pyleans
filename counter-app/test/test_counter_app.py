@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from counter_app.grains import CounterGrain
+from counter_app.counter_grain import CounterGrain
 from pyleans.identity import GrainId
 from pyleans.server.providers.file_storage import FileStorageProvider
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider

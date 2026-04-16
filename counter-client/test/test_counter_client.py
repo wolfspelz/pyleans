@@ -4,7 +4,7 @@ import asyncio
 from typing import Any
 
 import pytest
-from counter_app.grains import CounterGrain
+from counter_app.counter_grain import CounterGrain
 from counter_client.main import run
 from pyleans.client import ClusterClient
 from pyleans.grain import _grain_registry

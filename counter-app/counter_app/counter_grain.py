@@ -3,7 +3,11 @@
 from dataclasses import dataclass
 from typing import Any
 
+from dependency_injector.wiring import Provide, inject
+
 from pyleans import grain
+from pyleans.server.container import PyleansContainer
+from pyleans.server.silo_management import SiloManagement
 
 
 @dataclass
@@ -19,6 +23,13 @@ class CounterGrain:
 
     Each counter is identified by a unique key and maintains independent state.
     """
+
+    @inject
+    def __init__(
+        self,
+        silo_mgmt: SiloManagement = Provide[PyleansContainer.silo_management],  # type: ignore[assignment]
+    ) -> None:
+        self._silo_mgmt = silo_mgmt
 
     async def get_value(self) -> int:
         """Return the current counter value."""
@@ -42,4 +53,4 @@ class CounterGrain:
 
     async def get_silo_info(self) -> dict[str, Any]:
         """Return metadata about the silo hosting this grain."""
-        return self.silo_management.get_info()  # type: ignore[attr-defined]
+        return self._silo_mgmt.get_info()

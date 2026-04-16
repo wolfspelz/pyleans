@@ -4,7 +4,7 @@ import asyncio
 from typing import Any
 
 import pytest
-from counter_app.grains import CounterGrain, CounterState
+from counter_app.counter_grain import CounterGrain, CounterState
 from pyleans.grain import _grain_registry, get_grain_class, get_grain_methods
 from pyleans.identity import GrainId
 from pyleans.providers.membership import MembershipProvider

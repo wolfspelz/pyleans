@@ -205,10 +205,10 @@ is bound by the runtime — all singleton services come through DI.
 - [x] `SiloManagement.get_info()` returns all documented keys
 - [x] `grain_count` reflects the current number of active grains
 - [x] `uptime_seconds` increases over time
-- [ ] `SiloManagement` injected into grains via `@inject` + `Provide[...]` (not runtime-bound)
-- [ ] Silo calls `container.wire()` during startup
+- [x] `SiloManagement` injected into grains via `@inject` + `Provide[...]` (not runtime-bound)
+- [x] Silo calls `container.wire()` during startup
 - [x] `system_grains()` returns a list (currently empty, extensible)
-- [ ] Unit tests for DI-injected SiloManagement in grains
+- [x] Unit tests for DI-injected SiloManagement in grains
 
 ### StringCacheGrain — framework-provided key-value cache
 
@@ -294,15 +294,15 @@ Option 1 is cleaner and matches Orleans' `DeactivateOnIdle()`.
 
 #### Acceptance criteria (StringCacheGrain)
 
-- [ ] `system_grains()` returns a list containing `StringCacheGrain`
-- [ ] `set("value")` persists the string
-- [ ] `get()` returns the persisted value
-- [ ] `get()` returns empty string when never set
-- [ ] `delete()` clears persisted state
-- [ ] `deactivate()` removes grain from memory
-- [ ] Next `get()` after `deactivate()` re-activates from persistence
-- [ ] State survives silo restart
-- [ ] Unit tests for all operations and the activate-from-persistence flow
+- [x] `system_grains()` returns a list containing `StringCacheGrain`
+- [x] `set("value")` persists the string
+- [x] `get()` returns the persisted value
+- [x] `get()` returns empty string when never set
+- [x] `delete()` clears persisted state
+- [x] `deactivate()` removes grain from memory
+- [x] Next `get()` after `deactivate()` re-activates from persistence
+- [x] State survives silo restart
+- [x] Unit tests for all operations and the activate-from-persistence flow
 
 ### Dev mode defaults
 

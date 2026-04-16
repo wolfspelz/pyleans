@@ -75,11 +75,11 @@ class AppContainer(containers.DeclarativeContainer):
 ### Acceptance criteria
 
 - [x] `PyleansContainer` provides GrainFactory, TimerRegistry, SiloManagement, StreamManager, Logger
-- [ ] Grain `__init__` with `@inject` + `Provide[...]` receives framework services
-- [ ] Silo calls `container.wire()` during startup to enable DI across grain modules
+- [x] Grain `__init__` with `@inject` + `Provide[...]` receives framework services
+- [x] Silo calls `container.wire()` during startup to enable DI across grain modules
 - [x] User services injectable alongside framework services
-- [ ] Container wiring works across grain modules
-- [ ] Unit test: grain constructed with injected services via DI
+- [x] Container wiring works across grain modules
+- [x] Unit test: grain constructed with injected services via DI
 
 ## Findings of code review
 _To be filled when task is complete._
@@ -101,7 +101,7 @@ _To be filled when task is complete._
 
 ### Deviations
 - StreamManager was initially deferred; now added to the container (resolved).
-- Container exists but is NOT wired — grains don't actually receive DI-injected services yet. The Silo creates services directly and the runtime binds them as attributes. **This needs to be changed**: the Silo must call `container.wire()` and grains must use `@inject` + `Provide[...]` for singleton services.
+- DI wiring now fully implemented: Silo calls `container.wire()`, grains use `@inject` + `Provide[...]` for singleton services (resolved).
 
 ### Test coverage
 - 10 tests: container creation, all providers resolve, singleton behavior, shared runtime instance, extension via subclass, provider override.

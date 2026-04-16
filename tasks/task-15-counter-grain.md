@@ -73,8 +73,8 @@ Note: `identity`, `state`, `save_state`, `clear_state` are still runtime-bound
 - [x] `set_value` sets and persists
 - [x] State survives grain deactivation and reactivation (read from file)
 - [x] Multiple counter instances (different keys) are independent
-- [ ] `SiloManagement` injected via `@inject` + `Provide[...]` in constructor
-- [ ] `get_silo_info()` returns silo metadata via DI-injected service
+- [x] `SiloManagement` injected via `@inject` + `Provide[...]` in constructor
+- [x] `get_silo_info()` returns silo metadata via DI-injected service
 
 ## Findings of code review
 

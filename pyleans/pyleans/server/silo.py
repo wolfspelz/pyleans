@@ -6,19 +6,22 @@ import logging
 import signal
 import time
 
+from dependency_injector import providers as di_providers
+
 from pyleans.gateway.listener import GatewayListener
 from pyleans.grain import _grain_registry
-from pyleans.server.silo_management import SiloManagement
 from pyleans.identity import SiloAddress, SiloInfo, SiloStatus
 from pyleans.providers.membership import MembershipProvider
 from pyleans.providers.storage import StorageProvider
 from pyleans.providers.streaming import StreamProvider
 from pyleans.reference import GrainFactory
 from pyleans.serialization import JsonSerializer
+from pyleans.server.container import PyleansContainer
 from pyleans.server.providers.file_storage import FileStorageProvider
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.providers.yaml_membership import YamlMembershipProvider
 from pyleans.server.runtime import GrainRuntime
+from pyleans.server.silo_management import SiloManagement
 from pyleans.server.timer import TimerRegistry
 
 logger = logging.getLogger(__name__)
@@ -81,10 +84,18 @@ class Silo:
             storage_providers=self._storage_providers,
             serializer=self._serializer,
             idle_timeout=self._idle_timeout,
-            silo_management=self._silo_management,
         )
         self._grain_factory = GrainFactory(runtime=self._runtime)
         self._timer_registry = TimerRegistry(runtime=self._runtime)
+
+        # DI container — override with actual instances
+        self._container = PyleansContainer()
+        self._container.runtime.override(di_providers.Object(self._runtime))
+        self._container.grain_factory.override(di_providers.Object(self._grain_factory))
+        self._container.timer_registry.override(di_providers.Object(self._timer_registry))
+        self._container.silo_management.override(
+            di_providers.Object(self._silo_management)
+        )
 
         self._gateway = GatewayListener(
             runtime=self._runtime, host=self._host, port=self._gateway_port
@@ -126,6 +137,7 @@ class Silo:
         idle collector and heartbeat, then waits for the stop event.
         """
         self._register_grain_classes()
+        self._wire_container()
         await self._register_in_membership()
         await self._runtime.start()
         await self._gateway.start()
@@ -148,6 +160,7 @@ class Silo:
         (e.g. FastAPI) or in tests.
         """
         self._register_grain_classes()
+        self._wire_container()
         await self._register_in_membership()
         await self._runtime.start()
         await self._gateway.start()
@@ -191,6 +204,18 @@ class Silo:
         for cls in self._grain_classes:
             grain_type: str = cls._grain_type  # type: ignore[attr-defined]
             _grain_registry[grain_type] = cls
+
+    def _wire_container(self) -> None:
+        """Wire the DI container so @inject works in grain modules."""
+        import sys
+
+        modules_to_wire = []
+        for cls in self._grain_classes:
+            mod = sys.modules.get(cls.__module__)
+            if mod is not None and mod not in modules_to_wire:
+                modules_to_wire.append(mod)
+        if modules_to_wire:
+            self._container.wire(modules=modules_to_wire)
 
     async def _register_in_membership(self) -> None:
         """Register this silo in the membership table."""

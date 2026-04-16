@@ -1,4 +1,4 @@
-"""Tests for SiloManagement service and system_grains() helper."""
+"""Tests for SiloManagement service, DI injection, and system_grains()."""
 
 import platform
 import socket
@@ -7,15 +7,18 @@ from typing import Any
 
 import pytest
 from conftest import FakeStorageProvider
+from dependency_injector.wiring import Provide, inject
 from pyleans.grain import _grain_registry, grain
 from pyleans.identity import GrainId, SiloStatus
 from pyleans.providers.membership import MembershipProvider
-from pyleans.server.grains import system_grains
+from pyleans.server.container import PyleansContainer
+from pyleans.server.grains import StringCacheGrain, system_grains
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.silo import Silo
+from pyleans.server.silo_management import SiloManagement
 
 
-# --- Test grain that exposes silo management ---
+# --- Test grain that uses DI for SiloManagement ---
 
 
 @dataclass
@@ -25,6 +28,13 @@ class MgmtCounterState:
 
 @grain(state_type=MgmtCounterState)
 class MgmtCounterGrain:
+    @inject
+    def __init__(
+        self,
+        silo_mgmt: SiloManagement = Provide[PyleansContainer.silo_management],  # type: ignore[assignment]
+    ) -> None:
+        self._silo_mgmt = silo_mgmt
+
     async def get_value(self) -> int:
         return self.state.value  # type: ignore[attr-defined]
 
@@ -34,7 +44,7 @@ class MgmtCounterGrain:
         return self.state.value  # type: ignore[attr-defined]
 
     async def get_silo_info(self) -> dict[str, Any]:
-        return self.silo_management.get_info()  # type: ignore[attr-defined]
+        return self._silo_mgmt.get_info()
 
 
 # --- Fake membership ---
@@ -91,16 +101,17 @@ class TestSystemGrains:
         result = system_grains()
         assert isinstance(result, list)
 
-    def test_currently_empty(self) -> None:
-        assert system_grains() == []
+    def test_contains_string_cache_grain(self) -> None:
+        assert StringCacheGrain in system_grains()
 
     def test_can_spread_into_grain_list(self) -> None:
         grains = [MgmtCounterGrain, *system_grains()]
         assert MgmtCounterGrain in grains
+        assert StringCacheGrain in grains
 
 
-class TestSiloManagementBinding:
-    async def test_silo_management_bound_to_grain(self) -> None:
+class TestSiloManagementDI:
+    async def test_silo_management_injected_via_di(self) -> None:
         silo = make_silo()
         await silo.start_background()
 
@@ -111,7 +122,7 @@ class TestSiloManagementBinding:
 
         await silo.stop()
 
-    async def test_silo_management_accessible_from_any_grain(self) -> None:
+    async def test_di_injection_accessible_from_any_grain(self) -> None:
         silo = make_silo()
         await silo.start_background()
 

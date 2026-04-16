@@ -1,13 +1,14 @@
 """Framework-provided grains for silo management."""
 
-__all__ = ["system_grains"]
+from pyleans.server.string_cache_grain import StringCacheGrain
+
+__all__ = ["StringCacheGrain", "system_grains"]
 
 
 def system_grains() -> list[type]:
     """Return the list of framework-provided grains.
 
-    Reserved for future use. Currently returns an empty list.
-    Use this in silo configuration to future-proof your grain list::
+    Use this in silo configuration to include pyleans system grains::
 
         from pyleans.server.grains import system_grains
 
@@ -15,5 +16,9 @@ def system_grains() -> list[type]:
             grains=[CounterGrain, *system_grains()],
             ...
         )
+
+    Currently includes:
+
+    - ``StringCacheGrain`` — simple string key-value store with persistence
     """
-    return []
+    return [StringCacheGrain]

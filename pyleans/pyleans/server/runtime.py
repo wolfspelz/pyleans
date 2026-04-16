@@ -62,14 +62,12 @@ class GrainRuntime:
         serializer: Serializer,
         grain_factory: Any = None,
         idle_timeout: float = _DEFAULT_IDLE_TIMEOUT,
-        silo_management: Any = None,
     ) -> None:
         self._activations: dict[GrainId, GrainActivation] = {}
         self._storage_providers = storage_providers
         self._serializer = serializer
         self._grain_factory = grain_factory
         self._idle_timeout = idle_timeout
-        self._silo_management = silo_management
         self._idle_collector_task: asyncio.Task[None] | None = None
 
     @property
@@ -149,8 +147,6 @@ class GrainRuntime:
             ) from e
 
         instance.identity = grain_id
-        if self._silo_management is not None:
-            instance.silo_management = self._silo_management
 
         activation = GrainActivation(grain_id=grain_id, instance=instance)
 
@@ -182,6 +178,8 @@ class GrainRuntime:
                 activation.state_loaded = True
 
             self._bind_state_methods(instance, activation, storage_name, state_type)
+
+        self._bind_request_deactivation(instance, grain_id)
 
         activation.worker_task = asyncio.create_task(self._grain_worker(activation))
         self._activations[grain_id] = activation
@@ -234,6 +232,25 @@ class GrainRuntime:
 
         instance.save_state = save_state
         instance.clear_state = clear_state
+
+    def _bind_request_deactivation(
+        self, instance: Any, grain_id: GrainId
+    ) -> None:
+        """Bind request_deactivation to the grain instance.
+
+        Schedules deactivation after the current turn completes.
+        Matches Orleans' DeactivateOnIdle().
+        """
+        runtime = self
+
+        def request_deactivation() -> None:
+            asyncio.get_running_loop().call_soon(
+                lambda: asyncio.ensure_future(
+                    runtime.deactivate_grain(grain_id)
+                )
+            )
+
+        instance.request_deactivation = request_deactivation
 
     async def deactivate_grain(self, grain_id: GrainId) -> None:
         """Call on_deactivate, stop worker, remove from activations."""

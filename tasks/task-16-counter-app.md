@@ -105,9 +105,9 @@ class CounterGrain:
 - [x] `data/membership.yaml` shows no silo entry after clean shutdown
 - [x] Grain state files created under `data/storage/CounterGrain/`
 - [x] Integration test: start silo, call grain via runtime, stop silo, verify state persisted
-- [ ] `AnswerGrain.get()` returns 42 (stateless grain, no persistence)
-- [ ] `CounterGrain.get_silo_info()` returns silo metadata via DI-injected `SiloManagement`
-- [ ] Silo info queryable from ClusterClient via the gateway
+- [x] `AnswerGrain.get()` returns 42 (stateless grain, no persistence)
+- [x] `CounterGrain.get_silo_info()` returns silo metadata via DI-injected `SiloManagement`
+- [x] Silo info queryable from ClusterClient via the gateway
 
 ## Findings of code review
 
