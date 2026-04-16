@@ -64,10 +64,10 @@ class Silo:
         self._idle_timeout = idle_timeout
 
         self._storage_providers = storage_providers or {
-            "default": FileStorageProvider("./pyleans-data/storage"),
+            "default": FileStorageProvider("./data/storage"),
         }
         self._membership_provider = membership_provider or YamlMembershipProvider(
-            "./pyleans-data/membership.yaml"
+            "./data/membership.yaml"
         )
         self._stream_providers = stream_providers or {
             "default": InMemoryStreamProvider(),

@@ -307,8 +307,8 @@ Option 1 is cleaner and matches Orleans' `DeactivateOnIdle()`.
 ### Dev mode defaults
 
 When no providers are specified, use sensible defaults:
-- `storage_providers={"default": FileStorageProvider("./pyleans-data/storage")}`
-- `membership_provider=YamlMembershipProvider("./pyleans-data/membership.yaml")`
+- `storage_providers={"default": FileStorageProvider("./data/storage")}`
+- `membership_provider=YamlMembershipProvider("./data/membership.yaml")`
 - `stream_providers={"default": InMemoryStreamProvider()}`
 
 ### Lifecycle

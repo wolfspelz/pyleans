@@ -36,7 +36,7 @@ class FileStorageProvider(StorageProvider):
     Each file contains: {"etag": "uuid-string", "state": {...}}
     """
 
-    def __init__(self, base_path: str = "./pyleans-data/storage") -> None:
+    def __init__(self, base_path: str = "./data/storage") -> None:
         self._base_path = Path(base_path).resolve()
 
     async def read(self, grain_type: str, grain_key: str) -> tuple[dict[str, Any], str | None]:

@@ -36,7 +36,7 @@ class FileStorageProvider(StorageProvider):
         }
     """
 
-    def __init__(self, base_path: str = "./pyleans-data/storage"):
+    def __init__(self, base_path: str = "./data/storage"):
         self._base_path = Path(base_path)
 
     async def read(self, grain_type, grain_key) -> tuple[dict, str | None]:

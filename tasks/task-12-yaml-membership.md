@@ -45,7 +45,7 @@ class YamlMembershipProvider(MembershipProvider):
             start_time: "2026-04-15T11:55:05Z"
     """
 
-    def __init__(self, file_path: str = "./pyleans-data/membership.yaml"):
+    def __init__(self, file_path: str = "./data/membership.yaml"):
         self._file_path = Path(file_path)
 
     async def register_silo(self, silo: SiloInfo) -> None:
