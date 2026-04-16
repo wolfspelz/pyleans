@@ -33,12 +33,13 @@ silo and a web API must share a process.
 
 import asyncio
 from pyleans.server import Silo
+from pyleans.server.grains import system_grains
 from pyleans.server.providers import FileStorageProvider, YamlMembershipProvider
 from counter_app.grains import CounterGrain
 
 async def main() -> None:
     silo = Silo(
-        grains=[CounterGrain],
+        grains=[CounterGrain, *system_grains()],
         storage_providers={"default": FileStorageProvider("./data/storage")},
         membership_provider=YamlMembershipProvider("./data/membership.yaml"),
     )
@@ -56,6 +57,7 @@ if __name__ == "__main__":
 - State persisted to files (survives restart)
 - Membership visible in YAML file
 - Ctrl+C triggers graceful shutdown via signal handling
+- `SiloGrain` included via `system_grains()` — explicit opt-in for framework management grains
 
 ### Acceptance criteria
 
@@ -65,6 +67,8 @@ if __name__ == "__main__":
 - [x] `data/membership.yaml` shows no silo entry after clean shutdown
 - [x] Grain state files created under `data/storage/CounterGrain/`
 - [x] Integration test: start silo, call grain via runtime, stop silo, verify state persisted
+- [ ] `SiloGrain` included via `system_grains()` and queryable via gateway
+- [ ] `SiloGrain.get_info()` returns silo metadata (silo_id, host, gateway_port, grain_count, etc.)
 
 ## Findings of code review
 

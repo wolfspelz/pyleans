@@ -95,6 +95,92 @@ class Silo:
         """Access to the grain runtime."""
 ```
 
+### SiloGrain — built-in management grain
+
+The pyleans library provides a `SiloGrain` — a framework-level grain that
+exposes silo metadata. Users opt in by calling `system_grains()` and
+spreading the result into their grain list.
+
+#### Files to create
+- `pyleans/pyleans/server/silo_grain.py`
+- `pyleans/pyleans/server/grains.py` (exports `system_grains()`)
+
+```python
+# pyleans/pyleans/server/silo_grain.py
+from pyleans import grain
+
+@grain
+class SiloGrain:
+    """Built-in grain for querying silo information."""
+
+    async def get_info(self) -> dict[str, object]:
+        """Return a dictionary of silo properties.
+
+        Keys:
+            silo_id: str           — encoded silo address (host_port_epoch)
+            host: str              — silo host address
+            hostname: str          — OS hostname
+            port: int              — silo port (for future cluster mesh)
+            gateway_port: int      — TCP gateway port for client connections
+            epoch: int             — silo start epoch
+            status: str            — current silo status (e.g. "active")
+            uptime_seconds: float  — seconds since silo start
+            grain_count: int       — number of currently active grains
+            idle_timeout: float    — grain idle timeout in seconds
+        """
+```
+
+The Silo injects its own metadata into the SiloGrain instance during
+activation (via a callback or by binding attributes, similar to how
+`identity` and `state` are bound by the runtime).
+
+#### system_grains() helper
+
+```python
+# pyleans/pyleans/server/grains.py
+from pyleans.server.silo_grain import SiloGrain
+
+def system_grains() -> list[type]:
+    """Return the list of framework-provided grains.
+
+    Use this to include pyleans management grains in your silo:
+
+        silo = Silo(
+            grains=[CounterGrain, *system_grains()],
+            ...
+        )
+
+    Currently includes:
+    - SiloGrain — exposes silo metadata via get_info()
+    """
+    return [SiloGrain]
+```
+
+This is explicit opt-in. Users can also import `SiloGrain` directly
+if they want only specific framework grains.
+
+#### Client usage
+
+```python
+from pyleans.server.silo_grain import SiloGrain
+
+client = ClusterClient(gateways=["localhost:30000"])
+await client.connect()
+silo = client.get_grain(SiloGrain, silo_id)
+info = await silo.get_info()
+print(info["grain_count"], info["uptime_seconds"])
+```
+
+#### Acceptance criteria (SiloGrain)
+
+- [ ] `system_grains()` returns a list containing `SiloGrain`
+- [ ] `SiloGrain` only registered when explicitly included in grain list
+- [ ] `get_info()` returns all documented keys
+- [ ] `grain_count` reflects the current number of active grains
+- [ ] `uptime_seconds` increases over time
+- [ ] Callable from ClusterClient via the gateway
+- [ ] Unit tests for SiloGrain info content and system_grains() helper
+
 ### Dev mode defaults
 
 When no providers are specified, use sensible defaults:
