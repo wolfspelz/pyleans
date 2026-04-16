@@ -95,6 +95,7 @@ Every contributor (human or AI) must follow these rules. No exceptions without e
 - Use `Protocol` for structural interfaces, `ABC` for contracts with shared implementation.
 - Avoid `Any` — use precise types. If `Any` is unavoidable, add a comment explaining why.
 - The project uses a static type checker (mypy or pyright) — code must pass strict mode.
+- **No `# type: ignore` in production code.** Fix the root cause instead: use `cast()`, `assert isinstance()`, typed helpers, or explicit attribute declarations. Test code may use `# type: ignore` where dynamic test patterns make strict typing impractical.
 
 ### Hexagonal Architecture (Ports & Adapters)
 

@@ -14,6 +14,7 @@ from pyleans.gateway.protocol import (
     encode_frame,
     read_frame,
 )
+from pyleans.grain import get_grain_type_name
 from pyleans.identity import GrainId
 
 logger = logging.getLogger(__name__)
@@ -94,7 +95,7 @@ class ClusterClient:
 
         The grain is not activated until the first method call.
         """
-        grain_type: str = grain_class._grain_type  # type: ignore[attr-defined]
+        grain_type = get_grain_type_name(grain_class)
         grain_id = GrainId(grain_type=grain_type, key=key)
         return RemoteGrainRef(grain_id=grain_id, client=self)
 

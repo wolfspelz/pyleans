@@ -1,8 +1,10 @@
 """StringCacheGrain — framework-provided string key-value store grain."""
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from pyleans.grain import grain
+from pyleans.identity import GrainId
 
 
 @dataclass
@@ -28,22 +30,29 @@ class StringCacheGrain:
         await cache.deactivate()        # removes from memory
     """
 
+    # Runtime-bound attributes (set during activation)
+    identity: GrainId
+    state: StringCacheState
+    save_state: Callable[[], Awaitable[None]]
+    clear_state: Callable[[], Awaitable[None]]
+    request_deactivation: Callable[[], None]
+
     async def set(self, value: str) -> None:
         """Set the cached value and persist."""
-        self.state.value = value  # type: ignore[attr-defined]
-        await self.save_state()  # type: ignore[attr-defined]
+        self.state.value = value
+        await self.save_state()
 
     async def get(self) -> str:
         """Return the cached value (empty string if never set)."""
-        return self.state.value  # type: ignore[attr-defined, no-any-return]
+        return self.state.value
 
     async def delete(self) -> None:
         """Clear the persisted state (resets value to empty string)."""
-        await self.clear_state()  # type: ignore[attr-defined]
+        await self.clear_state()
 
     async def deactivate(self) -> None:
         """Remove this grain from memory.
 
         The next call to this grain will re-activate it from persistence.
         """
-        self.request_deactivation()  # type: ignore[attr-defined]
+        self.request_deactivation()

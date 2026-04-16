@@ -2,7 +2,7 @@
 
 import dataclasses
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, cast
 
 import orjson
 
@@ -40,7 +40,7 @@ def _dataclass_to_dict(obj: Any) -> Any:
 def _dict_to_dataclass[T](data: Any, target_type: type[T]) -> T:
     """Recursively reconstruct a dataclass from a dict."""
     if not dataclasses.is_dataclass(target_type):
-        return data  # type: ignore[no-any-return]
+        return cast(T, data)
 
     field_values: dict[str, Any] = {}
     for field in dataclasses.fields(target_type):
@@ -96,4 +96,4 @@ class JsonSerializer(Serializer):
                     f"Cannot deserialize into {target_type.__name__}: {e}"
                 ) from e
 
-        return parsed  # type: ignore[no-any-return]
+        return cast(T, parsed)

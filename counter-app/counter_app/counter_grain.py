@@ -1,9 +1,11 @@
 """Counter grain — demonstrates stateful virtual actors with pyleans."""
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
 from dependency_injector.wiring import Provide, inject
+from pyleans.identity import GrainId
 from pyleans.server.container import PyleansContainer
 from pyleans.server.silo_management import SiloManagement
 
@@ -24,6 +26,13 @@ class CounterGrain:
     Each counter is identified by a unique key and maintains independent state.
     """
 
+    # Runtime-bound attributes (set during activation)
+    identity: GrainId
+    state: CounterState
+    save_state: Callable[[], Awaitable[None]]
+    clear_state: Callable[[], Awaitable[None]]
+    request_deactivation: Callable[[], None]
+
     @inject
     def __init__(
         self,
@@ -33,23 +42,23 @@ class CounterGrain:
 
     async def get_value(self) -> int:
         """Return the current counter value."""
-        return self.state.value  # type: ignore[attr-defined, no-any-return]
+        return self.state.value
 
     async def increment(self) -> int:
         """Increment the counter by 1 and persist. Returns the new value."""
-        self.state.value += 1  # type: ignore[attr-defined]
-        await self.save_state()  # type: ignore[attr-defined]
-        return self.state.value  # type: ignore[attr-defined, no-any-return]
+        self.state.value += 1
+        await self.save_state()
+        return self.state.value
 
     async def set_value(self, value: int) -> None:
         """Set the counter to a specific value and persist."""
-        self.state.value = value  # type: ignore[attr-defined]
-        await self.save_state()  # type: ignore[attr-defined]
+        self.state.value = value
+        await self.save_state()
 
     async def reset(self) -> None:
         """Reset the counter to zero and persist."""
-        self.state.value = 0  # type: ignore[attr-defined]
-        await self.save_state()  # type: ignore[attr-defined]
+        self.state.value = 0
+        await self.save_state()
 
     async def get_silo_info(self) -> dict[str, Any]:
         """Return metadata about the silo hosting this grain."""

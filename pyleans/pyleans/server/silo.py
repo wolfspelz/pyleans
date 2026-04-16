@@ -9,7 +9,7 @@ import time
 from dependency_injector import providers as di_providers
 
 from pyleans.gateway.listener import GatewayListener
-from pyleans.grain import _grain_registry
+from pyleans.grain import _grain_registry, get_grain_type_name
 from pyleans.identity import SiloAddress, SiloInfo, SiloStatus
 from pyleans.providers.membership import MembershipProvider
 from pyleans.providers.storage import StorageProvider
@@ -200,7 +200,7 @@ class Silo:
     def _register_grain_classes(self) -> None:
         """Ensure all grain classes are in the global registry."""
         for cls in self._grain_classes:
-            grain_type: str = cls._grain_type  # type: ignore[attr-defined]
+            grain_type = get_grain_type_name(cls)
             _grain_registry[grain_type] = cls
 
     def _wire_container(self) -> None:

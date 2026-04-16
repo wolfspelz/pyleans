@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from pyleans.grain import get_grain_type_name
 from pyleans.identity import GrainId
 
 if TYPE_CHECKING:
@@ -60,6 +61,6 @@ class GrainFactory:
 
         Does NOT activate the grain — activation happens on first call.
         """
-        grain_type: str = grain_class._grain_type  # type: ignore[attr-defined]
+        grain_type = get_grain_type_name(grain_class)
         grain_id = GrainId(grain_type=grain_type, key=key)
         return GrainRef(grain_id=grain_id, runtime=self._runtime)

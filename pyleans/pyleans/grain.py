@@ -12,6 +12,11 @@ _grain_registry: dict[str, type] = {}
 LIFECYCLE_METHODS = frozenset({"on_activate", "on_deactivate"})
 
 
+def _set_grain_metadata(cls: type, name: str, value: Any) -> None:
+    """Set a metadata attribute on a grain class (used by the decorator)."""
+    type.__setattr__(cls, name, value)
+
+
 def grain(
     cls: type | None = None,
     *,
@@ -29,9 +34,9 @@ def grain(
     """
 
     def decorator(cls: type) -> type:
-        cls._grain_type = cls.__name__  # type: ignore[attr-defined]
-        cls._state_type = state_type  # type: ignore[attr-defined]
-        cls._storage_name = storage  # type: ignore[attr-defined]
+        _set_grain_metadata(cls, "_grain_type", cls.__name__)
+        _set_grain_metadata(cls, "_state_type", state_type)
+        _set_grain_metadata(cls, "_storage_name", storage)
 
         _grain_registry[cls.__name__] = cls
         return cls
@@ -47,6 +52,12 @@ def get_grain_class(grain_type: str) -> type:
         return _grain_registry[grain_type]
     except KeyError:
         raise GrainNotFoundError(f"Grain type {grain_type!r} not registered") from None
+
+
+def get_grain_type_name(grain_class: type) -> str:
+    """Return the grain type name for a decorated grain class."""
+    name: str = getattr(grain_class, "_grain_type", grain_class.__name__)
+    return name
 
 
 def get_grain_methods(grain_class: type) -> dict[str, Callable[..., Any]]:

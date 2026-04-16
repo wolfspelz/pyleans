@@ -263,7 +263,8 @@ class GrainRuntime:
             if item is _SENTINEL:
                 break
 
-            call: _MethodCall = item  # type: ignore[assignment]
+            assert isinstance(item, _MethodCall)
+            call = item
             activation.last_activity = time.monotonic()
 
             try:
