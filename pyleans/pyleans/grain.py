@@ -3,13 +3,15 @@
 import asyncio
 import inspect
 from collections.abc import Callable
-from typing import Any
+from typing import Any, get_args, get_origin
 
 from pyleans.errors import GrainNotFoundError
+from pyleans.grain_base import Grain
 
 _grain_registry: dict[str, type] = {}
 
 LIFECYCLE_METHODS = frozenset({"on_activate", "on_deactivate"})
+_BASE_CLASS_METHODS = frozenset({"save_state", "clear_state", "request_deactivation"})
 
 
 def _set_grain_metadata(cls: type, name: str, value: Any) -> None:
@@ -34,8 +36,9 @@ def grain(
     """
 
     def decorator(cls: type) -> type:
+        resolved_state_type = state_type if state_type is not None else _infer_state_type(cls)
         _set_grain_metadata(cls, "_grain_type", cls.__name__)
-        _set_grain_metadata(cls, "_state_type", state_type)
+        _set_grain_metadata(cls, "_state_type", resolved_state_type)
         _set_grain_metadata(cls, "_storage_name", storage)
 
         _grain_registry[cls.__name__] = cls
@@ -44,6 +47,17 @@ def grain(
     if cls is not None:
         return decorator(cls)
     return decorator
+
+
+def _infer_state_type(cls: type) -> type | None:
+    """Extract TState from Grain[TState] if cls inherits from it."""
+    for base in getattr(cls, "__orig_bases__", ()):
+        origin = get_origin(base)
+        if origin is Grain:
+            args = get_args(base)
+            if args and args[0] is not type(None):
+                return args[0]  # type: ignore[no-any-return]
+    return None
 
 
 def get_grain_class(grain_type: str) -> type:
@@ -69,7 +83,7 @@ def get_grain_methods(grain_class: type) -> dict[str, Callable[..., Any]]:
     for name, method in inspect.getmembers(grain_class, predicate=inspect.isfunction):
         if name.startswith("_"):
             continue
-        if name in LIFECYCLE_METHODS:
+        if name in LIFECYCLE_METHODS or name in _BASE_CLASS_METHODS:
             continue
         if asyncio.iscoroutinefunction(method):
             methods[name] = method

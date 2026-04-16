@@ -40,7 +40,7 @@ _TEST_GRAINS.append(ErrorTimerGrain)
 
 
 @pytest.fixture(autouse=True)
-def _reset_registry() -> None:  # type: ignore[misc]
+def _reset_registry() -> None:
     _grain_registry.clear()
     for cls in _TEST_GRAINS:
         _grain_registry[cls.__name__] = cls

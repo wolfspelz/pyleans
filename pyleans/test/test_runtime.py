@@ -8,6 +8,7 @@ import pytest
 from conftest import FakeStorageProvider
 from pyleans.errors import GrainMethodError, GrainNotFoundError
 from pyleans.grain import _grain_registry, grain
+from pyleans.grain_base import Grain
 from pyleans.identity import GrainId
 from pyleans.providers.storage import StorageProvider
 from pyleans.serialization import JsonSerializer
@@ -28,7 +29,7 @@ def _register_grain(cls: type) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _reset_registry() -> None:  # type: ignore[misc]
+def _reset_registry() -> None:
     _grain_registry.clear()
     for cls in _GRAIN_CLASSES:
         _grain_registry[cls.__name__] = cls
@@ -51,8 +52,8 @@ def make_runtime(
 # --- Grain definitions for testing ---
 
 
-@grain(state_type=CounterState)
-class CounterGrain:
+@grain
+class CounterGrain(Grain[CounterState]):
     async def get_value(self) -> int:
         return self.state.value
 

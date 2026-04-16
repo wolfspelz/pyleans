@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 from conftest import FakeStorageProvider
 from pyleans.grain import _grain_registry, grain
+from pyleans.grain_base import Grain
 from pyleans.identity import GrainId, SiloStatus
 from pyleans.providers.membership import MembershipProvider
 from pyleans.providers.storage import StorageProvider
@@ -25,8 +26,8 @@ class CounterState:
     value: int = 0
 
 
-@grain(state_type=CounterState)
-class SiloCounterGrain:
+@grain
+class SiloCounterGrain(Grain[CounterState]):
     async def get_value(self) -> int:
         return self.state.value
 
@@ -66,7 +67,7 @@ for _cls in _TEST_GRAINS:
 
 
 @pytest.fixture(autouse=True)
-def _reset_registry() -> None:  # type: ignore[misc]
+def _reset_registry() -> None:
     _grain_registry.clear()
     for name, cls in _ORIGINAL_CLASSES.items():
         _grain_registry[name] = cls

@@ -20,7 +20,7 @@ class CounterState:
 
 # Clear registry between tests to avoid pollution
 @pytest.fixture(autouse=True)
-def _clear_registry() -> None:  # type: ignore[misc]
+def _clear_registry() -> None:
     _grain_registry.clear()
 
 

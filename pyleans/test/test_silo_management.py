@@ -9,6 +9,7 @@ import pytest
 from conftest import FakeStorageProvider
 from dependency_injector.wiring import Provide, inject
 from pyleans.grain import _grain_registry, grain
+from pyleans.grain_base import Grain
 from pyleans.identity import SiloStatus
 from pyleans.providers.membership import MembershipProvider
 from pyleans.server.container import PyleansContainer
@@ -25,22 +26,22 @@ class MgmtCounterState:
     value: int = 0
 
 
-@grain(state_type=MgmtCounterState)
-class MgmtCounterGrain:
+@grain
+class MgmtCounterGrain(Grain[MgmtCounterState]):
     @inject
     def __init__(
         self,
-        silo_mgmt: SiloManagement = Provide[PyleansContainer.silo_management],  # type: ignore[assignment]
+        silo_mgmt: SiloManagement = Provide[PyleansContainer.silo_management],
     ) -> None:
         self._silo_mgmt = silo_mgmt
 
     async def get_value(self) -> int:
-        return self.state.value  # type: ignore[attr-defined]
+        return self.state.value
 
     async def increment(self) -> int:
-        self.state.value += 1  # type: ignore[attr-defined]
-        await self.save_state()  # type: ignore[attr-defined]
-        return self.state.value  # type: ignore[attr-defined]
+        self.state.value += 1
+        await self.save_state()
+        return self.state.value
 
     async def get_silo_info(self) -> dict[str, Any]:
         return self._silo_mgmt.get_info()
@@ -76,7 +77,7 @@ _TEST_GRAINS = [MgmtCounterGrain]
 
 
 @pytest.fixture(autouse=True)
-def _reset_registry() -> None:  # type: ignore[misc]
+def _reset_registry() -> None:
     _grain_registry.clear()
     for cls in _TEST_GRAINS:
         _grain_registry[cls.__name__] = cls

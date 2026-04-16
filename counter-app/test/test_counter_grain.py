@@ -78,7 +78,7 @@ class FakeMembershipProvider(MembershipProvider):
 
 
 @pytest.fixture(autouse=True)
-def _ensure_grain_registered() -> None:  # type: ignore[misc]
+def _ensure_grain_registered() -> None:
     """Make sure CounterGrain is in the registry for each test."""
     _grain_registry["CounterGrain"] = CounterGrain
 

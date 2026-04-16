@@ -177,11 +177,5 @@ _To be filled when task is complete._
 ### Test coverage
 - 20 tests: activation (first call, reuse, unknown type/method), state management (load from storage, defaults, save, clear), lifecycle hooks (on_activate/on_deactivate), turn-based execution (sequential same grain, concurrent different grains), error propagation, idle collection, start/stop.
 
-## Open: Grain Base Class Refactoring (Decision 11)
 
-Per [pyleans-plan.md Decision 11](../docs/pyleans-plan.md), the runtime's `activate_grain`
-method must work with grains that inherit from `Grain[TState]`. The existing `setattr()`
-binding mechanism stays the same — the base class provides stub methods that the runtime
-overrides during activation. No changes to the binding logic itself, but the runtime
-should verify that `Grain[TState]` subclasses work correctly (stubs raise before
-activation, overrides work after). Update tests to use `Grain[TState]`-based grains.
+**Resolved**: Grain Base Class (Decision 11) implemented in [task-07-grain-base-class.md](task-07-grain-base-class.md). Test grains updated to use `Grain[TState]`.

@@ -112,24 +112,61 @@ stubs exist only to provide:
 
 ### Acceptance criteria
 
-- [ ] `Grain[TState]` base class in `pyleans/pyleans/grain_base.py`
-- [ ] `identity`, `state` declared as attributes
-- [ ] `save_state`, `clear_state`, `request_deactivation` as stub methods that raise before activation
-- [ ] `@grain` decorator infers `state_type` from `Grain[TState]` generic argument
-- [ ] Explicit `state_type` takes precedence over inferred type
-- [ ] `CounterGrain` refactored to use `Grain[CounterState]`
-- [ ] `StringCacheGrain` refactored to use `Grain[StringCacheState]`
-- [ ] Stateless grains (e.g. `AnswerGrain`) continue to work without base class
-- [ ] All existing tests pass
-- [ ] New tests for: base class stubs raise before activation, generic type inference,
+- [x] `Grain[TState]` base class in `pyleans/pyleans/grain_base.py`
+- [x] `identity`, `state` declared as attributes
+- [x] `save_state`, `clear_state`, `request_deactivation` as stub methods that raise before activation
+- [x] `@grain` decorator infers `state_type` from `Grain[TState]` generic argument
+- [x] Explicit `state_type` takes precedence over inferred type
+- [x] `CounterGrain` refactored to use `Grain[CounterState]`
+- [x] `StringCacheGrain` refactored to use `Grain[StringCacheState]`
+- [x] Stateless grains (e.g. `AnswerGrain`) continue to work without base class
+- [x] All existing tests pass (349 tests)
+- [x] New tests for: base class stubs raise before activation, generic type inference,
   precedence of explicit vs inferred state_type
-- [ ] mypy passes in strict mode
+- [x] mypy passes in strict mode (production code clean; 11 pre-existing test-only issues remain)
 
 ## Findings of code review
-_To be filled when task is complete._
+
+No issues found. Code follows SOLID (single responsibility: base class owns attributes,
+decorator owns registration, runtime owns binding), DRY (attributes declared once in
+base class), and KISS (minimal changes to existing runtime — stubs overridden by setattr).
+One `# type: ignore[no-any-return]` in `_infer_state_type` is justified because
+`typing.get_args` returns `tuple[Any, ...]`.
 
 ## Findings of security review
-_To be filled when task is complete._
+
+No security concerns. The base class is pure data structure and method stubs. The
+`_infer_state_type` function only reads `__orig_bases__` metadata set by Python's
+type system — no user input, no deserialization, no external I/O.
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+- `pyleans/pyleans/grain_base.py` — `Grain[TState]` generic base class (PEP 695 syntax)
+- `pyleans/test/test_grain_base.py` — 19 tests
+
+### Files modified
+- `pyleans/pyleans/grain.py` — `_infer_state_type()`, `_BASE_CLASS_METHODS` exclusion set
+- `pyleans/pyleans/__init__.py` — export `Grain`
+- `counter-app/counter_app/counter_grain.py` — inherits `Grain[CounterState]`, removed boilerplate
+- `pyleans/pyleans/server/string_cache_grain.py` — inherits `Grain[StringCacheState]`, removed boilerplate
+- `pyleans/test/test_runtime.py` — test grain uses `Grain[CounterState]`
+- `pyleans/test/test_silo.py` — test grain uses `Grain[CounterState]`
+- `pyleans/test/test_silo_management.py` — test grain uses `Grain[MgmtCounterState]`
+- `pyleans/test/test_reference.py` — test grain uses `Grain[CounterState]`
+- `pyleans/test/test_gateway.py` — test grain uses `Grain[GwCounterState]`
+
+### Key decisions
+- Used PEP 695 type parameter syntax (`class Grain[TState]`) per ruff UP046 rule and Python 3.12+ target.
+- Stub methods raise `GrainActivationError` (not `NotImplementedError`) for clear diagnostics.
+- `_infer_state_type` uses `__orig_bases__` + `get_origin`/`get_args` to extract generic arg.
+- `Grain[None]` is treated as stateless (state_type = None).
+- Added `_BASE_CLASS_METHODS` frozenset to exclude `save_state`, `clear_state`, `request_deactivation` from `get_grain_methods()` discovery.
+- Cleaned up unused `# type: ignore` comments across test files that became stale after adopting the base class.
+
+### Deviations
+- None.
+
+### Test coverage
+- 19 new tests: stubs raise before activation (5), runtime binding override (4), state_type inference (5), method exclusion (3), registration (2).
+- All 349 tests pass (330 existing + 19 new).

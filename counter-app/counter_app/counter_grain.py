@@ -1,15 +1,13 @@
 """Counter grain — demonstrates stateful virtual actors with pyleans."""
 
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
 from dependency_injector.wiring import Provide, inject
-from pyleans.identity import GrainId
 from pyleans.server.container import PyleansContainer
 from pyleans.server.silo_management import SiloManagement
 
-from pyleans import grain
+from pyleans import Grain, grain
 
 
 @dataclass
@@ -19,19 +17,12 @@ class CounterState:
     value: int = 0
 
 
-@grain(state_type=CounterState, storage="default")
-class CounterGrain:
+@grain(storage="default")
+class CounterGrain(Grain[CounterState]):
     """A simple counter that persists its value across activations.
 
     Each counter is identified by a unique key and maintains independent state.
     """
-
-    # Runtime-bound attributes (set during activation)
-    identity: GrainId
-    state: CounterState
-    save_state: Callable[[], Awaitable[None]]
-    clear_state: Callable[[], Awaitable[None]]
-    request_deactivation: Callable[[], None]
 
     @inject
     def __init__(

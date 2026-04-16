@@ -9,6 +9,7 @@ from conftest import FakeStorageProvider
 from pyleans.client import ClusterClient, RemoteGrainRef
 from pyleans.errors import TransportError
 from pyleans.grain import _grain_registry, grain
+from pyleans.grain_base import Grain
 from pyleans.identity import GrainId, SiloStatus
 from pyleans.providers.membership import MembershipProvider
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
@@ -22,8 +23,8 @@ class GwCounterState:
     value: int = 0
 
 
-@grain(state_type=GwCounterState)
-class GwCounterGrain:
+@grain
+class GwCounterGrain(Grain[GwCounterState]):
     async def get_value(self) -> int:
         return self.state.value
 
@@ -47,7 +48,7 @@ _GW_GRAINS = [GwCounterGrain, GwErrorGrain]
 
 
 @pytest.fixture(autouse=True)
-def _reset_registry() -> None:  # type: ignore[misc]
+def _reset_registry() -> None:
     _grain_registry.clear()
     for cls in _GW_GRAINS:
         _grain_registry[cls.__name__] = cls

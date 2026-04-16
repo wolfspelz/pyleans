@@ -75,7 +75,7 @@ Tasks ordered by dependency. Each task can start when all its dependencies are c
 | # | Task | Status | Dependencies |
 |---|---|---|---|
 | 06 | [Grain Decorator](task-06-grain-decorator.md) | [x] | 02, 04 |
-| 07 | [Grain Base Class](task-07-grain-base-class.md) | [ ] | 02, 03, 06 |
+| 07 | [Grain Base Class](task-07-grain-base-class.md) | [x] | 02, 03, 06 |
 | 11 | [File Storage Provider](task-11-file-storage.md) | [x] | 04, 05 |
 | 12 | [YAML Membership Provider](task-12-yaml-membership.md) | [x] | 02, 05 |
 | 14 | [In-Memory Stream Provider](task-14-in-memory-streaming.md) | [x] | 05, 08 |
