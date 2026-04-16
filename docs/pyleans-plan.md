@@ -48,112 +48,82 @@ updated as we iterate on design decisions.
 
 ---
 
-## 2. Key Design Decisions
+## 2. Design Reference
 
-### Decision 1: Grain Interfaces -- Separate or Not?
+### Grain Base Class -- `Grain[TState]`
 
-**C# approach**: Orleans requires a separate `IGrainInterface` (C# interface) and a
-`GrainClass` (implementation). The interface is used to generate strongly-typed proxies.
-This is idiomatic C# and enables compile-time type checking.
+Stateful grains inherit from `Grain[TState]`, a generic base class that provides
+all runtime-bound attributes. This matches Orleans' `Grain<TState>` pattern. Only
+one type parameter (state) since grain keys are always strings (see Excluded table).
 
-```csharp
-// C# Orleans
-public interface IPlayerGrain : IGrainWithStringKey
-{
-    Task<string> GetName();
-    Task SetName(string name);
-}
+The base class provides:
+- `identity: GrainId` — set by the runtime during activation
+- `state: TState` — loaded from storage before `on_activate`
+- `write_state()` — persist current state (async)
+- `clear_state()` — clear persisted state and reset to defaults (async)
+- `deactivate_on_idle()` — request deactivation after the current turn (sync)
 
-public class PlayerGrain : Grain, IPlayerGrain
-{
-    private string _name;
-    public Task<string> GetName() => Task.FromResult(_name);
-    public Task SetName(string name) { _name = name; return Task.CompletedTask; }
-}
-```
+Stub methods raise `GrainActivationError` if called before activation. The runtime
+overrides them with `setattr()` during activation, binding closures that capture the
+activation context (storage provider, etag, etc.).
 
-**Python options**:
-
-**Option A -- Decorated class only (no separate interface)**:
 ```python
-@grain
-class PlayerGrain:
-    def __init__(self):
-        self.name = ""
+@grain(storage="default")
+class CounterGrain(Grain[CounterState]):
+    async def get_value(self) -> int:
+        return self.state.value
 
-    async def get_name(self) -> str:
-        return self.name
-
-    async def set_name(self, name: str) -> None:
-        self.name = name
+    async def increment(self) -> int:
+        self.state.value += 1
+        await self.write_state()
+        return self.state.value
 ```
-- Pros: Minimal boilerplate, Pythonic, fast to write.
-- Cons: No explicit contract. The proxy must introspect the class or use `__getattr__`.
-  Type checkers can't verify grain calls at the call site.
 
-**Option B -- ABC as interface, class as implementation**:
-```python
-class IPlayerGrain(GrainInterface):
-    async def get_name(self) -> str: ...
-    async def set_name(self, name: str) -> None: ...
+The `@grain` decorator infers `state_type` from the generic type argument, so
+`@grain(storage="default")` suffices — no need to repeat the state type. Explicit
+`state_type` takes precedence if both are provided.
 
-@grain
-class PlayerGrain(Grain, IPlayerGrain):
-    def __init__(self):
-        self.name = ""
-
-    async def get_name(self) -> str:
-        return self.name
-
-    async def set_name(self, name: str) -> None:
-        self.name = name
-```
-- Pros: Explicit contract. Proxy can be typed as `IPlayerGrain`. Type checkers work.
-  Closer to Orleans. Enables generating typed stubs.
-- Cons: More boilerplate. Two things to maintain.
-
-**Option C -- Protocol-based (structural typing)**:
-```python
-class IPlayerGrain(Protocol):
-    async def get_name(self) -> str: ...
-    async def set_name(self, name: str) -> None: ...
-
-@grain
-class PlayerGrain:
-    # No explicit inheritance needed -- just implement the methods
-    ...
-```
-- Pros: Pythonic structural typing. Type checkers can verify without inheritance.
-- Cons: Protocol is a type-checking concept, not a runtime one. Harder to use
-  for proxy generation at runtime.
-
-**DECIDED: Option A -- Decorated class only.**
-The `@grain` decorator registers the class and its public async methods as the grain
-interface. Proxy objects use `__getattr__` to forward calls. This gets us running fast.
-If we later need typed proxies for larger projects, we add optional ABC-based interfaces.
+Stateless grains may optionally inherit `Grain[None]` if they need `identity` or
+`deactivate_on_idle`, but are not required to.
 
 ---
 
-### Decision 2: Concurrency Model -- asyncio and the GIL
+### Grain Interfaces
 
-**The problem**: Orleans runs grains in a single-threaded turn-based model. Each grain
-processes one message at a time. But a silo hosts thousands of grains concurrently.
-In C#/.NET, this is handled by the Task scheduler and async/await.
+The `@grain` decorator on a class is the sole interface definition. The decorator
+registers the class and its public async methods as the grain interface. Proxy objects
+use `__getattr__` to forward calls. No separate interface class is needed.
 
-**Python's situation**:
-- **GIL**: Only one thread executes Python bytecode at a time. This is actually
-  *helpful* -- it gives us the single-threaded guarantee for free within a process.
-- **asyncio**: Python's built-in cooperative concurrency. Perfect fit for the
-  turn-based model. Each grain method is a coroutine. While one grain awaits (e.g.,
-  calling another grain, reading storage), other grains can run.
-- **Multi-core**: A single Python process uses one core. For multi-core, run
-  multiple silo processes (one per core or a subset). This is exactly the Orleans
-  model -- multiple silos on the same machine.
+```python
+@grain
+class PlayerGrain(Grain[PlayerState]):
+    async def get_name(self) -> str:
+        return self.state.name
 
-**Design**:
+    async def set_name(self, name: str) -> None:
+        self.state.name = name
+        await self.write_state()
 ```
-One silo = one Python process = one asyncio event loop
 
+In Orleans C#, grains require a separate `IGrainInterface` and a `GrainClass`. In
+Python this would mean duplicate declarations. The decorator approach is minimal
+and Pythonic.
+
+> **Rejected alternatives**: (a) ABC-based interfaces (`class IPlayerGrain(GrainInterface)`)
+> — explicit contracts and typed proxies, but doubles the boilerplate. (b) Protocol-based
+> structural typing — Pythonic for type checking but not usable for runtime proxy generation.
+> Either can be added later as an optional layer if needed.
+
+---
+
+### Concurrency Model
+
+One silo = one Python process = one asyncio event loop. Each grain has a dedicated
+`asyncio.Queue` for incoming messages. A worker coroutine drains the queue one
+message at a time, enforcing turn-based execution: only one method executes at a
+time per grain, but different grains run concurrently via asyncio.
+
+```
 Grain activation:
   - Each grain has a dedicated asyncio.Queue for incoming messages
   - A worker coroutine drains the queue one message at a time
@@ -162,37 +132,26 @@ Grain activation:
   - But OTHER grains on the same silo run concurrently via asyncio
 ```
 
-**This is settled**: asyncio is the right answer. No threads needed inside a silo.
-The GIL is our friend here. Multi-core = multiple silo processes.
+The GIL gives us the single-threaded guarantee for free within a process. While
+one grain awaits (e.g., calling another grain, reading storage), other grains run.
 
-**Multi-core**: One silo = one process = one core. Want multi-core? Run multiple silos.
-No built-in multi-process wrapper -- the operator starts N silo processes on different
-ports (via shell, systemd, k8s, etc.). They find each other via the membership table.
+**Multi-core**: One silo = one process = one core. Want multi-core? Run multiple
+silos. The operator starts N silo processes on different ports (via shell, systemd,
+k8s, etc.). They find each other via the membership table.
 
-Note: Python 3.13+ has experimental free-threaded mode (no GIL). We keep this in mind
-but don't rely on it. Our asyncio design works with or without the GIL.
+Note: Python 3.13+ has experimental free-threaded mode (no GIL). Our asyncio
+design works with or without the GIL.
 
 ---
 
-### Decision 3: Serialization
+### Serialization
 
-**C# Orleans**: Uses a custom code-generated serializer with `[GenerateSerializer]` and
-`[Id(n)]` field tags. Supports versioning, object graph references, and inheritance.
+JSON via `dataclasses` + `orjson` for speed. The serialization layer is behind a
+pluggable `Serializer` ABC, so implementations can be swapped (e.g., msgpack for
+production).
 
-**Python options**:
-
-| Format | Pros | Cons |
-|---|---|---|
-| JSON (`json` / `orjson`) | Human-readable, universal, no schema | Slow for large payloads, no binary |
-| MessagePack (`msgpack`) | Fast, compact, cross-language | Not human-readable |
-| pickle | Zero-effort for Python objects | Security risk, Python-only, version-fragile |
-| Protocol Buffers | Schema, cross-language, fast | Requires `.proto` compilation step |
-
-**DECIDED: JSON for PoC** (using `dataclasses` + `orjson` for speed).
-The serialization layer is behind an interface, so we can swap in msgpack later.
-
-Grain state and method arguments must be serializable. We enforce this by convention:
-grain state should be a `@dataclass`, method arguments should be JSON-serializable types.
+Grain state must be a `@dataclass`. Method arguments must be JSON-serializable types.
+This is enforced by convention, not runtime checks.
 
 ```python
 @dataclass
@@ -202,25 +161,24 @@ class PlayerState:
     inventory: list[str] = field(default_factory=list)
 
 @grain(state_type=PlayerState, storage="default")
-class PlayerGrain:
-    state: PlayerState  # auto-loaded on activation, auto-typed
-
+class PlayerGrain(Grain[PlayerState]):
     async def get_name(self) -> str:
         return self.state.name
 ```
 
+> **Rejected alternatives**: MessagePack (fast/compact but not human-readable),
+> pickle (security risk, Python-only), Protocol Buffers (requires `.proto` compilation).
+
 ---
 
-### Decision 4: Dependency Injection
+### Dependency Injection
 
-**C# Orleans**: Full .NET DI container. ALL services -- framework and user -- are
-constructor-injected. There is no special context bag. `IGrainFactory`, `ILogger`,
-`IPersistentState<T>`, and user services all come through the constructor.
+All services — framework and user — are constructor-injected via the
+`dependency-injector` package, matching Orleans' approach. There is no context
+object or service locator. `GrainFactory`, `TimerRegistry`, `SiloManagement`,
+and user services all come through the constructor with `@inject` + `Provide[...]`.
 
-**DECIDED: Match Orleans -- all-DI via `dependency-injector`, no context object.**
-
-Using the `dependency-injector` package, framework and user services are injected
-identically through the grain constructor:
+Framework and user services are injected identically through the grain constructor:
 
 ```python
 from abc import ABC, abstractmethod
@@ -311,7 +269,7 @@ class PlayerGrain:
 - `self.identity` -- set by the runtime during activation
 - `self.state` -- loaded from storage on activation (configured via `@grain(state_type=...)`)
 - `self.write_state()`, `self.clear_state()`, `self.deactivate_on_idle()` -- bound by runtime
-- See Decision 11 for the `Grain[TState]` base class that provides these
+- See "Grain Base Class" for the `Grain[TState]` base class that provides these
 
 **Testing**: Clean -- just pass mocks to the constructor. The app interface
 makes it natural to swap implementations:
@@ -329,9 +287,11 @@ grain = PlayerGrain(
 
 ---
 
-### Decision 5: Provider Interfaces -- Kept Minimal
+### Provider Interfaces
 
-All providers follow the same pattern: an ABC with the minimum required methods.
+Minimal ABCs with the minimum required methods. Each provider type has one ABC
+(port) and one or more concrete adapters. All external dependencies are accessed
+through these interfaces, following hexagonal architecture.
 
 **Storage Provider**:
 ```python
@@ -392,89 +352,64 @@ Each provider gets a simple default implementation:
 
 ---
 
-### Decision 11: Grain Base Class -- `Grain[TState]`
+### Grain Directory
 
-**The problem**: Every stateful grain must declare 5 identical runtime-bound attributes
-(`identity`, `state`, `write_state`, `clear_state`, `deactivate_on_idle`) plus their
-imports. This is pure boilerplate that adds noise and violates DRY.
+Consistent hash ring with virtual nodes (30 per silo), eventually consistent
+(pre-Orleans 9.0 style). Each silo owns a partition of the hash ring and
+maintains a local directory cache. Strong consistency (Orleans 9.0+ style)
+is deferred to post-PoC.
 
-**C# Orleans**: Grains inherit from `Grain<TState>`, which provides `State`, `WriteStateAsync()`,
-`ClearStateAsync()`, and `DeactivateOnIdle()`. Users never declare these themselves.
-Note: Orleans also parameterizes by key type (`IGrainWithStringKey`, `IGrainWithGuidKey`, etc.),
-but pyleans uses string keys exclusively (see Excluded table), so `Grain[TState]` has only
-one type parameter.
-
-**Current pyleans approach** (Phase 1, to be refactored):
-```python
-@grain(state_type=CounterState, storage="default")
-class CounterGrain:
-    # 5 lines of identical boilerplate in every stateful grain
-    identity: GrainId
-    state: CounterState
-    write_state: Callable[[], Awaitable[None]]
-    clear_state: Callable[[], Awaitable[None]]
-    deactivate_on_idle: Callable[[], None]
-
-    async def get_value(self) -> int:
-        return self.state.value
-```
-
-**DECIDED: Introduce a `Grain[TState]` generic base class.**
-
-```python
-# pyleans/grain_base.py
-class Grain(Generic[TState]):
-    """Base class for all grains. Provides runtime-bound attributes."""
-    identity: GrainId
-    state: TState
-
-    async def write_state(self) -> None:
-        """Persist the current state. Bound by runtime during activation."""
-        raise GrainActivationError("write_state not bound -- grain not activated")
-
-    async def clear_state(self) -> None:
-        """Clear persisted state. Bound by runtime during activation."""
-        raise GrainActivationError("clear_state not bound -- grain not activated")
-
-    def deactivate_on_idle(self) -> None:
-        """Request deactivation after current turn. Bound by runtime during activation."""
-        raise GrainActivationError("deactivate_on_idle not bound -- grain not activated")
-```
-
-After refactoring, grains become:
-```python
-@grain(state_type=CounterState, storage="default")
-class CounterGrain(Grain[CounterState]):
-    async def get_value(self) -> int:
-        return self.state.value
-
-    async def increment(self) -> int:
-        self.state.value += 1
-        await self.write_state()
-        return self.state.value
-```
-
-Stateless grains may optionally inherit `Grain[None]` if they need `identity` or
-`deactivate_on_idle`, but are not required to.
-
-**Implementation approach**: The base class provides stub methods that raise if called
-before activation. The runtime overrides them with `setattr()` during activation
-(same mechanism as today). This is the minimal change to the existing runtime.
-
-**Bonus**: `state_type` can be inferred from the generic type argument, making
-`@grain(storage="default")` sufficient — the `state_type` parameter becomes optional
-for grains that inherit `Grain[TState]`.
+Phase 1 (single silo) uses an in-memory directory (simple dict). The hash
+ring is introduced in Phase 2 when multiple silos need to agree on grain
+placement.
 
 ---
 
-### Decision 12: Naming Convention -- Follow Orleans, Python Case
+### State Declaration
 
-**Rule**: pyleans method and property names follow Orleans naming but apply Python
-conventions:
+Grain state is declared explicitly in the decorator:
+`@grain(state_type=PlayerState, storage="default")`. If `state_type` is omitted
+(or the grain inherits `Grain[None]`), the grain is stateless.
 
-1. **snake_case** instead of PascalCase (standard Python).
-2. **No `Async` suffix** on async methods — Python's `async def` already marks them.
-3. **Same semantics and intent** as the Orleans equivalent.
+When a grain inherits from `Grain[TState]`, the decorator can infer `state_type`
+from the generic type argument, making the explicit parameter optional.
+
+---
+
+### Dev Mode
+
+Yes -- single-silo mode analogous to Orleans' `UseLocalhostClustering()`.
+Phase 1 delivers this. Everything runs in one Python process with in-memory
+providers. No networking, no clustering, no membership protocol. This is the
+default for local development and testing.
+
+---
+
+### Library vs CLI
+
+pyleans is a library, not a CLI tool. The user writes their own `main.py`,
+creates a `Silo`, and calls `silo.start()`. This gives full control over DI
+setup, co-hosting with FastAPI, and custom startup logic. No code generation,
+no scaffolding commands.
+
+---
+
+### Package Split
+
+One pip package (`pyleans`), two entry points:
+- `pyleans.server` -- the silo runtime (heavy: runtime, providers, DI container)
+- `pyleans.client` -- lightweight client library (only gateway protocol + serialization)
+
+Client code avoids importing the heavy silo runtime. A web server that calls
+grains only needs `from pyleans.client import ClusterClient`.
+
+---
+
+### Naming Convention
+
+pyleans method and property names follow Orleans naming but apply Python conventions:
+snake_case instead of PascalCase, and no `Async` suffix on async methods (Python's
+`async def` already marks them). Same semantics and intent as the Orleans equivalent.
 
 **Mapping**:
 
@@ -693,28 +628,7 @@ Add networking and distribution.
 
 ---
 
-## 6. Decisions Summary
-
-All design decisions have been resolved:
-
-| # | Decision | Choice |
-|---|---|---|
-| 1 | Grain interfaces | Decorated class only (`@grain`), no separate ABC. Proxy via `__getattr__`. |
-| 2 | Concurrency model | asyncio, one event loop per silo process. Multi-core = run multiple silos. |
-| 3 | Serialization | JSON via `dataclasses` + `orjson`. Pluggable interface for future swap. |
-| 4 | Dependency injection | `dependency-injector` package. Constructor injection for all services (framework + user), matching Orleans. No context object. |
-| 5 | Provider interfaces | Minimal ABCs: `StorageProvider`, `MembershipProvider`, `StreamProvider`. |
-| 6 | Grain directory | Consistent hash ring with virtual nodes, eventually consistent (pre-Orleans 9.0). Strong consistency deferred to post-PoC. |
-| 7 | State declaration | Explicit in decorator: `@grain(state_type=PlayerState, storage="default")`. No state_type = stateless grain. |
-| 8 | Dev mode | Yes, single-silo mode like Orleans' `UseLocalhostClustering()`. Phase 1 delivers this. |
-| 9 | Library vs CLI | Library only. User writes `main.py`, creates `Silo`, calls `silo.start()`. No CLI. |
-| 10 | Package split | One package (`pyleans`), two entry points: `pyleans.server` (silo) and `pyleans.client` (lightweight). |
-| 11 | Grain base class | `Grain[TState]` generic base class for runtime-bound attributes. Eliminates per-grain boilerplate. |
-| 12 | Naming convention | Follow Orleans names in snake_case. No `Async` suffix — `async def` is sufficient. |
-
----
-
-## 7. Resolved Questions
+## 6. Resolved Questions
 
 - **Minimum Python**: 3.12+
 - **Pyleans is a library, not a CLI.** The user writes their own `main.py` that
@@ -724,7 +638,7 @@ All design decisions have been resolved:
   `from pyleans.server` for silo code, `from pyleans.client` for lightweight client.
   Client module avoids importing the heavy silo runtime.
 - **Dashboard/admin UI**: Post-PoC.
-- **Grain base class**: See Decision 11.
+- **Grain base class**: See "Grain Base Class".
 
 ### Silo usage (library, no CLI)
 

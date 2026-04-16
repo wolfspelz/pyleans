@@ -8,7 +8,7 @@
 - [task-02-core-types.md](task-02-core-types.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Decision 5
+- [pyleans-plan.md](../docs/pyleans-plan.md) -- Provider Interfaces
 - [orleans-cluster.md](../docs/orleans-cluster.md) -- Membership Protocol, Membership Table
 
 ## Description

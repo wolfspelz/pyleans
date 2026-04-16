@@ -8,7 +8,7 @@
 - [task-08-grain-runtime.md](task-08-grain-runtime.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Phase 1, Decision 5
+- [pyleans-plan.md](../docs/pyleans-plan.md) -- Phase 1, Provider Interfaces
 - [orleans-streaming.md](../docs/orleans-streaming.md) -- Stream concepts, PubSub
 
 ## Description

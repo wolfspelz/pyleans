@@ -9,7 +9,7 @@
 - [task-05-provider-abcs.md](task-05-provider-abcs.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Decision 4 (DI via dependency-injector)
+- [pyleans-plan.md](../docs/pyleans-plan.md) -- Dependency Injection
 - [orleans-advanced.md](../docs/orleans-advanced.md) -- Section 8 (Dependency Injection)
 
 ## Description

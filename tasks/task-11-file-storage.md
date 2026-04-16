@@ -8,7 +8,7 @@
 - [task-04-serialization.md](task-04-serialization.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Decision 5, Decision 3
+- [pyleans-plan.md](../docs/pyleans-plan.md) -- Provider Interfaces, Serialization
 - [orleans-persistence.md](../docs/orleans-persistence.md) -- IGrainStorage, ETags
 
 ## Description

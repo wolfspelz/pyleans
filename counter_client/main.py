@@ -25,22 +25,22 @@ async def run(args: argparse.Namespace) -> None:
 
         if args.command == "get":
             value = await counter.get_value()
+            print(f"Counter '{args.counter_id}': {value}")
         elif args.command == "inc":
             value = await counter.increment()
+            print(f"Counter '{args.counter_id}': {value}")
         elif args.command == "set":
             if args.value is None:
                 print("Error: 'set' requires a value", file=sys.stderr)
                 sys.exit(1)
             await counter.set_value(args.value)
             value = args.value
+            print(f"Counter '{args.counter_id}': {value}")
         elif args.command == "info":
             info = await counter.get_silo_info()
             print(f"Silo info (via '{args.counter_id}'):")
             for key, val in info.items():
                 print(f"  {key}: {val}")
-            return
-
-        print(f"Counter '{args.counter_id}': {value}")
     finally:
         await client.close()
 

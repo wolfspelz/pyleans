@@ -8,7 +8,7 @@
 - [task-03-errors.md](task-03-errors.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Decision 3 (Serialization)
+- [pyleans-plan.md](../docs/pyleans-plan.md) -- Serialization
 - [orleans-networking.md](../docs/orleans-networking.md) -- Serialization System
 
 ## Description

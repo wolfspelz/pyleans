@@ -105,4 +105,4 @@ No issues found. The CounterGrain is pure application logic with no system bound
 - 17 tests: registration (5), state defaults (2), get_value (1), increment (2), set_value (2), reset (1), state survival through deactivation and silo restart (2), multiple independent instances (1), concurrent counters (1).
 
 
-**Resolved**: Grain Base Class (Decision 11) implemented in [task-07-grain-base-class.md](task-07-grain-base-class.md). CounterGrain, StringCacheGrain refactored. AnswerGrain left as plain stateless class.
+**Resolved**: Grain Base Class (Grain Base Class) implemented in [task-07-grain-base-class.md](task-07-grain-base-class.md). CounterGrain, StringCacheGrain refactored. AnswerGrain left as plain stateless class.

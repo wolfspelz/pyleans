@@ -13,7 +13,7 @@
 - [task-14-in-memory-streaming.md](task-14-in-memory-streaming.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Phase 1, Decision 8 (dev mode), Decision 9 (library)
+- [pyleans-plan.md](../docs/pyleans-plan.md) -- Phase 1, Dev Mode, Library vs CLI
 - [orleans-cluster.md](../docs/orleans-cluster.md) -- Silo lifecycle
 
 ## Description

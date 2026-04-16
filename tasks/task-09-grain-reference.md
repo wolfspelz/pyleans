@@ -9,7 +9,7 @@
 - [task-04-serialization.md](task-04-serialization.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Decision 1 (proxy via __getattr__)
+- [pyleans-plan.md](../docs/pyleans-plan.md) -- Grain Interfaces
 - [orleans-grains.md](../docs/orleans-grains.md) -- Activation vs Reference
 - [orleans-networking.md](../docs/orleans-networking.md) -- Grain method invocation
 

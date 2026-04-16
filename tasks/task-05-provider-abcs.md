@@ -8,7 +8,7 @@
 - [task-03-errors.md](task-03-errors.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Decision 5 (Provider Interfaces)
+- [pyleans-plan.md](../docs/pyleans-plan.md) -- Provider Interfaces
 - [orleans-persistence.md](../docs/orleans-persistence.md) -- IGrainStorage interface
 - [orleans-cluster.md](../docs/orleans-cluster.md) -- Membership providers
 - [orleans-streaming.md](../docs/orleans-streaming.md) -- Stream providers

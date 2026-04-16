@@ -8,7 +8,7 @@
 - [task-04-serialization.md](task-04-serialization.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Decision 1, Decision 7
+- [pyleans-plan.md](../docs/pyleans-plan.md) -- Grain Interfaces, State Declaration
 - [orleans-grains.md](../docs/orleans-grains.md) -- What is a Grain, Grain Persistence
 
 ## Description
@@ -119,4 +119,4 @@ _To be filled when task is complete._
 - 19 tests: decorator with/without args, registry lookup, not-found error, method discovery (public/private/dunder/sync/lifecycle exclusions), metadata for stateful/stateless grains.
 
 
-**Resolved**: Grain Base Class (Decision 11) implemented in [task-07-grain-base-class.md](task-07-grain-base-class.md).
+**Resolved**: Grain Base Class (Grain Base Class) implemented in [task-07-grain-base-class.md](task-07-grain-base-class.md).

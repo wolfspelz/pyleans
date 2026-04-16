@@ -11,7 +11,7 @@
 - [task-07-grain-base-class.md](task-07-grain-base-class.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Decision 2 (asyncio), Phase 1 items 4,7,10
+- [pyleans-plan.md](../docs/pyleans-plan.md) -- Concurrency Model, Phase 1 items 4,7,10
 - [orleans-grains.md](../docs/orleans-grains.md) -- Grain Lifecycle, Single-Threaded Execution
 - [orleans-advanced.md](../docs/orleans-advanced.md) -- Turn-based concurrency model
 
@@ -178,4 +178,4 @@ _To be filled when task is complete._
 - 20 tests: activation (first call, reuse, unknown type/method), state management (load from storage, defaults, save, clear), lifecycle hooks (on_activate/on_deactivate), turn-based execution (sequential same grain, concurrent different grains), error propagation, idle collection, start/stop.
 
 
-**Resolved**: Grain Base Class (Decision 11) implemented in [task-07-grain-base-class.md](task-07-grain-base-class.md). Test grains updated to use `Grain[TState]`.
+**Resolved**: Grain Base Class (Grain Base Class) implemented in [task-07-grain-base-class.md](task-07-grain-base-class.md). Test grains updated to use `Grain[TState]`.
