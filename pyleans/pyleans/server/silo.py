@@ -8,6 +8,7 @@ import time
 
 from pyleans.gateway.listener import GatewayListener
 from pyleans.grain import _grain_registry
+from pyleans.server.silo_management import SiloManagement
 from pyleans.identity import SiloAddress, SiloInfo, SiloStatus
 from pyleans.providers.membership import MembershipProvider
 from pyleans.providers.storage import StorageProvider
@@ -68,20 +69,22 @@ class Silo:
             "default": InMemoryStreamProvider(),
         }
 
-        self._serializer = JsonSerializer()
-        self._runtime = GrainRuntime(
-            storage_providers=self._storage_providers,
-            serializer=self._serializer,
-            idle_timeout=self._idle_timeout,
-        )
-        self._grain_factory = GrainFactory(runtime=self._runtime)
-        self._timer_registry = TimerRegistry(runtime=self._runtime)
-
         epoch = int(time.time())
         self._silo_address = SiloAddress(
             host=self._host, port=self._port, epoch=epoch
         )
         self._silo_id = self._silo_address.encoded
+
+        self._silo_management = SiloManagement(silo=self)
+        self._serializer = JsonSerializer()
+        self._runtime = GrainRuntime(
+            storage_providers=self._storage_providers,
+            serializer=self._serializer,
+            idle_timeout=self._idle_timeout,
+            silo_management=self._silo_management,
+        )
+        self._grain_factory = GrainFactory(runtime=self._runtime)
+        self._timer_registry = TimerRegistry(runtime=self._runtime)
 
         self._gateway = GatewayListener(
             runtime=self._runtime, host=self._host, port=self._gateway_port

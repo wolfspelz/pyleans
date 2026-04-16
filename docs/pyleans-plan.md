@@ -445,6 +445,8 @@ pyleans/                         # framework package
   pyproject.toml
   pyleans/                       # importable: import pyleans
     server/                      # silo runtime (heavy)
+      string_cache_grain.py      # system grain: StringCacheGrain
+      grains.py                  # system_grains() helper
     client/                      # lightweight client
     gateway/                     # TCP gateway protocol
     providers/                   # provider ABCs (ports)
@@ -452,7 +454,7 @@ pyleans/                         # framework package
 counter-app/                     # sample silo app (depends on pyleans)
   pyproject.toml
   counter_app/                   # Python module: counter_app
-    grains.py                    # CounterGrain
+    counter_grain.py             # one file per grain
     main.py                      # Standalone silo
     __main__.py                  # python -m counter_app
   test/
@@ -476,6 +478,17 @@ matches the inner directory.
 | `pyleans` | `pyleans` | Library, not runnable |
 | `counter-app` | `counter_app` | `python -m counter_app` |
 | `counter-client` | `counter_client` | `python -m counter_client` |
+
+### One grain per file
+
+Every grain class lives in its own file, named after the grain in snake_case:
+`CounterGrain` → `counter_grain.py`, `StringCacheGrain` → `string_cache_grain.py`.
+
+This applies to both framework-provided grains (in `pyleans/server/`) and
+application grains (in user packages like `counter_app/`). The grain's state
+dataclass lives in the same file as the grain.
+
+Test-only grains (defined inside test files) are exempt from this rule.
 
 ### Running the applications
 

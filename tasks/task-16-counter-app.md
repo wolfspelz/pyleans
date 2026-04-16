@@ -25,21 +25,39 @@ silo and a web API must share a process.
 
 ### Files to create
 - `counter-app/counter_app/main.py`
+- `counter-app/counter_app/answer_grain.py` (one grain per file)
+
+### AnswerGrain
+
+A minimal stateless grain to demonstrate hosting multiple grains in one silo:
+
+```python
+# counter-app/counter_app/answer_grain.py
+from pyleans import grain
+
+@grain
+class AnswerGrain:
+    """A stateless grain that always returns 42."""
+
+    async def get(self) -> int:
+        return 42
+```
 
 ### main.py
 
 ```python
-"""Standalone silo hosting CounterGrain."""
+"""Standalone silo hosting CounterGrain and AnswerGrain."""
 
 import asyncio
 from pyleans.server import Silo
 from pyleans.server.grains import system_grains
 from pyleans.server.providers import FileStorageProvider, YamlMembershipProvider
-from counter_app.grains import CounterGrain
+from counter_app.counter_grain import CounterGrain
+from counter_app.answer_grain import AnswerGrain
 
 async def main() -> None:
     silo = Silo(
-        grains=[CounterGrain, *system_grains()],
+        grains=[CounterGrain, AnswerGrain, *system_grains()],
         storage_providers={"default": FileStorageProvider("./data/storage")},
         membership_provider=YamlMembershipProvider("./data/membership.yaml"),
     )
@@ -49,15 +67,35 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+### CounterGrain additions
+
+The CounterGrain receives `SiloManagement` via constructor injection
+(`@inject` + `Provide[...]`) and exposes silo metadata:
+
+```python
+@grain(state_type=CounterState, storage="default")
+class CounterGrain:
+    @inject
+    def __init__(self, silo_mgmt: SiloManagement = Provide[PyleansContainer.silo_management]):
+        self._silo_mgmt = silo_mgmt
+
+    # ... existing methods ...
+
+    async def get_silo_info(self) -> dict[str, object]:
+        """Return metadata about the silo hosting this grain."""
+        return self._silo_mgmt.get_info()
+```
+
 ### What this demonstrates
 
 - Silo as a standalone process (the default deployment model)
 - `asyncio.run()` as the entry point
-- Grain classes registered at startup
+- Multiple grain classes registered at startup (CounterGrain, AnswerGrain)
 - State persisted to files (survives restart)
 - Membership visible in YAML file
 - Ctrl+C triggers graceful shutdown via signal handling
-- `SiloGrain` included via `system_grains()` — explicit opt-in for framework management grains
+- `system_grains()` included for future framework grains
+- Grains access silo metadata via DI-injected `SiloManagement` service (`@inject`)
 
 ### Acceptance criteria
 
@@ -67,8 +105,9 @@ if __name__ == "__main__":
 - [x] `data/membership.yaml` shows no silo entry after clean shutdown
 - [x] Grain state files created under `data/storage/CounterGrain/`
 - [x] Integration test: start silo, call grain via runtime, stop silo, verify state persisted
-- [ ] `SiloGrain` included via `system_grains()` and queryable via gateway
-- [ ] `SiloGrain.get_info()` returns silo metadata (silo_id, host, gateway_port, grain_count, etc.)
+- [ ] `AnswerGrain.get()` returns 42 (stateless grain, no persistence)
+- [ ] `CounterGrain.get_silo_info()` returns silo metadata via DI-injected `SiloManagement`
+- [ ] Silo info queryable from ClusterClient via the gateway
 
 ## Findings of code review
 

@@ -35,6 +35,18 @@ python -m counter_client inc my-counter
 # Set value
 python -m counter_client set my-counter 100
 # Output: Counter 'my-counter': 100
+
+# Query silo info (via any counter grain)
+python -m counter_client info my-counter
+# Output:
+# Silo info (via 'my-counter'):
+#   silo_id: localhost_11111_1713180000
+#   host: localhost
+#   hostname: DESKTOP-ABC
+#   gateway_port: 30000
+#   grain_count: 3
+#   uptime_seconds: 42.5
+#   ...
 ```
 
 ### Implementation sketch
@@ -55,7 +67,7 @@ async def run(args: argparse.Namespace) -> None:
     await client.connect()
 
     # Import grain class for type reference
-    from counter_app.grains import CounterGrain
+    from counter_app.counter_grain import CounterGrain
 
     counter = client.get_grain(CounterGrain, args.counter_id)
 
@@ -69,13 +81,20 @@ async def run(args: argparse.Namespace) -> None:
             sys.exit(1)
         await counter.set_value(args.value)
         value = args.value
+    elif args.command == "info":
+        info = await counter.get_silo_info()
+        print(f"Silo info (via '{args.counter_id}'):")
+        for k, v in info.items():
+            print(f"  {k}: {v}")
+        await client.close()
+        return
 
     print(f"Counter '{args.counter_id}': {value}")
     await client.close()
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Counter grain CLI client")
-    parser.add_argument("command", choices=["get", "inc", "set"],
+    parser.add_argument("command", choices=["get", "inc", "set", "info"],
                         help="Command to execute")
     parser.add_argument("counter_id", help="Counter grain ID")
     parser.add_argument("value", nargs="?", type=int,
@@ -107,6 +126,7 @@ allows the client to call grains on a locally-running silo.
 - [x] `python -m counter_client get foo` shows current value
 - [x] `python -m counter_client inc foo` increments and shows new value
 - [x] `python -m counter_client set foo 42` sets and confirms value
+- [x] `python -m counter_client info foo` shows silo metadata via CounterGrain
 - [x] `--gateway` flag allows connecting to different silo
 - [x] Error message if silo is not running
 - [x] Error message if 'set' called without value

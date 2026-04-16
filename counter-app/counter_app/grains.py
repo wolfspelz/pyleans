@@ -1,6 +1,7 @@
 """Counter grain — demonstrates stateful virtual actors with pyleans."""
 
 from dataclasses import dataclass
+from typing import Any
 
 from pyleans import grain
 
@@ -38,3 +39,7 @@ class CounterGrain:
         """Reset the counter to zero and persist."""
         self.state.value = 0  # type: ignore[attr-defined]
         await self.save_state()  # type: ignore[attr-defined]
+
+    async def get_silo_info(self) -> dict[str, Any]:
+        """Return metadata about the silo hosting this grain."""
+        return self.silo_management.get_info()  # type: ignore[attr-defined]

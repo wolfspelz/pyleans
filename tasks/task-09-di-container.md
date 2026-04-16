@@ -35,6 +35,7 @@ class PyleansContainer(containers.DeclarativeContainer):
     runtime = providers.Singleton(GrainRuntime)
     grain_factory = providers.Singleton(GrainFactory, runtime=runtime)
     timer_registry = providers.Singleton(TimerRegistry, runtime=runtime)
+    silo_management = providers.Singleton(SiloManagement)
     stream_manager = providers.Singleton(StreamManager)
     logger = providers.Singleton(logging.getLogger, config.logger_name)
 ```
@@ -73,11 +74,12 @@ class AppContainer(containers.DeclarativeContainer):
 
 ### Acceptance criteria
 
-- [x] `PyleansContainer` provides GrainFactory, TimerRegistry, StreamManager, Logger
-- [x] Grain `__init__` with `@inject` + `Provide[...]` receives framework services
+- [x] `PyleansContainer` provides GrainFactory, TimerRegistry, SiloManagement, StreamManager, Logger
+- [ ] Grain `__init__` with `@inject` + `Provide[...]` receives framework services
+- [ ] Silo calls `container.wire()` during startup to enable DI across grain modules
 - [x] User services injectable alongside framework services
-- [x] Container wiring works across grain modules
-- [x] Unit test: grain constructed with injected mock services
+- [ ] Container wiring works across grain modules
+- [ ] Unit test: grain constructed with injected services via DI
 
 ## Findings of code review
 _To be filled when task is complete._
@@ -99,6 +101,7 @@ _To be filled when task is complete._
 
 ### Deviations
 - StreamManager was initially deferred; now added to the container (resolved).
+- Container exists but is NOT wired — grains don't actually receive DI-injected services yet. The Silo creates services directly and the runtime binds them as attributes. **This needs to be changed**: the Silo must call `container.wire()` and grains must use `@inject` + `Provide[...]` for singleton services.
 
 ### Test coverage
 - 10 tests: container creation, all providers resolve, singleton behavior, shared runtime instance, extension via subclass, provider override.

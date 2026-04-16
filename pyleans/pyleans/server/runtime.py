@@ -62,12 +62,14 @@ class GrainRuntime:
         serializer: Serializer,
         grain_factory: Any = None,
         idle_timeout: float = _DEFAULT_IDLE_TIMEOUT,
+        silo_management: Any = None,
     ) -> None:
         self._activations: dict[GrainId, GrainActivation] = {}
         self._storage_providers = storage_providers
         self._serializer = serializer
         self._grain_factory = grain_factory
         self._idle_timeout = idle_timeout
+        self._silo_management = silo_management
         self._idle_collector_task: asyncio.Task[None] | None = None
 
     @property
@@ -147,6 +149,8 @@ class GrainRuntime:
             ) from e
 
         instance.identity = grain_id
+        if self._silo_management is not None:
+            instance.silo_management = self._silo_management
 
         activation = GrainActivation(grain_id=grain_id, instance=instance)
 

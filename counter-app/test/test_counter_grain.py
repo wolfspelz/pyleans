@@ -115,7 +115,7 @@ class TestCounterGrainRegistration:
 
     def test_public_methods_discovered(self) -> None:
         methods = get_grain_methods(CounterGrain)
-        assert set(methods.keys()) == {"get_value", "increment", "set_value", "reset"}
+        assert set(methods.keys()) == {"get_value", "increment", "set_value", "reset", "get_silo_info"}
 
 
 class TestCounterState:
@@ -274,5 +274,19 @@ class TestMultipleCounterInstances:
         await asyncio.gather(*(r.increment() for r in refs))
         results = await asyncio.gather(*(r.get_value() for r in refs))
         assert results == [1, 1, 1, 1, 1]
+
+        await silo.stop()
+
+
+class TestSiloInfo:
+    async def test_get_silo_info_returns_dict(self) -> None:
+        silo = make_silo()
+        await silo.start_background()
+
+        ref = silo.grain_factory.get_grain(CounterGrain, "c1")
+        info = await ref.get_silo_info()
+        assert isinstance(info, dict)
+        assert "silo_id" in info
+        assert "grain_count" in info
 
         await silo.stop()

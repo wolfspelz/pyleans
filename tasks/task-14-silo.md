@@ -95,31 +95,34 @@ class Silo:
         """Access to the grain runtime."""
 ```
 
-### SiloGrain — built-in management grain
+### SiloManagement — framework service for silo metadata
 
-The pyleans library provides a `SiloGrain` — a framework-level grain that
-exposes silo metadata. Users opt in by calling `system_grains()` and
-spreading the result into their grain list.
+The pyleans library provides a `SiloManagement` service that exposes silo
+metadata to grains via true dependency injection (`@inject` + `Provide[...]`).
+Grains that need silo info declare it in their constructor — the DI container
+resolves it automatically.
 
 #### Files to create
-- `pyleans/pyleans/server/silo_grain.py`
+- `pyleans/pyleans/server/silo_management.py`
 - `pyleans/pyleans/server/grains.py` (exports `system_grains()`)
 
 ```python
-# pyleans/pyleans/server/silo_grain.py
-from pyleans import grain
+# pyleans/pyleans/server/silo_management.py
 
-@grain
-class SiloGrain:
-    """Built-in grain for querying silo information."""
+class SiloManagement:
+    """Service providing silo metadata to grains.
 
-    async def get_info(self) -> dict[str, object]:
+    Bound to grain instances as ``self.silo_management`` by the runtime.
+    """
+
+    def get_info(self) -> dict[str, object]:
         """Return a dictionary of silo properties.
 
         Keys:
             silo_id: str           — encoded silo address (host_port_epoch)
             host: str              — silo host address
             hostname: str          — OS hostname
+            platform: str          — OS platform (e.g. "Windows", "Linux")
             port: int              — silo port (for future cluster mesh)
             gateway_port: int      — TCP gateway port for client connections
             epoch: int             — silo start epoch
@@ -130,20 +133,38 @@ class SiloGrain:
         """
 ```
 
-The Silo injects its own metadata into the SiloGrain instance during
-activation (via a callback or by binding attributes, similar to how
-`identity` and `state` are bound by the runtime).
+#### Integration with the Silo
+
+The Silo creates a `SiloManagement` instance and registers it in the
+`PyleansContainer`. During silo startup, `container.wire()` enables
+`@inject` + `Provide[...]` across grain modules. Grains receive
+`SiloManagement` (and other services) via constructor injection — the
+runtime does NOT bind it as an attribute.
+
+```python
+# In Silo.__init__() or start():
+self._container = PyleansContainer()
+self._container.silo_management.override(providers.Object(self._silo_management))
+self._container.wire(modules=[...])  # enables @inject in grain modules
+
+# In grain code:
+@grain(state_type=CounterState, storage="default")
+class CounterGrain:
+    @inject
+    def __init__(self, silo_mgmt: SiloManagement = Provide[PyleansContainer.silo_management]):
+        self._silo_mgmt = silo_mgmt
+```
 
 #### system_grains() helper
 
 ```python
 # pyleans/pyleans/server/grains.py
-from pyleans.server.silo_grain import SiloGrain
+from pyleans.server.string_cache_grain import StringCacheGrain
 
 def system_grains() -> list[type]:
     """Return the list of framework-provided grains.
 
-    Use this to include pyleans management grains in your silo:
+    Use this in silo configuration to include pyleans system grains:
 
         silo = Silo(
             grains=[CounterGrain, *system_grains()],
@@ -151,35 +172,137 @@ def system_grains() -> list[type]:
         )
 
     Currently includes:
-    - SiloGrain — exposes silo metadata via get_info()
+    - StringCacheGrain — simple string key-value store with persistence
     """
-    return [SiloGrain]
+    return [StringCacheGrain]
 ```
 
-This is explicit opt-in. Users can also import `SiloGrain` directly
-if they want only specific framework grains.
+#### Grain usage
 
-#### Client usage
+Grains that need silo info declare it via constructor injection:
 
 ```python
-from pyleans.server.silo_grain import SiloGrain
+from dependency_injector.wiring import inject, Provide
+from pyleans.server.container import PyleansContainer
+from pyleans.server.silo_management import SiloManagement
 
-client = ClusterClient(gateways=["localhost:30000"])
-await client.connect()
-silo = client.get_grain(SiloGrain, silo_id)
-info = await silo.get_info()
-print(info["grain_count"], info["uptime_seconds"])
+@grain(state_type=CounterState, storage="default")
+class CounterGrain:
+    @inject
+    def __init__(self, silo_mgmt: SiloManagement = Provide[PyleansContainer.silo_management]):
+        self._silo_mgmt = silo_mgmt
+
+    async def get_silo_info(self) -> dict[str, object]:
+        return self._silo_mgmt.get_info()
 ```
 
-#### Acceptance criteria (SiloGrain)
+Grains that don't need services keep a plain `__init__` (or none at all).
+Only per-grain-instance data (`identity`, `state`, `save_state`, `clear_state`)
+is bound by the runtime — all singleton services come through DI.
 
-- [ ] `system_grains()` returns a list containing `SiloGrain`
-- [ ] `SiloGrain` only registered when explicitly included in grain list
-- [ ] `get_info()` returns all documented keys
-- [ ] `grain_count` reflects the current number of active grains
-- [ ] `uptime_seconds` increases over time
-- [ ] Callable from ClusterClient via the gateway
-- [ ] Unit tests for SiloGrain info content and system_grains() helper
+#### Acceptance criteria (SiloManagement)
+
+- [x] `SiloManagement.get_info()` returns all documented keys
+- [x] `grain_count` reflects the current number of active grains
+- [x] `uptime_seconds` increases over time
+- [ ] `SiloManagement` injected into grains via `@inject` + `Provide[...]` (not runtime-bound)
+- [ ] Silo calls `container.wire()` during startup
+- [x] `system_grains()` returns a list (currently empty, extensible)
+- [ ] Unit tests for DI-injected SiloManagement in grains
+
+### StringCacheGrain — framework-provided key-value cache
+
+A built-in grain that implements a simple string key-value store with
+persistence. Provided by `system_grains()` so users can opt in.
+Each grain instance is identified by key and stores a single string value.
+
+#### Files to create
+- `pyleans/pyleans/server/string_cache_grain.py`
+
+```python
+from dataclasses import dataclass
+from pyleans import grain
+
+@dataclass
+class StringCacheState:
+    value: str = ""
+
+@grain(state_type=StringCacheState, storage="default")
+class StringCacheGrain:
+    """Simple string key-value store grain.
+
+    Each grain instance (identified by key) holds one string value.
+    State is persisted — survives silo restarts. No idle timeout —
+    the grain stays in memory until explicitly deactivated.
+
+    Usage from a client:
+        cache = client.get_grain(StringCacheGrain, "my-key")
+        await cache.set("hello world")
+        value = await cache.get()       # "hello world"
+        await cache.delete()            # clears persisted state
+        await cache.deactivate()        # removes from memory
+    """
+
+    async def set(self, value: str) -> None:
+        """Set the cached value and persist."""
+        self.state.value = value
+        await self.save_state()
+
+    async def get(self) -> str:
+        """Return the cached value (empty string if never set)."""
+        return self.state.value
+
+    async def delete(self) -> None:
+        """Clear the persisted state (resets value to empty string)."""
+        await self.clear_state()
+
+    async def deactivate(self) -> None:
+        """Remove this grain from memory.
+
+        The next call to this grain will re-activate it from persistence.
+        Useful for forcing a reload from storage.
+        """
+        # The runtime handles deactivation when this method completes.
+        # Implementation: the grain signals the runtime to deactivate
+        # itself after this call returns.
+```
+
+#### Integration with system_grains()
+
+`system_grains()` returns `[StringCacheGrain]` so users opt in:
+
+```python
+from pyleans.server.grains import system_grains
+
+silo = Silo(
+    grains=[CounterGrain, *system_grains()],
+    ...
+)
+```
+
+Users can also import `StringCacheGrain` directly.
+
+#### Deactivation mechanism
+
+The `deactivate()` method needs the runtime to deactivate the grain after
+the method returns. Options:
+1. The grain calls `self.request_deactivation()` (a runtime-bound method,
+   like `save_state`), which schedules deactivation after the current turn.
+2. The runtime checks a flag on the activation after each method call.
+
+Option 1 is cleaner and matches Orleans' `DeactivateOnIdle()`.
+
+#### Acceptance criteria (StringCacheGrain)
+
+- [ ] `system_grains()` returns a list containing `StringCacheGrain`
+- [ ] `set("value")` persists the string
+- [ ] `get()` returns the persisted value
+- [ ] `get()` returns empty string when never set
+- [ ] `delete()` clears persisted state
+- [ ] `deactivate()` removes grain from memory
+- [ ] Next `get()` after `deactivate()` re-activates from persistence
+- [ ] State survives silo restart
+- [ ] Unit tests for all operations and the activate-from-persistence flow
 
 ### Dev mode defaults
 

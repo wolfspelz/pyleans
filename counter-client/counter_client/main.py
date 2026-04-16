@@ -33,6 +33,12 @@ async def run(args: argparse.Namespace) -> None:
                 sys.exit(1)
             await counter.set_value(args.value)
             value = args.value
+        elif args.command == "info":
+            info = await counter.get_silo_info()
+            print(f"Silo info (via '{args.counter_id}'):")
+            for key, val in info.items():
+                print(f"  {key}: {val}")
+            return
 
         print(f"Counter '{args.counter_id}': {value}")
     finally:
@@ -44,7 +50,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Counter grain CLI client")
     parser.add_argument(
         "command",
-        choices=["get", "inc", "set"],
+        choices=["get", "inc", "set", "info"],
         help="Command to execute",
     )
     parser.add_argument("counter_id", help="Counter grain ID")

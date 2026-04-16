@@ -225,6 +225,23 @@ class TestRunFunction:
 
         await silo.stop()
 
+    async def test_run_info(self, capsys: pytest.CaptureFixture[str]) -> None:
+        silo = make_silo()
+        await silo.start_background()
+
+        args = _FakeArgs(
+            command="info",
+            counter_id="any",
+            gateway=f"localhost:{silo.gateway_port}",
+        )
+        await run(args)  # type: ignore[arg-type]
+        captured = capsys.readouterr()
+        assert "Silo info (via 'any'):" in captured.out
+        assert "silo_id:" in captured.out
+        assert "grain_count:" in captured.out
+
+        await silo.stop()
+
     async def test_run_connection_error_exits(self) -> None:
         args = _FakeArgs(
             command="get",

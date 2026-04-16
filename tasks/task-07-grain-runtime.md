@@ -103,11 +103,23 @@ current one completes.
 
 ### State management integration
 
+Grain instances receive two kinds of injected context:
+
+**DI-injected (via constructor, `@inject` + `Provide[...]`):**
+Singleton services like `GrainFactory`, `TimerRegistry`, `SiloManagement`,
+`StreamManager`, `Logger`. These are wired by `dependency-injector` during
+`grain_class()` construction — the runtime does NOT set these.
+
+**Runtime-bound (per-grain-instance, set as attributes during activation):**
+`identity`, `state`, `save_state`, `clear_state`. These are unique per
+grain activation and cannot be DI singletons.
+
 On activation:
-1. Create grain instance (DI injects services)
-2. Set `instance.identity = grain_id`
+1. Create grain instance (`grain_class()` — DI resolves `@inject` defaults)
+2. Set `instance.identity = grain_id` (runtime-bound)
 3. If grain has `state_type`: read from storage, deserialize, set `instance.state`
-4. Call `instance.on_activate()` if defined
+4. Bind `instance.save_state()` and `instance.clear_state()` closures
+5. Call `instance.on_activate()` if defined
 
 `instance.save_state()`:
 1. Serialize `instance.state` via serializer

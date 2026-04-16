@@ -141,6 +141,7 @@ Never. If you think a piece of code doesn't need tests, you are wrong. Even triv
 - **Test runner**: pytest
 - **Type checker**: mypy in strict mode
 - **Project layout**: flat layout with `src/` and `test/` per package
+- **One grain per file**: every grain class gets its own file, named in snake_case (`CounterGrain` → `counter_grain.py`). State dataclass lives in the same file. Test-only grains are exempt.
 
 ### Common Commands
 
