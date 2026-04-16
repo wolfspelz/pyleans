@@ -19,7 +19,7 @@ async def run(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     try:
-        from counter.grains import CounterGrain
+        from counter_app.grains import CounterGrain
 
         counter = client.get_grain(CounterGrain, args.counter_id)
 

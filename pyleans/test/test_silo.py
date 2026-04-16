@@ -296,6 +296,7 @@ class TestHeartbeat:
             storage_providers={"default": FakeStorageProvider()},
             membership_provider=membership,
             stream_providers={"default": InMemoryStreamProvider()},
+            gateway_port=0,
         )
 
         # Patch heartbeat interval to be very short for testing

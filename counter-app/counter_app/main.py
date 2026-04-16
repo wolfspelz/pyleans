@@ -5,7 +5,7 @@ import asyncio
 from pyleans.server import Silo
 from pyleans.server.providers import FileStorageProvider, YamlMembershipProvider
 
-from counter.grains import CounterGrain
+from counter_app.grains import CounterGrain
 
 
 async def main() -> None:
