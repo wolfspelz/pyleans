@@ -1,11 +1,11 @@
-# Task 09: Dependency Injection Container
+# Task 10: Dependency Injection Container
 
 > **Coding rules**: Follow [CLAUDE.md](../CLAUDE.md) strictly — clean code, SOLID, strict type hints, mandatory tests.\
 > **On completion**: Fill in "Summary of implementation" at the bottom with files created, decisions made, deviations, and test coverage.
 
 ## Dependencies
-- [task-07-grain-runtime.md](task-07-grain-runtime.md)
-- [task-08-grain-reference.md](task-08-grain-reference.md)
+- [task-08-grain-runtime.md](task-08-grain-runtime.md)
+- [task-09-grain-reference.md](task-09-grain-reference.md)
 - [task-05-provider-abcs.md](task-05-provider-abcs.md)
 
 ## References

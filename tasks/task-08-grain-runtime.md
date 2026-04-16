@@ -1,13 +1,14 @@
-# Task 07: Grain Runtime (Activation, Scheduling, Idle Collection)
+# Task 08: Grain Runtime (Activation, Scheduling, Idle Collection)
 
 > **Coding rules**: Follow [CLAUDE.md](../CLAUDE.md) strictly — clean code, SOLID, strict type hints, mandatory tests.\
 > **On completion**: Fill in "Summary of implementation" at the bottom with files created, decisions made, deviations, and test coverage.
 
 ## Dependencies
-- [task-06-grain-decorator.md](task-06-grain-decorator.md)
+- [task-03-errors.md](task-03-errors.md)
 - [task-04-serialization.md](task-04-serialization.md)
 - [task-05-provider-abcs.md](task-05-provider-abcs.md)
-- [task-03-errors.md](task-03-errors.md)
+- [task-06-grain-decorator.md](task-06-grain-decorator.md)
+- [task-07-grain-base-class.md](task-07-grain-base-class.md)
 
 ## References
 - [pyleans-plan.md](../docs/pyleans-plan.md) -- Decision 2 (asyncio), Phase 1 items 4,7,10
@@ -168,10 +169,19 @@ _To be filled when task is complete._
 - `save_state` and `clear_state` are bound as closures on the instance (not class methods) to capture activation context.
 - `on_activate` is dispatched through the grain's inbox to maintain turn-based ordering.
 - `on_deactivate` is called directly (outside inbox) since the grain is shutting down.
-- `grain_factory` parameter allows DI integration (Task 09) without coupling to dependency-injector.
+- `grain_factory` parameter allows DI integration (Task 10) without coupling to dependency-injector.
 
 ### Deviations
 - None.
 
 ### Test coverage
 - 20 tests: activation (first call, reuse, unknown type/method), state management (load from storage, defaults, save, clear), lifecycle hooks (on_activate/on_deactivate), turn-based execution (sequential same grain, concurrent different grains), error propagation, idle collection, start/stop.
+
+## Open: Grain Base Class Refactoring (Decision 11)
+
+Per [pyleans-plan.md Decision 11](../docs/pyleans-plan.md), the runtime's `activate_grain`
+method must work with grains that inherit from `Grain[TState]`. The existing `setattr()`
+binding mechanism stays the same — the base class provides stub methods that the runtime
+overrides during activation. No changes to the binding logic itself, but the runtime
+should verify that `Grain[TState]` subclasses work correctly (stubs raise before
+activation, overrides work after). Update tests to use `Grain[TState]`-based grains.

@@ -1,13 +1,13 @@
-# Task 16: Counter App (Standalone Silo)
+# Task 17: Counter App (Standalone Silo)
 
 > **Coding rules**: Follow [CLAUDE.md](../CLAUDE.md) strictly — clean code, SOLID, strict type hints, mandatory tests.\
 > **On completion**: Fill in "Summary of implementation" at the bottom with files created, decisions made, deviations, and test coverage.
 
 ## Dependencies
-- [task-14-silo.md](task-14-silo.md)
-- [task-15-counter-grain.md](task-15-counter-grain.md)
-- [task-10-file-storage.md](task-10-file-storage.md)
-- [task-11-yaml-membership.md](task-11-yaml-membership.md)
+- [task-15-silo.md](task-15-silo.md)
+- [task-16-counter-grain.md](task-16-counter-grain.md)
+- [task-11-file-storage.md](task-11-file-storage.md)
+- [task-12-yaml-membership.md](task-12-yaml-membership.md)
 
 ## References
 - [pyleans-plan.md](../docs/pyleans-plan.md) -- Phase 1 milestone, Section 7 (Silo usage)

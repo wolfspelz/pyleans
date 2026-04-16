@@ -19,6 +19,10 @@ class GrainId:
 
     A grain is identified by its type name and a string key.
     The combination must be unique across the cluster.
+
+    Unlike Orleans (which supports Guid, Int64, and compound keys),
+    pyleans uses string keys exclusively. Orleans encodes all key types
+    as strings internally anyway.
     """
 
     grain_type: str

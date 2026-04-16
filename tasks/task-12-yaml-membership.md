@@ -1,4 +1,4 @@
-# Task 11: YAML File Membership Provider
+# Task 12: YAML File Membership Provider
 
 > **Coding rules**: Follow [CLAUDE.md](../CLAUDE.md) strictly — clean code, SOLID, strict type hints, mandatory tests.\
 > **On completion**: Fill in "Summary of implementation" at the bottom with files created, decisions made, deviations, and test coverage.
@@ -89,8 +89,9 @@ table version row.
 - [x] `update_status` changes status field
 - [x] Version increments on every write
 - [x] File is valid, human-readable YAML
-- [ ] Concurrent access handled via file locking (deferred — not needed for Phase 1 single-silo)
 - [x] Unit tests with temp directory
+
+**Deferred to Phase 2**: Concurrent access via file locking (not needed for single-silo).
 
 ## Findings of code review
 _To be filled when task is complete._

@@ -1,16 +1,16 @@
-# Task 14: Silo (Main Entry Point)
+# Task 15: Silo (Main Entry Point)
 
 > **Coding rules**: Follow [CLAUDE.md](../CLAUDE.md) strictly — clean code, SOLID, strict type hints, mandatory tests.\
 > **On completion**: Fill in "Summary of implementation" at the bottom with files created, decisions made, deviations, and test coverage.
 
 ## Dependencies
-- [task-07-grain-runtime.md](task-07-grain-runtime.md)
-- [task-08-grain-reference.md](task-08-grain-reference.md)
-- [task-09-di-container.md](task-09-di-container.md)
-- [task-10-file-storage.md](task-10-file-storage.md)
-- [task-11-yaml-membership.md](task-11-yaml-membership.md)
-- [task-12-grain-timers.md](task-12-grain-timers.md)
-- [task-13-in-memory-streaming.md](task-13-in-memory-streaming.md)
+- [task-08-grain-runtime.md](task-08-grain-runtime.md)
+- [task-09-grain-reference.md](task-09-grain-reference.md)
+- [task-10-di-container.md](task-10-di-container.md)
+- [task-11-file-storage.md](task-11-file-storage.md)
+- [task-12-yaml-membership.md](task-12-yaml-membership.md)
+- [task-13-grain-timers.md](task-13-grain-timers.md)
+- [task-14-in-memory-streaming.md](task-14-in-memory-streaming.md)
 
 ## References
 - [pyleans-plan.md](../docs/pyleans-plan.md) -- Phase 1, Decision 8 (dev mode), Decision 9 (library)

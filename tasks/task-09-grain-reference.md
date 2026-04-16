@@ -1,11 +1,11 @@
-# Task 08: Grain Reference (Proxy)
+# Task 09: Grain Reference (Proxy)
 
 > **Coding rules**: Follow [CLAUDE.md](../CLAUDE.md) strictly — clean code, SOLID, strict type hints, mandatory tests.\
 > **On completion**: Fill in "Summary of implementation" at the bottom with files created, decisions made, deviations, and test coverage.
 
 ## Dependencies
 - [task-02-core-types.md](task-02-core-types.md)
-- [task-07-grain-runtime.md](task-07-grain-runtime.md)
+- [task-08-grain-runtime.md](task-08-grain-runtime.md)
 - [task-04-serialization.md](task-04-serialization.md)
 
 ## References

@@ -14,7 +14,7 @@ updated as we iterate on design decisions.
 | Orleans Concept | Pyleans PoC | Notes |
 |---|---|---|
 | Grains (virtual actors) | Yes | Core concept |
-| Grain identity (type + key) | Yes | String keys only initially |
+| Grain identity (type + key) | Yes | String keys only (no guid/int/compound keys) |
 | Grain lifecycle (activate/deactivate) | Yes | on_activate, on_deactivate hooks |
 | Single-threaded turn-based execution | Yes | asyncio, one coroutine per grain at a time |
 | Grain references (proxies) | Yes | Location-transparent method calls |
@@ -44,6 +44,7 @@ updated as we iterate on design decisions.
 | Grain call filters | Interceptors are a refinement |
 | Rolling upgrades | Operational concern, not PoC |
 | MQTT/WebSocket gateway | Phase 2 transport |
+| Guid/integer/compound grain keys | String keys cover all use cases; Orleans encodes all key types as strings internally anyway |
 
 ---
 
@@ -306,9 +307,11 @@ class PlayerGrain:
 | `IEmailService` | App-defined ABC, resolved to impl | `Provide[SiloContainer.email_service]` |
 | Other user services | Whatever users register | `Provide[SiloContainer.xxx]` |
 
-**Grain identity and state** are provided by the `@grain` decorator / runtime:
-- `self.identity` -- set by the runtime before `__init__` (via the decorator)
+**Grain identity and state** are provided by the `Grain[TState]` base class / runtime:
+- `self.identity` -- set by the runtime during activation
 - `self.state` -- loaded from storage on activation (configured via `@grain(state_type=...)`)
+- `self.save_state()`, `self.clear_state()`, `self.request_deactivation()` -- bound by runtime
+- See Decision 11 for the `Grain[TState]` base class that provides these
 
 **Testing**: Clean -- just pass mocks to the constructor. The app interface
 makes it natural to swap implementations:
@@ -386,6 +389,81 @@ Each provider gets a simple default implementation:
 - Storage: `JsonFileStorageProvider` (one JSON file per grain)
 - Membership: `FileMembershipProvider` (shared JSON file or directory)
 - Streaming: `InMemoryStreamProvider` (asyncio queues, single-silo only)
+
+---
+
+### Decision 11: Grain Base Class -- `Grain[TState]`
+
+**The problem**: Every stateful grain must declare 5 identical runtime-bound attributes
+(`identity`, `state`, `save_state`, `clear_state`, `request_deactivation`) plus their
+imports. This is pure boilerplate that adds noise and violates DRY.
+
+**C# Orleans**: Grains inherit from `Grain<TState>`, which provides `State`, `WriteStateAsync()`,
+`ClearStateAsync()`, and `DeactivateOnIdle()`. Users never declare these themselves.
+Note: Orleans also parameterizes by key type (`IGrainWithStringKey`, `IGrainWithGuidKey`, etc.),
+but pyleans uses string keys exclusively (see Excluded table), so `Grain[TState]` has only
+one type parameter.
+
+**Current pyleans approach** (Phase 1, to be refactored):
+```python
+@grain(state_type=CounterState, storage="default")
+class CounterGrain:
+    # 5 lines of identical boilerplate in every stateful grain
+    identity: GrainId
+    state: CounterState
+    save_state: Callable[[], Awaitable[None]]
+    clear_state: Callable[[], Awaitable[None]]
+    request_deactivation: Callable[[], None]
+
+    async def get_value(self) -> int:
+        return self.state.value
+```
+
+**DECIDED: Introduce a `Grain[TState]` generic base class.**
+
+```python
+# pyleans/grain_base.py
+class Grain(Generic[TState]):
+    """Base class for all grains. Provides runtime-bound attributes."""
+    identity: GrainId
+    state: TState
+
+    async def save_state(self) -> None:
+        """Persist the current state. Bound by runtime during activation."""
+        raise GrainActivationError("save_state not bound -- grain not activated")
+
+    async def clear_state(self) -> None:
+        """Clear persisted state. Bound by runtime during activation."""
+        raise GrainActivationError("clear_state not bound -- grain not activated")
+
+    def request_deactivation(self) -> None:
+        """Request deactivation after current turn. Bound by runtime during activation."""
+        raise GrainActivationError("request_deactivation not bound -- grain not activated")
+```
+
+After refactoring, grains become:
+```python
+@grain(state_type=CounterState, storage="default")
+class CounterGrain(Grain[CounterState]):
+    async def get_value(self) -> int:
+        return self.state.value
+
+    async def increment(self) -> int:
+        self.state.value += 1
+        await self.save_state()
+        return self.state.value
+```
+
+Stateless grains may optionally inherit `Grain[None]` if they need `identity` or
+`request_deactivation`, but are not required to.
+
+**Implementation approach**: The base class provides stub methods that raise if called
+before activation. The runtime overrides them with `setattr()` during activation
+(same mechanism as today). This is the minimal change to the existing runtime.
+
+**Bonus**: `state_type` can be inferred from the generic type argument, making
+`@grain(storage="default")` sufficient — the `state_type` parameter becomes optional
+for grains that inherit `Grain[TState]`.
 
 ---
 
@@ -607,6 +685,7 @@ All design decisions have been resolved:
 | 8 | Dev mode | Yes, single-silo mode like Orleans' `UseLocalhostClustering()`. Phase 1 delivers this. |
 | 9 | Library vs CLI | Library only. User writes `main.py`, creates `Silo`, calls `silo.start()`. No CLI. |
 | 10 | Package split | One package (`pyleans`), two entry points: `pyleans.server` (silo) and `pyleans.client` (lightweight). |
+| 11 | Grain base class | `Grain[TState]` generic base class for runtime-bound attributes. Eliminates per-grain boilerplate. |
 
 ---
 
@@ -620,6 +699,7 @@ All design decisions have been resolved:
   `from pyleans.server` for silo code, `from pyleans.client` for lightweight client.
   Client module avoids importing the heavy silo runtime.
 - **Dashboard/admin UI**: Post-PoC.
+- **Grain base class**: See Decision 11.
 
 ### Silo usage (library, no CLI)
 

@@ -23,7 +23,12 @@ Implement the core identity types used throughout pyleans.
 ```python
 @dataclass(frozen=True)
 class GrainId:
-    """Uniquely identifies a grain in the cluster."""
+    """Uniquely identifies a grain in the cluster.
+
+    Grain keys are always strings. Unlike Orleans (which supports Guid, Int64,
+    and compound keys), pyleans uses string keys exclusively. This is a permanent
+    design decision -- Orleans encodes all key types as strings internally anyway.
+    """
     grain_type: str    # e.g. "CounterGrain"
     key: str           # e.g. "my-counter-1"
 

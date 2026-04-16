@@ -1,10 +1,10 @@
-# Task 17: Counter Client (Gateway Protocol)
+# Task 18: Counter Client (Gateway Protocol)
 
 > **Coding rules**: Follow [CLAUDE.md](../CLAUDE.md) strictly — clean code, SOLID, strict type hints, mandatory tests.\
 > **On completion**: Fill in "Summary of implementation" at the bottom with files created, decisions made, deviations, and test coverage.
 
 ## Dependencies
-- [task-16-counter-app.md](task-16-counter-app.md)
+- [task-17-counter-app.md](task-17-counter-app.md)
 
 ## References
 - [pyleans-plan.md](../docs/pyleans-plan.md) -- Section 7 (Client usage)

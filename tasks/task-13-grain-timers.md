@@ -1,10 +1,10 @@
-# Task 12: Grain Timers
+# Task 13: Grain Timers
 
 > **Coding rules**: Follow [CLAUDE.md](../CLAUDE.md) strictly — clean code, SOLID, strict type hints, mandatory tests.\
 > **On completion**: Fill in "Summary of implementation" at the bottom with files created, decisions made, deviations, and test coverage.
 
 ## Dependencies
-- [task-07-grain-runtime.md](task-07-grain-runtime.md)
+- [task-08-grain-runtime.md](task-08-grain-runtime.md)
 
 ## References
 - [pyleans-plan.md](../docs/pyleans-plan.md) -- Phase 1 item 11

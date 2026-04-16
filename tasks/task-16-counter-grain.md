@@ -1,11 +1,12 @@
-# Task 15: Counter Grain
+# Task 16: Counter Grain
 
 > **Coding rules**: Follow [CLAUDE.md](../CLAUDE.md) strictly — clean code, SOLID, strict type hints, mandatory tests.\
 > **On completion**: Fill in "Summary of implementation" at the bottom with files created, decisions made, deviations, and test coverage.
 
 ## Dependencies
 - [task-06-grain-decorator.md](task-06-grain-decorator.md)
-- [task-14-silo.md](task-14-silo.md)
+- [task-07-grain-base-class.md](task-07-grain-base-class.md)
+- [task-15-silo.md](task-15-silo.md)
 
 ## References
 - [pyleans-plan.md](../docs/pyleans-plan.md) -- Phase 1 milestone
@@ -102,3 +103,12 @@ No issues found. The CounterGrain is pure application logic with no system bound
 
 ### Test coverage summary
 - 17 tests: registration (5), state defaults (2), get_value (1), increment (2), set_value (2), reset (1), state survival through deactivation and silo restart (2), multiple independent instances (1), concurrent counters (1).
+
+## Open: Grain Base Class Refactoring (Decision 11)
+
+Per [pyleans-plan.md Decision 11](../docs/pyleans-plan.md), refactor `CounterGrain` to
+inherit from `Grain[CounterState]` instead of declaring runtime-bound attributes manually.
+Remove the 5 boilerplate attribute declarations and the `Callable`/`Awaitable` imports.
+Also refactor `AnswerGrain` — it can remain a plain decorated class (stateless, no
+runtime-bound attributes) or optionally inherit `Grain[None]` if it needs `identity`.
+Similarly update `StringCacheGrain` in `pyleans/server/`.

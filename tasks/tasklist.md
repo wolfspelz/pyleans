@@ -18,32 +18,34 @@ Tasks ordered by dependency. Each task can start when all its dependencies are c
 ```
 01-project-setup
   |
-  +---> 02-core-types ---+---> 05-provider-abcs --+---> 10-file-storage
-  |         |             |          |              +---> 11-yaml-membership
-  |         |             |          |              +---> 13-in-memory-streaming --+
+  +---> 02-core-types ---+---> 05-provider-abcs --+---> 11-file-storage
+  |         |             |          |              +---> 12-yaml-membership
+  |         |             |          |              +---> 14-in-memory-streaming --+
   |         +-------------+----------+                                            |
   |         |                                                                     |
   +---> 03-errors -------> 04-serialization                                       |
                                |                                                  |
                                +---> 06-grain-decorator                           |
                                |         |                                        |
-                               +---------+---> 07-grain-runtime --+               |
+                               |     07-grain-base-class                          |
+                               |         |                                        |
+                               +---------+---> 08-grain-runtime --+               |
                                                     |             |               |
-                                                    +---> 08-grain-reference      |
+                                                    +---> 09-grain-reference      |
                                                     |         |                   |
-                                                    +---> 12-grain-timers         |
+                                                    +---> 13-grain-timers         |
                                                     |                             |
-                                                    +---> 09-di-container         |
+                                                    +---> 10-di-container         |
                                                               |                   |
                                                               +---+---+---+---+---+
                                                               |
-                                                          14-silo
+                                                          15-silo
                                                               |
-                                                          15-counter-grain
+                                                          16-counter-grain
                                                               |
-                                                          16-counter-app
+                                                          17-counter-app
                                                               |
-                                                          17-counter-client
+                                                          18-counter-client
 ```
 
 ## Tasks
@@ -73,37 +75,38 @@ Tasks ordered by dependency. Each task can start when all its dependencies are c
 | # | Task | Status | Dependencies |
 |---|---|---|---|
 | 06 | [Grain Decorator](task-06-grain-decorator.md) | [x] | 02, 04 |
-| 10 | [File Storage Provider](task-10-file-storage.md) | [x] | 04, 05 |
-| 11 | [YAML Membership Provider](task-11-yaml-membership.md) | [x] | 02, 05 |
-| 13 | [In-Memory Stream Provider](task-13-in-memory-streaming.md) | [x] | 05, 07 |
+| 07 | [Grain Base Class](task-07-grain-base-class.md) | [ ] | 02, 03, 06 |
+| 11 | [File Storage Provider](task-11-file-storage.md) | [x] | 04, 05 |
+| 12 | [YAML Membership Provider](task-12-yaml-membership.md) | [x] | 02, 05 |
+| 14 | [In-Memory Stream Provider](task-14-in-memory-streaming.md) | [x] | 05, 08 |
 
 ### Layer 5: Runtime (depends on Layer 4)
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 07 | [Grain Runtime](task-07-grain-runtime.md) | [x] | 03, 04, 05, 06 |
+| 08 | [Grain Runtime](task-08-grain-runtime.md) | [x] | 03, 04, 05, 06, 07 |
 
-### Layer 6: Runtime Consumers (depends on 07)
+### Layer 6: Runtime Consumers (depends on 08)
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 08 | [Grain Reference](task-08-grain-reference.md) | [x] | 02, 04, 07 |
-| 09 | [DI Container](task-09-di-container.md) | [x] | 05, 07, 08 |
-| 12 | [Grain Timers](task-12-grain-timers.md) | [x] | 07 |
+| 09 | [Grain Reference](task-09-grain-reference.md) | [x] | 02, 04, 08 |
+| 10 | [DI Container](task-10-di-container.md) | [x] | 05, 08, 09 |
+| 13 | [Grain Timers](task-13-grain-timers.md) | [x] | 08 |
 
 ### Layer 7: Silo Assembly (depends on all above)
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 14 | [Silo](task-14-silo.md) | [x] | 07, 08, 09, 10, 11, 12, 13 |
+| 15 | [Silo](task-15-silo.md) | [x] | 08, 09, 10, 11, 12, 13, 14 |
 
 ### Layer 8: Sample Application
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 15 | [Counter Grain](task-15-counter-grain.md) | [x] | 06, 14 |
-| 16 | [Counter App (Standalone Silo)](task-16-counter-app.md) | [x] | 10, 11, 14, 15 |
-| 17 | [Counter Client (Gateway Protocol)](task-17-counter-client.md) | [x] | 16 |
+| 16 | [Counter Grain](task-16-counter-grain.md) | [x] | 06, 07, 15 |
+| 17 | [Counter App (Standalone Silo)](task-17-counter-app.md) | [x] | 11, 12, 15, 16 |
+| 18 | [Counter Client (Gateway Protocol)](task-18-counter-client.md) | [x] | 17 |
 
 ## Parallel Execution Opportunities
 
@@ -111,5 +114,5 @@ Tasks within the same layer can be implemented in parallel:
 
 - **Layer 2**: Tasks 02, 03 (parallel)
 - **Layer 3**: Tasks 04, 05 (parallel)
-- **Layer 4**: Tasks 06, 10, 11 (parallel; 13 waits for 07)
-- **Layer 6**: Tasks 08, 09, 12 (parallel after 07)
+- **Layer 4**: Tasks 06, 07, 11, 12 (parallel; 14 waits for 08)
+- **Layer 6**: Tasks 09, 10, 13 (parallel after 08)

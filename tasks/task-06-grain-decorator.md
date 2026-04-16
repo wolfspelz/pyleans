@@ -110,10 +110,20 @@ _To be filled when task is complete._
 - Decorator stores metadata as class attributes (`_grain_type`, `_state_type`, `_storage_name`).
 - `get_grain_methods` uses `inspect.isfunction` + `asyncio.iscoroutinefunction` to discover only public async methods.
 - `LIFECYCLE_METHODS` is a frozenset for O(1) lookups.
-- `identity`, `state`, `save_state`, `clear_state` are NOT added by the decorator — they will be set by the runtime (Task 07).
+- `identity`, `state`, `save_state`, `clear_state` are NOT added by the decorator — they will be set by the runtime (Task 08).
 
 ### Deviations
 - None.
 
 ### Test coverage
 - 19 tests: decorator with/without args, registry lookup, not-found error, method discovery (public/private/dunder/sync/lifecycle exclusions), metadata for stateful/stateless grains.
+
+## Open: Grain Base Class Refactoring (Decision 11)
+
+Per [pyleans-plan.md Decision 11](../docs/pyleans-plan.md), introduce a `Grain[TState]`
+generic base class in `pyleans/pyleans/grain_base.py` that provides `identity`, `state`,
+`save_state`, `clear_state`, and `request_deactivation`. This eliminates the 5-line
+boilerplate every stateful grain currently declares. The `@grain` decorator should
+optionally infer `state_type` from the generic type argument when the grain inherits
+`Grain[TState]`. Existing tests must be updated to cover both patterns (base class and
+legacy decorator-only).

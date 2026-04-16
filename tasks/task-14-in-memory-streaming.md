@@ -1,11 +1,11 @@
-# Task 13: In-Memory Stream Provider
+# Task 14: In-Memory Stream Provider
 
 > **Coding rules**: Follow [CLAUDE.md](../CLAUDE.md) strictly — clean code, SOLID, strict type hints, mandatory tests.\
 > **On completion**: Fill in "Summary of implementation" at the bottom with files created, decisions made, deviations, and test coverage.
 
 ## Dependencies
 - [task-05-provider-abcs.md](task-05-provider-abcs.md)
-- [task-07-grain-runtime.md](task-07-grain-runtime.md)
+- [task-08-grain-runtime.md](task-08-grain-runtime.md)
 
 ## References
 - [pyleans-plan.md](../docs/pyleans-plan.md) -- Phase 1, Decision 5
