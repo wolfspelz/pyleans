@@ -512,6 +512,45 @@ configuration mechanism — `dictConfig`, `fileConfig`, or programmatic calls.
 
 ---
 
+### Graceful Shutdown
+
+The silo must clean up on every catchable termination signal: deactivate all
+grains (calling `on_deactivate`, persisting state), unregister from the membership
+table, and close the gateway. This prevents stale entries in the membership table
+and ensures grain state is consistent.
+
+**Shutdown sequence** (`silo.stop()`):
+
+1. Update membership status to `SHUTTING_DOWN`
+2. Cancel the heartbeat background task
+3. Stop the gateway (no new client connections)
+4. Stop the runtime (deactivate all grains — calls `on_deactivate`, saves state)
+5. Unregister from membership table (remove entry entirely)
+6. Signal the stop event (unblocks `silo.start()`)
+
+**Signal handling**:
+
+The silo installs handlers for all catchable termination signals. On Unix:
+`SIGINT` (Ctrl+C) and `SIGTERM` (kill, systemd stop, k8s pod eviction). On
+Windows: `SIGINT` (Ctrl+C) via `signal.signal()` since `add_signal_handler`
+is not supported on `ProactorEventLoop`.
+
+`SIGKILL` (kill -9) cannot be caught by any process — this is an OS guarantee.
+If a silo is killed with SIGKILL, its membership entry becomes stale. The
+heartbeat mechanism detects this: other silos (or a monitor) see the heartbeat
+timestamp stop updating and can mark the silo as `DEAD` after a timeout.
+
+**atexit fallback**: The silo registers an `atexit` handler that performs a
+synchronous best-effort cleanup (unregister from membership) for cases where
+the process exits without an explicit `stop()` call (e.g. unhandled exception
+in non-async code, interpreter shutdown).
+
+**Design principle**: the silo should never leave a stale `ACTIVE` entry in the
+membership table under normal operation. Only SIGKILL or power failure can cause
+stale entries, and those are handled by heartbeat expiry.
+
+---
+
 ## 3. Architecture Overview
 
 ```

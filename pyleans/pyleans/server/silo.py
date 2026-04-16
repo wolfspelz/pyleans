@@ -5,6 +5,7 @@ import contextlib
 import logging
 import signal
 import time
+import typing
 
 from dependency_injector import providers as di_providers
 
@@ -100,6 +101,7 @@ class Silo:
         self._stop_event = asyncio.Event()
         self._heartbeat_task: asyncio.Task[None] | None = None
         self._started = False
+        self._atexit_cleanup: typing.Callable[[], None] | None = None
 
     @property
     def grain_factory(self) -> GrainFactory:
@@ -132,6 +134,7 @@ class Silo:
         Registers grain classes, initializes providers, starts the runtime
         idle collector and heartbeat, then waits for the stop event.
         """
+        self._configure_default_logging()
         self._register_grain_classes()
         self._wire_container()
         await self._register_in_membership()
@@ -140,6 +143,7 @@ class Silo:
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
         self._started = True
         self._install_signal_handlers()
+        self._install_atexit_handler()
 
         logger.info(
             "Silo started on %s:%s (gateway %s)",
@@ -157,6 +161,7 @@ class Silo:
         the stop event. Useful for embedding a silo in an application
         (e.g. FastAPI) or in tests.
         """
+        self._configure_default_logging()
         self._register_grain_classes()
         self._wire_container()
         await self._register_in_membership()
@@ -164,6 +169,7 @@ class Silo:
         await self._gateway.start()
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
         self._started = True
+        self._install_atexit_handler()
 
         logger.info(
             "Silo started on %s:%s (gateway %s, background)",
@@ -193,10 +199,30 @@ class Silo:
         await self._membership_provider.unregister_silo(self._silo_id)
         logger.info("Unregistered from membership table")
 
+        if self._atexit_cleanup is not None:
+            import atexit
+
+            atexit.unregister(self._atexit_cleanup)
+            self._atexit_cleanup = None
+
         self._started = False
         self._stop_event.set()
 
         logger.info("Silo stopped")
+
+    @staticmethod
+    def _configure_default_logging() -> None:
+        """Set up INFO logging if the application hasn't configured any handlers.
+
+        Follows the basicConfig pattern: no-op if logging is already configured.
+        """
+        pyleans_logger = logging.getLogger("pyleans")
+        if not pyleans_logger.handlers and not logging.root.handlers:
+            logging.basicConfig(
+                level=logging.INFO,
+                format="%(asctime)s %(name)s %(levelname)s %(message)s",
+                datefmt="%H:%M:%S",
+            )
 
     def _register_grain_classes(self) -> None:
         """Ensure all grain classes are in the global registry."""
@@ -246,7 +272,7 @@ class Silo:
             return
 
     def _install_signal_handlers(self) -> None:
-        """Install SIGINT/SIGTERM handlers for graceful shutdown."""
+        """Install handlers for all catchable termination signals."""
         loop = asyncio.get_running_loop()
 
         def _handle_signal() -> None:
@@ -257,5 +283,30 @@ class Silo:
             loop.add_signal_handler(signal.SIGINT, _handle_signal)
             loop.add_signal_handler(signal.SIGTERM, _handle_signal)
         except NotImplementedError:
-            # Windows doesn't support add_signal_handler on ProactorEventLoop
-            pass
+            # Windows ProactorEventLoop doesn't support add_signal_handler.
+            # Fall back to signal.signal() for SIGINT (Ctrl+C).
+            def _win_handler(signum: int, _frame: object) -> None:
+                logger.info("Received shutdown signal (%s)", signal.Signals(signum).name)
+                loop.call_soon_threadsafe(lambda: loop.create_task(self.stop()))
+
+            signal.signal(signal.SIGINT, _win_handler)
+
+    def _install_atexit_handler(self) -> None:
+        """Register atexit cleanup to unregister from membership on unexpected exit."""
+        import atexit
+
+        def _cleanup() -> None:
+            if not self._started:
+                return
+            try:
+                import asyncio as _asyncio
+
+                loop = _asyncio.new_event_loop()
+                loop.run_until_complete(self._membership_provider.unregister_silo(self._silo_id))
+                loop.close()
+                logger.info("atexit: unregistered from membership table")
+            except Exception:
+                logger.warning("atexit: failed to unregister from membership", exc_info=True)
+
+        atexit.register(_cleanup)
+        self._atexit_cleanup = _cleanup
