@@ -8,8 +8,8 @@
 - [task-04-serialization.md](task-04-serialization.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Provider Interfaces, Serialization
-- [orleans-persistence.md](../docs/orleans-persistence.md) -- IGrainStorage, ETags
+- [adr-provider-interfaces](../adr/adr-provider-interfaces.md), [adr-serialization](../adr/adr-serialization.md)
+- [orleans-persistence.md](../orleans-architecture/orleans-persistence.md) -- IGrainStorage, ETags
 
 ## Description
 

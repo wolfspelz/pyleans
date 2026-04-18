@@ -7,8 +7,8 @@
 - [task-01-project-setup.md](task-01-project-setup.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Section 4 (errors.py)
-- [orleans-persistence.md](../docs/orleans-persistence.md) -- ETags and optimistic concurrency
+- [plan.md](../plan.md) -- Section 4 (Package Structure)
+- [orleans-persistence.md](../orleans-architecture/orleans-persistence.md) -- ETags and optimistic concurrency
 
 ## Description
 

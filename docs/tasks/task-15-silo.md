@@ -13,8 +13,9 @@
 - [task-14-in-memory-streaming.md](task-14-in-memory-streaming.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Phase 1, Dev Mode, Library vs CLI
-- [orleans-cluster.md](../docs/orleans-cluster.md) -- Silo lifecycle
+- [adr-dev-mode](../adr/adr-dev-mode.md), [adr-library-vs-cli](../adr/adr-library-vs-cli.md)
+- [plan.md](../plan.md) -- Phase 1
+- [orleans-cluster.md](../orleans-architecture/orleans-cluster.md) -- Silo lifecycle
 
 ## Description
 

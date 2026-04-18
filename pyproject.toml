@@ -83,7 +83,7 @@ max-locals = 20
 
 [tool.pylint."messages control"]
 # Ruff already enforces most style; pylint runs strict but silences deliberate project choices.
-# See docs/pyleans-plan.md and the post-task reviews for rationale.
+# See docs/plan.md and the post-task reviews for rationale.
 disable = [
     # Tests have descriptive names; docstrings would be noise.
     "missing-function-docstring",

@@ -8,8 +8,8 @@
 - [task-03-errors.md](task-03-errors.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Serialization
-- [orleans-networking.md](../docs/orleans-networking.md) -- Serialization System
+- [adr-serialization](../adr/adr-serialization.md)
+- [orleans-networking.md](../orleans-architecture/orleans-networking.md) -- Serialization System
 
 ## Description
 

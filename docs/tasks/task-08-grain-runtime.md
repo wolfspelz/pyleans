@@ -11,9 +11,10 @@
 - [task-07-grain-base-class.md](task-07-grain-base-class.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Concurrency Model, Phase 1 items 4,7,10
-- [orleans-grains.md](../docs/orleans-grains.md) -- Grain Lifecycle, Single-Threaded Execution
-- [orleans-advanced.md](../docs/orleans-advanced.md) -- Turn-based concurrency model
+- [adr-concurrency-model](../adr/adr-concurrency-model.md)
+- [plan.md](../plan.md) -- Phase 1 items 4 (activation/deactivation), 7 (turn-based scheduler), 12 (idle collection)
+- [orleans-grains.md](../orleans-architecture/orleans-grains.md) -- Grain Lifecycle, Single-Threaded Execution
+- [orleans-advanced.md](../orleans-architecture/orleans-advanced.md) -- Turn-based concurrency model
 
 ## Description
 

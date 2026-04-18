@@ -20,17 +20,23 @@ It uses Hexagonal Architecture with pluggable providers for membership, storage,
 
 ## Architecture & Design Decisions
 
-All design decisions are documented in [docs/pyleans-plan.md](docs/pyleans-plan.md).
-The Orleans reference docs are in [docs/orleans-*.md](docs/).
+All project documentation lives under [docs/](docs/):
+
+- [docs/plan.md](docs/plan.md) — implementation plan: scope, phase roadmap, package structure.
+- [docs/adr/](docs/adr/) — Architecture Decision Records (MADR format), one decision per file. Index: [docs/adr/README.md](docs/adr/README.md).
+- [docs/architecture/](docs/architecture/) — long-form architecture specs (e.g. [pyleans-transport.md](docs/architecture/pyleans-transport.md)).
+- [docs/tasks/](docs/tasks/) — Phase 1 task specs. Overview in [docs/tasks/tasklist.md](docs/tasks/tasklist.md); each task is a `task-NN-name.md` file.
+- [docs/orleans-architecture/](docs/orleans-architecture/) — Orleans reference documentation used while designing pyleans.
+- [docs/orleans-sample/](docs/orleans-sample/) — Orleans sample app (C# demo, see [docs/orleans-sample/README.md](docs/orleans-sample/README.md)).
+- [docs/papers/](docs/papers/) — background papers (PDFs plus [hexagonal-architecture.md](docs/papers/hexagonal-architecture.md) and [beyond-stateless-talk.md](docs/papers/beyond-stateless-talk.md)).
 
 ### Implementation state
 
 **Phase 1 (single silo, dev mode)** is being implemented. Tasks are in [docs/tasks/tasklist.md](docs/tasks/tasklist.md).
-Each task is a separate file `docs/tasks/task-NN-name.md` with dependencies, design, and acceptance criteria.
 
 ### Transport design
 
-Pluggable transport layer documented in [docs/pyleans-transport.md](docs/pyleans-transport.md).
+Pluggable transport layer documented in [docs/architecture/pyleans-transport.md](docs/architecture/pyleans-transport.md). The pluggability decision is in [adr-cluster-transport](docs/adr/adr-cluster-transport.md).
 Phase 1 does not include networking. Phase 2 adds TCP mesh transport.
 
 ## Mandatory Coding Standards
@@ -115,7 +121,7 @@ log message. Logging is not optional or an afterthought — it is as mandatory a
 ### Logging Standards
 
 - Use `logging.getLogger(__name__)` in every module. Grains use `logging.getLogger(f"pyleans.grain.{grain_type}")`.
-- Follow the log level guideline from [pyleans-plan.md](docs/pyleans-plan.md) (Logging section):
+- Follow the log level guideline from [adr-logging](docs/adr/adr-logging.md):
   - **INFO**: lifecycle events, ≤1/sec per module or grain (activation, deactivation, silo start/stop, membership changes)
   - **DEBUG**: per-operation, frequent (grain calls, `write_state`, storage I/O, gateway messages, timer ticks)
   - **WARNING**: unexpected but recoverable (exceptions caught, etag conflicts, timeouts)

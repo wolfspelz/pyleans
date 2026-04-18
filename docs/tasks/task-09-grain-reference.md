@@ -9,9 +9,9 @@
 - [task-04-serialization.md](task-04-serialization.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Grain Interfaces
-- [orleans-grains.md](../docs/orleans-grains.md) -- Activation vs Reference
-- [orleans-networking.md](../docs/orleans-networking.md) -- Grain method invocation
+- [adr-grain-interfaces](../adr/adr-grain-interfaces.md)
+- [orleans-grains.md](../orleans-architecture/orleans-grains.md) -- Activation vs Reference
+- [orleans-networking.md](../orleans-architecture/orleans-networking.md) -- Grain method invocation
 
 ## Description
 

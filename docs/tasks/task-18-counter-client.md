@@ -7,8 +7,8 @@
 - [task-17-counter-app.md](task-17-counter-app.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Section 7 (Client usage)
-- [pyleans-transport.md](../docs/pyleans-transport.md) -- Gateway protocol
+- [adr-package-split](../adr/adr-package-split.md) -- client library usage pattern
+- [pyleans-transport.md](../architecture/pyleans-transport.md) -- Gateway protocol
 
 ## Description
 

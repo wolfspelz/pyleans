@@ -7,9 +7,9 @@
 - [task-01-project-setup.md](task-01-project-setup.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Grain Interfaces, State Declaration
-- [orleans-grains.md](../docs/orleans-grains.md) -- Section 2 (Grain Identity)
-- [orleans-cluster.md](../docs/orleans-cluster.md) -- Silo Architecture
+- [adr-grain-interfaces](../adr/adr-grain-interfaces.md), [adr-state-declaration](../adr/adr-state-declaration.md)
+- [orleans-grains.md](../orleans-architecture/orleans-grains.md) -- Section 2 (Grain Identity)
+- [orleans-cluster.md](../orleans-architecture/orleans-cluster.md) -- Silo Architecture
 
 ## Description
 

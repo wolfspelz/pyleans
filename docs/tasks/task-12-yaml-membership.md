@@ -8,8 +8,8 @@
 - [task-02-core-types.md](task-02-core-types.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Provider Interfaces
-- [orleans-cluster.md](../docs/orleans-cluster.md) -- Membership Protocol, Membership Table
+- [adr-provider-interfaces](../adr/adr-provider-interfaces.md)
+- [orleans-cluster.md](../orleans-architecture/orleans-cluster.md) -- Membership Protocol, Membership Table
 
 ## Description
 

@@ -7,8 +7,8 @@
 - [task-08-grain-runtime.md](task-08-grain-runtime.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Phase 1 item 11
-- [orleans-grains.md](../docs/orleans-grains.md) -- Timers and Reminders
+- [plan.md](../plan.md) -- Phase 1 item 13 (grain timers)
+- [orleans-grains.md](../orleans-architecture/orleans-grains.md) -- Timers and Reminders
 
 ## Description
 

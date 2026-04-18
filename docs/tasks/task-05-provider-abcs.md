@@ -8,11 +8,11 @@
 - [task-03-errors.md](task-03-errors.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Provider Interfaces
-- [orleans-persistence.md](../docs/orleans-persistence.md) -- IGrainStorage interface
-- [orleans-cluster.md](../docs/orleans-cluster.md) -- Membership providers
-- [orleans-streaming.md](../docs/orleans-streaming.md) -- Stream providers
-- [hexagonal-architecture.md](../docs/hexagonal-architecture.md) -- Ports & Adapters pattern
+- [adr-provider-interfaces](../adr/adr-provider-interfaces.md)
+- [orleans-persistence.md](../orleans-architecture/orleans-persistence.md) -- IGrainStorage interface
+- [orleans-cluster.md](../orleans-architecture/orleans-cluster.md) -- Membership providers
+- [orleans-streaming.md](../orleans-architecture/orleans-streaming.md) -- Stream providers
+- [hexagonal-architecture.md](../papers/hexagonal-architecture.md) -- Ports & Adapters pattern
 
 ## Description
 

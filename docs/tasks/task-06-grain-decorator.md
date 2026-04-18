@@ -8,8 +8,8 @@
 - [task-04-serialization.md](task-04-serialization.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Grain Interfaces, State Declaration
-- [orleans-grains.md](../docs/orleans-grains.md) -- What is a Grain, Grain Persistence
+- [adr-grain-interfaces](../adr/adr-grain-interfaces.md), [adr-state-declaration](../adr/adr-state-declaration.md)
+- [orleans-grains.md](../orleans-architecture/orleans-grains.md) -- What is a Grain, Grain Persistence
 
 ## Description
 

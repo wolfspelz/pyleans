@@ -10,7 +10,8 @@
 - [task-12-yaml-membership.md](task-12-yaml-membership.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Phase 1 milestone, Section 7 (Silo usage)
+- [plan.md](../plan.md) -- Phase 1 milestone
+- [adr-library-vs-cli](../adr/adr-library-vs-cli.md) -- silo usage pattern
 
 ## Description
 

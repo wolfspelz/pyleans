@@ -7,7 +7,7 @@
 None -- this is the first task.
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Section 4 (Package Structure), Section 7 (Resolved Questions)
+- [plan.md](../plan.md) -- Section 4 (Package Structure)
 
 ## Description
 

@@ -9,7 +9,7 @@
 - [task-15-silo.md](task-15-silo.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Phase 1 milestone
+- [plan.md](../plan.md) -- Phase 1 milestone
 
 ## Description
 

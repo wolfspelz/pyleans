@@ -8,8 +8,9 @@
 - [task-08-grain-runtime.md](task-08-grain-runtime.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Phase 1, Provider Interfaces
-- [orleans-streaming.md](../docs/orleans-streaming.md) -- Stream concepts, PubSub
+- [adr-provider-interfaces](../adr/adr-provider-interfaces.md)
+- [plan.md](../plan.md) -- Phase 1
+- [orleans-streaming.md](../orleans-architecture/orleans-streaming.md) -- Stream concepts, PubSub
 
 ## Description
 

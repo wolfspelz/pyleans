@@ -9,7 +9,7 @@
 - [task-06-grain-decorator.md](task-06-grain-decorator.md)
 
 ## References
-- [pyleans-plan.md](../docs/pyleans-plan.md) -- Grain Base Class
+- [adr-grain-base-class](../adr/adr-grain-base-class.md)
 
 ## Description
 
