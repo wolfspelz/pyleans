@@ -254,5 +254,6 @@ Fix all vulnerabilities found. Add tests for any security fix.
 
 - Every commit must leave the project in a working state (tests pass, type checks pass).
 - Commit messages describe the "why", not the "what".
+- **Keep commit messages concise: usually one line per distinct change.** A single-line subject is ideal; add a brief body only when the "why" is non-obvious. No bullet lists of file names, no restating the diff.
 - Do not commit generated files, secrets, or IDE-specific configuration.
 - After completing each task: perform code review, security review, fix all issues from both reviews, verify all unit tests pass, then git commit the result.
