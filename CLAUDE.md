@@ -1,5 +1,18 @@
 # CLAUDE.md — Project Rules for pyleans
 
+## ⚠️ Rule 0 — Working directory: NEVER use `cd`
+
+**The shell's working directory is ALWAYS the repository top level (`c:\Heiner\github-pyleans`). Every `Bash` tool call starts there. Do not change it.**
+
+- ❌ **NEVER** prefix a command with `cd <anywhere> && ...`. Not `cd c:/Heiner/github-pyleans && pytest`. Not `cd src && python -m counter_app`. Not even "just this once."
+- ❌ **NEVER** use `cd` to "make sure" you're in the right place. You are. The harness guarantees it.
+- ✅ Run commands bare: `pytest`, `git status`, `python -m src.counter_app`.
+- ✅ For paths outside cwd, pass the path as an argument: `pytest src/counter_app/test`, `ls src/counter_app/`.
+
+The **only** legitimate `cd` is when a command genuinely cannot accept a path argument AND the behavior depends on cwd. That is vanishingly rare. If you are about to type `cd`, stop and find another way.
+
+Why: `cd <repo> && ...` bypasses the harness's permission matcher (rules are keyed on the bare command), which forces unnecessary approval prompts and creates inconsistent command strings across the session.
+
 ## Project Overview
 
 **pyleans** is a Python implementation of the Virtual Actor pattern (inspired by Microsoft Orleans).
@@ -149,10 +162,6 @@ Never. If you think a piece of code doesn't need tests, you are wrong. Even triv
 - **Type checker**: mypy in strict mode
 - **Project layout**: flat layout with `src/` and `test/` per package
 - **One grain per file**: every grain class gets its own file, named in snake_case (`CounterGrain` → `counter_grain.py`). State dataclass lives in the same file. Test-only grains are exempt.
-
-### Working directory
-
-Always assume the current working directory is the repository top level (`c:\Heiner\github-pyleans`). Run commands bare — do not prefix with `cd` unless the command genuinely cannot run from the repo root.
 
 ### Common Commands
 
