@@ -4,7 +4,7 @@ import asyncio
 
 from pyleans.server import Silo
 from pyleans.server.grains import system_grains
-from pyleans.server.providers import FileStorageProvider, YamlMembershipProvider
+from pyleans.server.providers import FileStorageProvider, MarkdownTableMembershipProvider
 
 from counter_app.answer_grain import AnswerGrain
 from counter_app.counter_grain import CounterGrain
@@ -14,7 +14,7 @@ async def main() -> None:
     silo = Silo(
         grains=[CounterGrain, AnswerGrain, *system_grains()],
         storage_providers={"default": FileStorageProvider("./data/storage")},
-        membership_provider=YamlMembershipProvider("./data/membership.yaml"),
+        membership_provider=MarkdownTableMembershipProvider("./data/membership.md"),
     )
     await silo.start()
 
