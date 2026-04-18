@@ -1,6 +1,80 @@
 {
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -c \"[console]::beep(200,200)\"",
+            "shell": "powershell",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
+      "Bash(.venv/Scripts/mypy *)",
+      "Bash(.venv/Scripts/mypy)",
+      "Bash(.venv/Scripts/pip *)",
+      "Bash(.venv/Scripts/pytest *)",
+      "Bash(.venv/Scripts/pytest)",
+      "Bash(.venv/Scripts/python *)",
+      "Bash(.venv/Scripts/python.exe --version)",
+      "Bash(.venv/Scripts/python.exe -m mypy*)",
+      "Bash(.venv/Scripts/python.exe -m pip install *)",
+      "Bash(.venv/Scripts/python.exe -m pylint *)",
+      "Bash(.venv/Scripts/python.exe -m pytest*)",
+      "Bash(.venv/Scripts/python.exe -m ruff*)",
+      "Bash(.venv/Scripts/ruff *)",
+      "Bash(.venv/Scripts/ruff.exe check *)",
+      "Bash(.venv/Scripts/ruff.exe check)",
+      "Bash(.venv/Scripts/ruff.exe format *)",
+      "Bash(.venv/Scripts/ruff.exe format)",
+      "Bash(.venv/bin/mypy *)",
+      "Bash(.venv/bin/mypy)",
+      "Bash(.venv/bin/pip *)",
+      "Bash(.venv/bin/pytest *)",
+      "Bash(.venv/bin/pytest)",
+      "Bash(.venv/bin/python *)",
+      "Bash(.venv/bin/python.exe --version)",
+      "Bash(.venv/bin/python.exe -m mypy*)",
+      "Bash(.venv/bin/python.exe -m pip install *)",
+      "Bash(.venv/bin/python.exe -m pylint *)",
+      "Bash(.venv/bin/python.exe -m pytest*)",
+      "Bash(.venv/bin/python.exe -m ruff*)",
+      "Bash(.venv/bin/ruff *)",
+      "Bash(.venv/bin/ruff.exe check *)",
+      "Bash(.venv/bin/ruff.exe check)",
+      "Bash(.venv/bin/ruff.exe format *)",
+      "Bash(.venv/bin/ruff.exe format)",
+      "Bash(git branch*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git status*)",
+      "Bash(ls *)",
+      "Bash(ls)",
+      "Bash(mkdir *)",
+      "Bash(mv *)",
+      "Bash(mypy *)",
+      "Bash(mypy)",
+      "Bash(pytest *)",
+      "Bash(pytest)",
+      "Bash(python -m venv .venv)",
+      "Bash(ruff *)",
+      "Bash(ruff)",
+      "Bash(source .venv/*)",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:pypi.org)"
     ]
   }
 }
