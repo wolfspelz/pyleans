@@ -25,8 +25,8 @@ The Orleans reference docs are in [docs/orleans-*.md](docs/).
 
 ### Implementation state
 
-**Phase 1 (single silo, dev mode)** is being implemented. Tasks are in [tasks/tasklist.md](tasks/tasklist.md).
-Each task is a separate file `tasks/task-NN-name.md` with dependencies, design, and acceptance criteria.
+**Phase 1 (single silo, dev mode)** is being implemented. Tasks are in [docs/tasks/tasklist.md](docs/tasks/tasklist.md).
+Each task is a separate file `docs/tasks/task-NN-name.md` with dependencies, design, and acceptance criteria.
 
 ### Transport design
 
