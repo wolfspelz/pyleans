@@ -11,7 +11,7 @@ from pyleans.providers.storage import StorageProvider
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.silo import Silo
 
-from counter_app.counter_grain import CounterGrain, CounterState
+from src.counter_app.counter_grain import CounterGrain, CounterState
 
 # --- Fake providers for testing ---
 

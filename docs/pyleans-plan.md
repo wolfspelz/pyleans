@@ -585,28 +585,29 @@ pyleans/                         # framework package
     gateway/                     # TCP gateway protocol
     providers/                   # provider ABCs (ports)
   test/
-counter_app/                     # sample silo app (top-level module)
-  counter_grain.py               # one file per grain
-  main.py                        # Standalone silo
-  __main__.py                    # python -m counter_app
-  test/
-counter_client/                  # sample CLI client (top-level module)
-  main.py                        # CLI entry point
-  __main__.py                    # python -m counter_client
-  test/
+src/                             # sample apps live under src/ (not pip-installed)
+  counter_app/                   # sample silo app
+    counter_grain.py             # one file per grain
+    main.py                      # Standalone silo
+    __main__.py                  # python -m src.counter_app
+    test/
+  counter_client/                # sample CLI client
+    main.py                      # CLI entry point
+    __main__.py                  # python -m src.counter_client
+    test/
 ```
 
 ### Naming convention
 
 `pyleans` is a pip-installable package (`pip install -e pyleans`). The sample apps
-(`counter_app`, `counter_client`) are top-level Python modules — no pip install
-needed, just run from the project root.
+live under `src/` and are run as submodules — no pip install needed, just run
+from the project root.
 
 | Module | Type | Run with |
 |---|---|---|
 | `pyleans` | Framework (pip-installed) | Library, not runnable |
-| `counter_app` | Sample app (top-level module) | `python -m counter_app` |
-| `counter_client` | Sample CLI (top-level module) | `python -m counter_client` |
+| `src.counter_app` | Sample app under `src/` | `python -m src.counter_app` |
+| `src.counter_client` | Sample CLI under `src/` | `python -m src.counter_client` |
 
 ### One grain per file
 
@@ -614,7 +615,7 @@ Every grain class lives in its own file, named after the grain in snake_case:
 `CounterGrain` → `counter_grain.py`, `StringCacheGrain` → `string_cache_grain.py`.
 
 This applies to both framework-provided grains (in `pyleans/server/`) and
-application grains (in user packages like `counter_app/`). The grain's state
+application grains (in user packages like `src/counter_app/`). The grain's state
 dataclass lives in the same file as the grain.
 
 Test-only grains (defined inside test files) are exempt from this rule.
@@ -629,13 +630,13 @@ scripts -- everything uses `python -m`.
 pip install -e pyleans
 
 # Terminal 1: start the silo (blocks, Ctrl+C to stop)
-python -m counter_app
+python -m src.counter_app
 
 # Terminal 2: use the CLI client
-python -m counter_client get my-counter
-python -m counter_client inc my-counter
-python -m counter_client set my-counter 42
-python -m counter_client get my-counter --gateway localhost:30000
+python -m src.counter_client get my-counter
+python -m src.counter_client inc my-counter
+python -m src.counter_client set my-counter 42
+python -m src.counter_client get my-counter --gateway localhost:30000
 ```
 
 The silo listens on gateway port 30000 (configurable). State persists to
@@ -677,8 +678,8 @@ Everything runs in one Python process. Like Orleans' `UseLocalhostClustering()`.
 11. Grain timers
 12. Counter example: standalone silo + CLI client via gateway protocol
 
-**Milestone**: `python -m counter_app` runs a standalone silo hosting a counter grain
-that persists to a JSON file. `python -m counter_client` connects via ClusterClient
+**Milestone**: `python -m src.counter_app` runs a standalone silo hosting a counter grain
+that persists to a JSON file. `python -m src.counter_client` connects via ClusterClient
 and the TCP gateway protocol.
 
 ### Phase 2: Multi-Silo Cluster

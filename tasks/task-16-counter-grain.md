@@ -17,7 +17,7 @@ Implement a `CounterGrain` -- the first sample grain. Demonstrates state
 persistence, the @grain decorator, and DI.
 
 ### Files to create
-- `counter_app/counter_grain.py` (one grain per file)
+- `src/counter_app/counter_grain.py` (one grain per file)
 
 ### Design
 
@@ -86,18 +86,18 @@ No issues found. The CounterGrain is pure application logic with no system bound
 ## Summary of implementation
 
 ### Files created/modified
-- **Created**: `counter_app/counter_grain.py` — CounterGrain with CounterState (renamed from `grains.py`)
-- **Created**: `counter_app/test/test_counter_grain.py` — 17 tests across 8 test classes
-- **Modified**: `counter_app/pyproject.toml (removed — sample apps are now top-level modules)` — Added hatch wheel packages config and asyncio_mode=auto
+- **Created**: `src/counter_app/counter_grain.py` — CounterGrain with CounterState (renamed from `grains.py`)
+- **Created**: `src/counter_app/test/test_counter_grain.py` — 17 tests across 8 test classes
+- **Modified**: `src/counter_app/pyproject.toml (removed — sample apps now live under src/ and are run as `python -m src.counter_app`)` — Added hatch wheel packages config and asyncio_mode=auto
 
 ### Key implementation decisions
-- Placed grain in `counter_app/counter_grain.py` (existing package structure) instead of `examples/counter-app/grains.py` (task spec path doesn't match project layout).
+- Placed grain in `src/counter_app/counter_grain.py` (existing package structure) instead of `examples/counter-app/grains.py` (task spec path doesn't match project layout).
 - Used `# type: ignore[attr-defined]` for `self.state`, `self.write_state` since these are dynamically bound by the runtime during activation.
 - Tests use the full Silo with fake providers rather than testing the grain in isolation, ensuring end-to-end correctness.
 
 ### Deviations from original design
 - Omitted the empty `on_activate` method — it adds no value since state is loaded automatically.
-- File location changed from task spec `examples/counter-app/grains.py` to `counter_app/counter_grain.py` — one grain per file convention.
+- File location changed from task spec `examples/counter-app/grains.py` to `src/counter_app/counter_grain.py` — one grain per file convention.
 
 ### Test coverage summary
 - 17 tests: registration (5), state defaults (2), get_value (1), increment (2), set_value (2), reset (1), state survival through deactivation and silo restart (2), multiple independent instances (1), concurrent counters (1).

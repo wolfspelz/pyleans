@@ -39,7 +39,7 @@ that adds noise and violates DRY.
 - `pyleans/pyleans/grain.py` -- `@grain` decorator: infer `state_type` from generic
   type argument when grain inherits `Grain[TState]`
 - `pyleans/pyleans/server/runtime.py` -- verify compatibility (binding mechanism unchanged)
-- `counter_app/counter_grain.py` -- inherit `Grain[CounterState]`, remove boilerplate
+- `src/counter_app/counter_grain.py` -- inherit `Grain[CounterState]`, remove boilerplate
 - `pyleans/pyleans/server/string_cache_grain.py` -- inherit `Grain[StringCacheState]`, remove boilerplate
 - Tests for all modified files
 
@@ -148,7 +148,7 @@ type system — no user input, no deserialization, no external I/O.
 ### Files modified
 - `pyleans/pyleans/grain.py` — `_infer_state_type()`, `_BASE_CLASS_METHODS` exclusion set
 - `pyleans/pyleans/__init__.py` — export `Grain`
-- `counter_app/counter_grain.py` — inherits `Grain[CounterState]`, removed boilerplate
+- `src/counter_app/counter_grain.py` — inherits `Grain[CounterState]`, removed boilerplate
 - `pyleans/pyleans/server/string_cache_grain.py` — inherits `Grain[StringCacheState]`, removed boilerplate
 - `pyleans/test/test_runtime.py` — test grain uses `Grain[CounterState]`
 - `pyleans/test/test_silo.py` — test grain uses `Grain[CounterState]`

@@ -13,7 +13,7 @@ from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.providers.yaml_membership import YamlMembershipProvider
 from pyleans.server.silo import Silo
 
-from counter_app.counter_grain import CounterGrain
+from src.counter_app.counter_grain import CounterGrain
 
 
 def make_silo(tmp_path: Path) -> Silo:

@@ -150,6 +150,10 @@ Never. If you think a piece of code doesn't need tests, you are wrong. Even triv
 - **Project layout**: flat layout with `src/` and `test/` per package
 - **One grain per file**: every grain class gets its own file, named in snake_case (`CounterGrain` → `counter_grain.py`). State dataclass lives in the same file. Test-only grains are exempt.
 
+### Working directory
+
+Always assume the current working directory is the repository top level (`c:\Heiner\github-pyleans`). Run commands bare — do not prefix with `cd` unless the command genuinely cannot run from the repo root.
+
 ### Common Commands
 
 ```bash
@@ -159,7 +163,7 @@ python -m venv .venv             # create virtual environment
 pip install -e "pyleans[dev]"    # install pyleans + dev deps in editable mode
 pytest                           # run all tests across workspace
 pytest pyleans/test              # run only pyleans tests
-pytest counter_app/test           # run only counter-app tests
+pytest src/counter_app/test      # run only counter-app tests
 mypy pyleans/src                 # type-check pyleans
 ruff check .                     # lint everything
 ruff format .                    # format everything
@@ -168,8 +172,8 @@ ruff format .                    # format everything
 ## Package Relationships
 
 - `pyleans` is the framework library (no CLI entry point)
-- `counter_app` is a sample silo app (top-level module, no pip install needed)
-- `counter_client` is a sample CLI that talks to counter_app via `pyleans.client` (top-level module)
+- `src/counter_app` is a sample silo app (run as `python -m src.counter_app`, no pip install needed)
+- `src/counter_client` is a sample CLI that talks to counter_app via `pyleans.client` (run as `python -m src.counter_client`)
 - `pyleans.server` is the silo runtime (import only in silo processes)
 - `pyleans.client` is the lightweight client (import in external apps)
 - `pyleans.gateway` is the TCP gateway protocol (used by both server and client)
@@ -180,10 +184,10 @@ ruff format .                    # format everything
 All apps are run as Python modules — no installed console scripts.
 
 ```bash
-python -m counter_app                          # start silo (blocks, Ctrl+C to stop)
-python -m counter_client get my-counter        # CLI client
-python -m counter_client inc my-counter
-python -m counter_client set my-counter 42
+python -m src.counter_app                          # start silo (blocks, Ctrl+C to stop)
+python -m src.counter_client get my-counter        # CLI client
+python -m src.counter_client inc my-counter
+python -m src.counter_client set my-counter 42
 ```
 
 ## Post-Task Reviews — MANDATORY

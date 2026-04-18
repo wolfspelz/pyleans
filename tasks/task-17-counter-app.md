@@ -24,15 +24,15 @@ standalone silo process. Co-hosting is an advanced pattern for when the
 silo and a web API must share a process.
 
 ### Files to create
-- `counter_app/main.py`
-- `counter_app/answer_grain.py` (one grain per file)
+- `src/counter_app/main.py`
+- `src/counter_app/answer_grain.py` (one grain per file)
 
 ### AnswerGrain
 
 A minimal stateless grain to demonstrate hosting multiple grains in one silo:
 
 ```python
-# counter_app/answer_grain.py
+# src/counter_app/answer_grain.py
 from pyleans import grain
 
 @grain
@@ -52,8 +52,8 @@ import asyncio
 from pyleans.server import Silo
 from pyleans.server.grains import system_grains
 from pyleans.server.providers import FileStorageProvider, YamlMembershipProvider
-from counter_app.counter_grain import CounterGrain
-from counter_app.answer_grain import AnswerGrain
+from src.counter_app.counter_grain import CounterGrain
+from src.counter_app.answer_grain import AnswerGrain
 
 async def main() -> None:
     silo = Silo(
@@ -99,7 +99,7 @@ class CounterGrain:
 
 ### Acceptance criteria
 
-- [x] `python -m counter_app` starts silo and blocks
+- [x] `python -m src.counter_app` starts silo and blocks
 - [x] Ctrl+C triggers graceful shutdown (deactivates grains, saves state)
 - [x] `data/membership.yaml` shows silo entry while running
 - [x] `data/membership.yaml` shows no silo entry after clean shutdown
@@ -125,8 +125,8 @@ class CounterGrain:
 ## Summary of implementation
 
 ### Files created
-- `counter_app/main.py` — standalone silo entry point (existed from prior task, unchanged)
-- `counter_app/test/test_counter_app.py` — 9 integration tests using real file-based providers
+- `src/counter_app/main.py` — standalone silo entry point (existed from prior task, unchanged)
+- `src/counter_app/test/test_counter_app.py` — 9 integration tests using real file-based providers
 
 ### Key decisions
 - Tests use `tmp_path` pytest fixture for isolation (no shared state between tests)
