@@ -1,10 +1,12 @@
-# Task NN: <Task Title>
+# Task PP-NN: <Task Title>
+
+<!-- Filename: task-PP-NN-<slug>.md  (PP = 2-digit phase, NN = 2-digit task-within-phase, starting at 01 per phase). -->
 
 > **Coding rules**: Follow [CLAUDE.md](../CLAUDE.md) strictly -- clean code, SOLID, strict type hints, mandatory tests.\
 > **On completion**: Fill in "Summary of implementation" at the bottom with files created, decisions made, deviations, and test coverage.
 
 ## Dependencies
-- [task-XX-<name>.md](task-XX-<name>.md)
+- [task-PP-NN-<name>.md](task-PP-NN-<name>.md)
 - <!-- one bullet per upstream task this task depends on; delete section if none -->
 
 ## References
