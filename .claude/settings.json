@@ -8,6 +8,11 @@
             "command": "powershell -c \"[console]::beep(200,200)\"",
             "shell": "powershell",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "paplay /usr/share/sounds/freedesktop/stereo/bell.oga 2>/dev/null",
+            "timeout": 5
           }
         ]
       }
