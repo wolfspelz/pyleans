@@ -4,8 +4,8 @@
 > **On completion**: Fill in "Summary of implementation" at the bottom with files created, decisions made, deviations, and test coverage.
 
 ## Dependencies
-- [task-01-17-counter-app.md](task-01-17-counter-app.md)
-- [task-01-18-counter-client.md](task-01-18-counter-client.md)
+- [task-01-19-counter-app.md](task-01-19-counter-app.md)
+- [task-01-20-counter-client.md](task-01-20-counter-client.md)
 - [task-02-16-remote-grain-invoke.md](task-02-16-remote-grain-invoke.md)
 - [task-02-17-silo-lifecycle-stages.md](task-02-17-silo-lifecycle-stages.md)
 - [task-02-18-multi-silo-integration-tests.md](task-02-18-multi-silo-integration-tests.md)

@@ -1,4 +1,4 @@
-# Task 01-15: Silo (Main Entry Point)
+# Task 01-17: Silo (Main Entry Point)
 
 > **Coding rules**: Follow [CLAUDE.md](../CLAUDE.md) strictly — clean code, SOLID, strict type hints, mandatory tests.\
 > **On completion**: Fill in "Summary of implementation" at the bottom with files created, decisions made, deviations, and test coverage.
@@ -11,6 +11,8 @@
 - [task-01-12-yaml-membership.md](task-01-12-yaml-membership.md)
 - [task-01-13-grain-timers.md](task-01-13-grain-timers.md)
 - [task-01-14-in-memory-streaming.md](task-01-14-in-memory-streaming.md)
+- [task-01-15-network-port.md](task-01-15-network-port.md) -- Silo owns the first networking component in Phase 1 (the gateway listener); the network port is what keeps that testable
+- [task-01-16-in-memory-network-simulator.md](task-01-16-in-memory-network-simulator.md) -- Silo tests use the simulator
 
 ## References
 - [adr-dev-mode](../adr/adr-dev-mode.md), [adr-library-vs-cli](../adr/adr-library-vs-cli.md)
@@ -54,6 +56,7 @@ class Silo:
         gateway_port: int = 30000,
         host: str = "localhost",
         idle_timeout: float = 900.0,
+        network: INetwork | None = None,
     ):
         """
         Args:
@@ -65,6 +68,9 @@ class Silo:
             gateway_port: TCP gateway port for client connections. Default: 30000.
             host: Silo host address.
             idle_timeout: Seconds before idle grains are deactivated.
+            network: Pluggable network adapter. Default: AsyncioNetwork (production
+                TCP). Tests pass InMemoryNetwork so no OS ports are bound.
+                See task-01-15 and adr-network-port-for-testability.
         """
 
     async def start(self) -> None:
@@ -309,6 +315,9 @@ When no providers are specified, use sensible defaults:
 - `storage_providers={"default": FileStorageProvider("./data/storage")}`
 - `membership_provider=YamlMembershipProvider("./data/membership.yaml")`
 - `stream_providers={"default": InMemoryStreamProvider()}`
+- `network=AsyncioNetwork()` (production default — binds real TCP on `gateway_port`).
+
+The GatewayListener is constructed with `network=self._network`, so test suites that construct the Silo with `network=InMemoryNetwork()` never bind a real port.
 
 ### Lifecycle
 
@@ -348,6 +357,8 @@ Register SIGINT/SIGTERM handlers to trigger graceful `stop()`.
 - [x] Heartbeat updates membership periodically
 - [x] Ctrl+C triggers graceful shutdown
 - [x] Integration test: start silo, call grain, stop silo, verify state persisted
+- [x] `Silo(network=InMemoryNetwork())` binds no OS ports; `silo.gateway_port` reports the simulator's virtual port; grain calls still work end-to-end
+- [x] All Silo unit tests use `InMemoryNetwork` via the shared `network` pytest fixture from [task-01-16](task-01-16-in-memory-network-simulator.md)
 
 ## Findings of code review
 

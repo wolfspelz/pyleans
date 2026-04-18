@@ -1,11 +1,11 @@
-# Task 01-17: Counter App (Standalone Silo)
+# Task 01-19: Counter App (Standalone Silo)
 
 > **Coding rules**: Follow [CLAUDE.md](../CLAUDE.md) strictly — clean code, SOLID, strict type hints, mandatory tests.\
 > **On completion**: Fill in "Summary of implementation" at the bottom with files created, decisions made, deviations, and test coverage.
 
 ## Dependencies
-- [task-01-15-silo.md](task-01-15-silo.md)
-- [task-01-16-counter-grain.md](task-01-16-counter-grain.md)
+- [task-01-17-silo.md](task-01-17-silo.md)
+- [task-01-18-counter-grain.md](task-01-18-counter-grain.md)
 - [task-01-11-file-storage.md](task-01-11-file-storage.md)
 - [task-01-12-yaml-membership.md](task-01-12-yaml-membership.md)
 
@@ -23,6 +23,12 @@ External clients connect via the gateway protocol (see task 17).
 `start_background()`), but the default and recommended deployment is a
 standalone silo process. Co-hosting is an advanced pattern for when the
 silo and a web API must share a process.
+
+The counter-app does not touch the network directly. It inherits `AsyncioNetwork`
+as the production default via [task-01-17](task-01-17-silo.md)'s Silo constructor,
+which in turn hands the network to its `GatewayListener`. The integration test
+uses `InMemoryNetwork` (from [task-01-16](task-01-16-in-memory-network-simulator.md))
+so `python -m src.counter_app` under `pytest` binds no OS ports.
 
 ### Files to create
 - `src/counter_app/main.py`

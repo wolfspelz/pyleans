@@ -178,7 +178,7 @@ Every exception in the read loop terminates the connection. Classification:
 - [ ] Inbound REQUEST whose handler raises is converted to `MessageType.ERROR` response; connection stays open
 - [ ] Malformed frame closes the connection and fails all pending futures
 - [ ] Graceful `close("normal")` drains in-flight requests up to `close_drain_timeout`
-- [ ] Unit tests use an in-memory `asyncio.StreamReader`/`StreamWriter` pair (`asyncio.StreamReaderProtocol` or a memory-transport helper) so no real sockets are needed
+- [ ] Unit tests use the `InMemoryNetwork` from [task-01-16](task-01-16-in-memory-network-simulator.md) -- `SiloConnection` receives `StreamReader`/`StreamWriter` pairs from `InMemoryNetwork.open_connection` / `start_server`, so no OS-level sockets are bound and failure modes (reset, peer-close, backpressure) can be exercised deterministically via the simulator's injection hooks
 
 ## Findings of code review
 _To be filled when task is complete._

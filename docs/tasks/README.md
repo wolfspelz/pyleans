@@ -2,7 +2,7 @@
 
 Tasks ordered by dependency. Each task can start when all its dependencies are complete.
 
-- **Phase 1** (tasks 01-01..01-18): single silo, dev mode. **Complete.**
+- **Phase 1** (tasks 01-01..01-21): single silo, dev mode, with `INetwork` abstraction from day one so tests never touch the OS TCP stack. **Tasks 01-01..01-14 complete; 01-15..01-20 are the ideal Phase 1 sequence; 01-21 is a temporary one-time migration task** that transforms the existing post-retrofit codebase into the ideal state (see [adr-network-port-for-testability](../adr/adr-network-port-for-testability.md)).
 - **Phase 2** (tasks 02-01..02-21): multi-silo cluster with pluggable transport, distributed grain directory, failure detector, production PostgreSQL backends. **In progress.** See [plan.md §5 Phase 2](../plan.md).
 
 Task files are named `task-PP-NN-<slug>.md` where `PP` is the 2-digit phase number and `NN` is the 2-digit task number within that phase (resets to 01 each new phase).
@@ -45,13 +45,19 @@ Task files are named `task-PP-NN-<slug>.md` where `PP` is the 2-digit phase numb
                                                               |                            |
                                                               +---+---+---+---+------------+
                                                                   |
-                                                         01-15-silo
+                                                         01-15-network-port
                                                                   |
-                                                         01-16-counter-grain
+                                                         01-16-in-memory-network-simulator
                                                                   |
-                                                         01-17-counter-app
+                                                         01-17-silo
                                                                   |
-                                                         01-18-counter-client
+                                                         01-18-counter-grain
+                                                                  |
+                                                         01-19-counter-app
+                                                                  |
+                                                         01-20-counter-client
+                                                                  |
+                                                         01-21-network-migration  (temporary)
 ```
 
 ## Phase 1 Tasks
@@ -100,19 +106,36 @@ Task files are named `task-PP-NN-<slug>.md` where `PP` is the 2-digit phase numb
 | 01-10 | [DI Container](task-01-10-di-container.md) | [x] | 01-05, 01-08, 01-09 |
 | 01-13 | [Grain Timers](task-01-13-grain-timers.md) | [x] | 01-08 |
 
-### Layer 7: Silo Assembly (depends on all above)
+### Layer 7: Network Port
+
+Abstracted TCP I/O. Every subsequent Phase 1 component that opens a socket consumes the port, so tests can swap in the simulator. See [adr-network-port-for-testability](../adr/adr-network-port-for-testability.md).
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 01-15 | [Silo](task-01-15-silo.md) | [x] | 01-08, 01-09, 01-10, 01-11, 01-12, 01-13, 01-14 |
+| 01-15 | [Network Port](task-01-15-network-port.md) | [ ] | 01-14 |
+| 01-16 | [In-Memory Network Simulator](task-01-16-in-memory-network-simulator.md) | [ ] | 01-15 |
 
-### Layer 8: Sample Application
+### Layer 8: Silo Assembly (depends on everything above)
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 01-16 | [Counter Grain](task-01-16-counter-grain.md) | [x] | 01-06, 01-07, 01-15 |
-| 01-17 | [Counter App (Standalone Silo)](task-01-17-counter-app.md) | [x] | 01-11, 01-12, 01-15, 01-16 |
-| 01-18 | [Counter Client (Gateway Protocol)](task-01-18-counter-client.md) | [x] | 01-17 |
+| 01-17 | [Silo](task-01-17-silo.md) | [x] | 01-08, 01-09, 01-10, 01-11, 01-12, 01-13, 01-14, 01-15, 01-16 |
+
+### Layer 9: Sample Application
+
+| # | Task | Status | Dependencies |
+|---|---|---|---|
+| 01-18 | [Counter Grain](task-01-18-counter-grain.md) | [x] | 01-06, 01-07, 01-17 |
+| 01-19 | [Counter App (Standalone Silo)](task-01-19-counter-app.md) | [x] | 01-11, 01-12, 01-17, 01-18 |
+| 01-20 | [Counter Client (Gateway Protocol)](task-01-20-counter-client.md) | [x] | 01-15, 01-16, 01-19 |
+
+### Layer 10: Network Migration (Temporary)
+
+One-time transformation of the existing codebase into the ideal Phase 1 state. Exists because the ADR codifying `INetwork` was adopted after the Silo/sample-application tasks had already been implemented. Archive after completion.
+
+| # | Task | Status | Dependencies |
+|---|---|---|---|
+| 01-21 | [Network Migration](task-01-21-network-migration.md) | [ ] | 01-15, 01-16 |
 
 ## Phase 2 Dependency Graph
 
@@ -162,7 +185,7 @@ Task files are named `task-PP-NN-<slug>.md` where `PP` is the 2-digit phase numb
 
 ## Phase 2 Tasks
 
-### Layer 9: Phase 2 Foundation (can run in parallel after Phase 1)
+### Phase 2 Layer 1: Foundation (can run in parallel after Phase 1)
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
@@ -170,17 +193,17 @@ Task files are named `task-PP-NN-<slug>.md` where `PP` is the 2-digit phase numb
 | 02-02 | [Consistent Hash Ring](task-02-02-consistent-hash-ring.md) | [ ] | 02-01 |
 | 02-03 | [Placement Strategies](task-02-03-placement-strategies.md) | [ ] | 02-01 |
 
-### Layer 10: Transport -- Pluggable Inter-Silo Communication
+### Phase 2 Layer 2: Transport -- Pluggable Inter-Silo Communication
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 02-04 | [Transport ABCs](task-02-04-transport-abcs.md) | [ ] | 02-01 |
+| 02-04 | [Transport ABCs](task-02-04-transport-abcs.md) | [ ] | 02-01, 01-15 |
 | 02-05 | [Wire Protocol](task-02-05-wire-protocol.md) | [ ] | 02-01, 02-04 |
 | 02-06 | [Silo Connection](task-02-06-silo-connection.md) | [ ] | 02-04, 02-05 |
 | 02-07 | [Silo Connection Manager](task-02-07-silo-connection-manager.md) | [ ] | 02-05, 02-06 |
-| 02-08 | [TCP Cluster Transport](task-02-08-tcp-cluster-transport.md) | [ ] | 02-04, 02-07 |
+| 02-08 | [TCP Cluster Transport](task-02-08-tcp-cluster-transport.md) | [ ] | 02-04, 02-07, 01-15 |
 
-### Layer 11: Membership Protocol
+### Phase 2 Layer 3: Membership Protocol
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
@@ -188,7 +211,7 @@ Task files are named `task-PP-NN-<slug>.md` where `PP` is the 2-digit phase numb
 | 02-10 | [File Locking for Membership](task-02-10-file-locking-membership.md) | [ ] | 02-09 |
 | 02-11 | [Failure Detector](task-02-11-failure-detector.md) | [ ] | 02-02, 02-08, 02-09 |
 
-### Layer 12: Distributed Grain Directory
+### Phase 2 Layer 4: Distributed Grain Directory
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
@@ -197,21 +220,21 @@ Task files are named `task-PP-NN-<slug>.md` where `PP` is the 2-digit phase numb
 | 02-14 | [Directory Cache](task-02-14-directory-cache.md) | [ ] | 02-13 |
 | 02-15 | [Directory Recovery](task-02-15-directory-recovery.md) | [ ] | 02-11, 02-13 |
 
-### Layer 13: Runtime Integration
+### Phase 2 Layer 5: Runtime Integration
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
 | 02-16 | [Remote Grain Invocation](task-02-16-remote-grain-invoke.md) | [ ] | 02-08, 02-13, 02-14 |
 | 02-17 | [Silo Lifecycle Stages](task-02-17-silo-lifecycle-stages.md) | [ ] | 02-08, 02-09, 02-11, 02-13, 02-14 |
 
-### Layer 14: Phase 2 Validation
+### Phase 2 Layer 6: Validation
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
 | 02-18 | [Multi-Silo Integration Tests](task-02-18-multi-silo-integration-tests.md) | [ ] | 02-16, 02-17 |
-| 02-19 | [Counter Sample Multi-Silo](task-02-19-counter-sample-multi-silo.md) | [ ] | 01-17, 01-18, 02-16, 02-17, 02-18 |
+| 02-19 | [Counter Sample Multi-Silo](task-02-19-counter-sample-multi-silo.md) | [ ] | 01-17, 01-20, 02-16, 02-17, 02-18 |
 
-### Production Backends (PostgreSQL)
+### Phase 2 Production Backends (PostgreSQL)
 
 Production-grade backing store for Phase 2. Both providers share a single PostgreSQL instance so production deployments need only one stateful dependency. Can run in parallel with the rest of Phase 2 once their single upstream is done.
 
@@ -228,9 +251,11 @@ Tasks within the same layer can be implemented in parallel:
 - **Phase 1 Layer 3**: 01-04, 01-05 (parallel)
 - **Phase 1 Layer 4**: 01-06, 01-07, 01-11, 01-12 (parallel; 01-14 waits for 01-08)
 - **Phase 1 Layer 6**: 01-09, 01-10, 01-13 (parallel after 01-08)
-- **Phase 2 Layer 9**: 02-02, 02-03 (parallel after 02-01)
-- **Phase 2 Layer 10**: 02-06, 02-07 sequential; 02-04 can start alongside 02-01
-- **Phase 2 Layer 11**: 02-10 parallel with 02-11 (02-10 only blocks on 02-09); 02-11 waits on 02-02 and 02-08
-- **Phase 2 Layer 12**: 02-14, 02-15 parallel after 02-13
-- **Phase 2 Layer 13**: 02-16, 02-17 mostly independent; schedule together
-- **Production Backends**: 02-20 and 02-21 parallel with everything else in Phase 2; 02-20 only blocks on 02-09, 02-21 only blocks on 01-05 and 01-11
+- **Phase 1 Layer 7**: 01-15 then 01-16 sequentially
+- **Phase 1 Layer 10**: 01-21 is the one-time migration; can run as soon as 01-15 and 01-16 are specified but is best executed after the rest of Phase 1 is written so the migration touches final code
+- **Phase 2 Layer 1**: 02-02, 02-03 (parallel after 02-01)
+- **Phase 2 Layer 2**: 02-06, 02-07 sequential; 02-04 can start alongside 02-01
+- **Phase 2 Layer 3**: 02-10 parallel with 02-11 (02-10 only blocks on 02-09); 02-11 waits on 02-02 and 02-08
+- **Phase 2 Layer 4**: 02-14, 02-15 parallel after 02-13
+- **Phase 2 Layer 5**: 02-16, 02-17 mostly independent; schedule together
+- **Phase 2 Production Backends**: 02-20 and 02-21 parallel with everything else in Phase 2; 02-20 only blocks on 02-09, 02-21 only blocks on 01-05 and 01-11

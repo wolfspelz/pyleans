@@ -6,6 +6,7 @@
 ## Dependencies
 - [task-02-04-transport-abcs.md](task-02-04-transport-abcs.md)
 - [task-02-07-silo-connection-manager.md](task-02-07-silo-connection-manager.md)
+- [task-01-15-network-port.md](task-01-15-network-port.md) -- TCP I/O flows through `options.network` instead of calling asyncio directly
 
 ## References
 - [adr-cluster-transport](../adr/adr-cluster-transport.md)
@@ -14,7 +15,7 @@
 
 ## Description
 
-Wire the pieces together: `TcpClusterTransport` implements `IClusterTransport` (from [task-02-04](task-02-04-transport-abcs.md)) by composing the `SiloConnectionManager` (task-02-07), `SiloConnection` (task-02-06), wire codec (task-02-05), plus an `asyncio.start_server` listener that hands accepted sockets to the manager.
+Wire the pieces together: `TcpClusterTransport` implements `IClusterTransport` (from [task-02-04](task-02-04-transport-abcs.md)) by composing the `SiloConnectionManager` (task-02-07), `SiloConnection` (task-02-06), wire codec (task-02-05), plus a listener started via `options.network.start_server` (see [task-01-15](task-01-15-network-port.md)) that hands accepted streams to the manager. Outbound connections use `options.network.open_connection`. Production defaults to `AsyncioNetwork`; tests inject `InMemoryNetwork` so the entire multi-silo mesh runs in-process without binding OS ports.
 
 Nothing new in terms of protocol or reliability lives here -- this task is about composition, lifecycle, and exposing the port-level contract. It is intentionally thin so that upcoming non-TCP transports (MQTT, WebSocket) can be built by swapping in a different manager/connection pair without touching anything above `IClusterTransport`.
 
@@ -41,13 +42,11 @@ class TcpClusterTransport(IClusterTransport):
         self._manager.on_connection_established(self._dispatch_established)
         self._manager.on_connection_lost(self._dispatch_lost)
 
-        self._server = await asyncio.start_server(
+        self._server = await self._options.network.start_server(
             self._manager.accept_inbound,
             host=local_silo.host,
             port=local_silo.port,
             ssl=self._options.ssl_context,
-            reuse_address=True,
-            start_serving=True,
         )
         logger.info("TcpClusterTransport listening on %s", local_silo)
 

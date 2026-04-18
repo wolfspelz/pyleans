@@ -246,11 +246,14 @@ Everything runs in one Python process. Like Orleans' `UseLocalhostClustering()`.
 11. `MarkdownTableMembershipProvider` (human-readable membership table in Markdown for dev-mode inspection)
 12. Idle collection (deactivate after timeout)
 13. Grain timers
-14. Counter example: standalone silo + CLI client via gateway protocol
+14. **Network port + asyncio adapter** (`INetwork`, `AsyncioNetwork`): the TCP-I/O abstraction consumed by every subsequent networking component. Mirrors `asyncio.start_server` / `asyncio.open_connection` one-to-one. See [adr-network-port-for-testability](adr/adr-network-port-for-testability.md).
+15. **In-memory network simulator** (`InMemoryNetwork`): test-side adapter for the `INetwork` port — in-process registry, bounded-queue backpressure, failure-injection hooks, asyncio-parity server lifecycle. Used by every Phase 1 test that would otherwise bind a real port.
+16. Counter example: standalone silo + CLI client via gateway protocol, built on `INetwork` from day one so the suite binds zero OS-level TCP ports.
+17. **(Temporary) Retroactive network migration**: one-time task that transforms the current post-retrofit codebase into the state described by items 14–16. Structured as three commit-boundaried phases (create `net/` package → thread `INetwork` through production code → migrate tests). Archive after completion.
 
 **Milestone**: `python -m src.counter_app` runs a standalone silo hosting a counter grain
 that persists to a JSON file. `python -m src.counter_client` connects via ClusterClient
-and the TCP gateway protocol.
+and the TCP gateway protocol. The test suite runs end-to-end without binding any OS-level TCP port.
 
 ### Phase 2: Multi-Silo Cluster
 

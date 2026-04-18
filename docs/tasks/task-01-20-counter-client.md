@@ -1,10 +1,12 @@
-# Task 01-18: Counter Client (Gateway Protocol)
+# Task 01-20: Counter Client (Gateway Protocol)
 
 > **Coding rules**: Follow [CLAUDE.md](../CLAUDE.md) strictly — clean code, SOLID, strict type hints, mandatory tests.\
 > **On completion**: Fill in "Summary of implementation" at the bottom with files created, decisions made, deviations, and test coverage.
 
 ## Dependencies
-- [task-01-17-counter-app.md](task-01-17-counter-app.md)
+- [task-01-19-counter-app.md](task-01-19-counter-app.md)
+- [task-01-15-network-port.md](task-01-15-network-port.md) -- `ClusterClient` accepts an `INetwork` for injection at test time
+- [task-01-16-in-memory-network-simulator.md](task-01-16-in-memory-network-simulator.md) -- end-to-end client tests use the simulator
 
 ## References
 - [adr-package-split](../adr/adr-package-split.md) -- client library usage pattern
@@ -63,6 +65,8 @@ from pyleans.client import ClusterClient
 DEFAULT_GATEWAY = "localhost:30000"
 
 async def run(args: argparse.Namespace) -> None:
+    # network defaults to AsyncioNetwork for CLI use (real TCP). Tests inject
+    # InMemoryNetwork — see task-01-15 and task-01-16.
     client = ClusterClient(gateways=[args.gateway])
     await client.connect()
 
@@ -132,6 +136,8 @@ allows the client to call grains on a locally-running silo.
 - [x] Error message if 'set' called without value
 - [x] Exit code 0 on success, non-zero on error
 - [x] Uses `pyleans.client` library, not raw HTTP
+- [x] `ClusterClient.__init__` accepts `network: INetwork | None = None`; default `AsyncioNetwork`. Constructing it with `network=InMemoryNetwork()` (shared with a silo in the same test) routes the grain call through the simulator with no OS ports bound
+- [x] End-to-end client tests use the `network` pytest fixture from [task-01-16](task-01-16-in-memory-network-simulator.md); the "silo not running" error case is covered by `ConnectionRefusedError` raised from `InMemoryNetwork.open_connection` against an unbound virtual address — no hardcoded port literals needed
 
 ## Findings of code review
 

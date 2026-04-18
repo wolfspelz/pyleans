@@ -1,4 +1,4 @@
-# Task 01-16: Counter Grain
+# Task 01-18: Counter Grain
 
 > **Coding rules**: Follow [CLAUDE.md](../CLAUDE.md) strictly — clean code, SOLID, strict type hints, mandatory tests.\
 > **On completion**: Fill in "Summary of implementation" at the bottom with files created, decisions made, deviations, and test coverage.
@@ -6,7 +6,7 @@
 ## Dependencies
 - [task-01-06-grain-decorator.md](task-01-06-grain-decorator.md)
 - [task-01-07-grain-base-class.md](task-01-07-grain-base-class.md)
-- [task-01-15-silo.md](task-01-15-silo.md)
+- [task-01-17-silo.md](task-01-17-silo.md)
 
 ## References
 - [plan.md](../plan.md) -- Phase 1 milestone

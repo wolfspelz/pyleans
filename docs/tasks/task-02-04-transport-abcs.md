@@ -5,6 +5,7 @@
 
 ## Dependencies
 - [task-02-01-cluster-identity.md](task-02-01-cluster-identity.md)
+- [task-01-15-network-port.md](task-01-15-network-port.md) -- `TransportOptions` carries an `INetwork` so the TCP transport and its unit tests share the same port
 
 ## References
 - [adr-cluster-transport](../adr/adr-cluster-transport.md)
@@ -75,7 +76,10 @@ class TransportOptions:
     connect_timeout: float = 5.0
     handshake_timeout: float = 5.0
     ssl_context: ssl.SSLContext | None = None
+    network: INetwork = field(default_factory=AsyncioNetwork)   # see task-01-15
 ```
+
+The `network` field (from [task-01-15](task-01-15-network-port.md)) is how the TCP transport stays testable without real sockets: production uses the default `AsyncioNetwork`; tests construct `TransportOptions(network=InMemoryNetwork())` to run the entire mesh in-process. See [adr-network-port-for-testability](../adr/adr-network-port-for-testability.md).
 
 ```python
 # errors.py
