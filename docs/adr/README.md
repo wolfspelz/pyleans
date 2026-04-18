@@ -31,6 +31,7 @@ Filenames are `adr-<kebab-name>.md` — unnumbered. When a decision is revisited
 - [Provider Interfaces as Hexagonal Ports](adr-provider-interfaces.md)
 - [Grain Directory (consistent hash ring)](adr-grain-directory.md)
 - [Pluggable Transport — Start with TCP, Add Others Later](adr-cluster-transport.md)
+- [Cluster Access Boundary — Gateway Protocol Is the Sole External Entry Point](adr-cluster-access-boundary.md)
 
 ### Topology and packaging
 

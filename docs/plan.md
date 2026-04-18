@@ -266,16 +266,19 @@ Add networking and distribution.
 8. Remote grain calls via transport
 9. Silo startup/shutdown lifecycle
 10. Placement strategies: random + prefer-local
+11. **PostgreSQL membership provider** — production-grade backend. Per-silo row with an `etag_version` column updated via conditional `UPDATE ... WHERE etag_version = $expected` inside a transaction that also bumps a singleton version row. JSONB suspicions column for atomic append. Optional `LISTEN`/`NOTIFY` for snapshot broadcast. Required for any real multi-silo deployment; file-based providers are dev-only.
+12. **PostgreSQL storage provider** — production-grade grain state backend. Single table keyed by `(grain_type, grain_key)` with a JSONB state column and monotonic per-row `etag` for optimistic concurrency. Shares the same PostgreSQL instance as the membership provider, so production deployments need only one stateful dependency.
 
-**Milestone**: Two silo processes on localhost, a grain call from silo A executes on silo B.
+**Milestone**: Two silo processes on localhost, a grain call from silo A executes on silo B. Cluster runs against PostgreSQL for both membership and grain storage (file-based providers retained for dev mode only).
 
 ### Phase 3: Streaming and Refinement
 
-1. `InMemoryStreamProvider` (single-silo)
-2. Stream subscriptions from grains
-3. Multi-silo streaming (over transport)
-4. Web server gateway for external clients
-5. Basic placement strategies (random, prefer-local)
+1. Full streaming provider interface (extends the Phase 1 basic `StreamProvider` ABC with `StreamId`, sequence tokens for resumable subscriptions, explicit pub/sub semantics, and per-subscription back-pressure — aligned with Orleans' `IStreamProvider`)
+2. Stream subscriptions from grains (handle lifecycle, reactivation-safe resume)
+3. Multi-silo streaming (fan-out over the transport from [task-26](tasks/task-26-tcp-cluster-transport.md))
+4. **Redis Streams provider** — recommended external streaming backend. Redis is already a likely in-cluster dependency (membership and storage providers), has mature async Python bindings (`redis-py` asyncio client), provides durable append-only streams with consumer groups and replay, and is operationally light compared to Kafka. Pluggable behind the streaming provider interface — alternatives (Kafka, NATS JetStream) slot into the same port.
+
+**Out of scope**: no embedded HTTP/WebSocket endpoint on the silo. External access is always through the gateway protocol, with web frameworks running as separate processes that use `pyleans.client.ClusterClient`. See [adr-cluster-access-boundary](adr/adr-cluster-access-boundary.md).
 
 **Milestone**: Chat example with user grains and room grains exchanging messages via streams.
 
