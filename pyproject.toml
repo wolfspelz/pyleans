@@ -1,17 +1,32 @@
 [project]
-name = "pyleans-workspace"
+name = "pyleans"
 version = "0.1.0"
-description = "Workspace root for the pyleans virtual actor framework"
+description = "A Python implementation of the Virtual Actor pattern inspired by Microsoft Orleans"
 requires-python = ">=3.12"
+license = { text = "MIT" }
 
-[dependency-groups]
+dependencies = [
+    "injector>=0.21",
+    "orjson>=3.9",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "pytest-cov>=6.0",
     "mypy>=1.13",
     "ruff>=0.8",
+    "pylint>=3.3",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pyleans/pyleans"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -38,3 +53,54 @@ venvPath = "."
 venv = ".venv"
 typeCheckingMode = "strict"
 reportMissingTypeStubs = "warning"
+
+[tool.pylint.main]
+# orjson is a C extension with no type info; tell pylint to trust it.
+extension-pkg-allow-list = ["orjson"]
+# The @grain decorator injects these attributes at class-creation time.
+# The runtime binds these per-instance during activation.
+generated-members = [
+    "_grain_type",
+    "_state_type",
+    "_storage_name",
+    "state",
+    "write_state",
+    "clear_state",
+    "deactivate_on_idle",
+    "identity",
+    "logger",
+]
+py-version = "3.12"
+init-hook = 'import sys; sys.path.insert(0, "src/pyleans")'
+
+[tool.pylint.design]
+# Thresholds tuned to accommodate legitimate orchestration classes (Silo) and
+# DI assembly roots. Code exceeding these limits is a signal worth reviewing.
+max-args = 10
+max-positional-arguments = 10
+max-attributes = 25
+max-locals = 20
+
+[tool.pylint."messages control"]
+# Ruff already enforces most style; pylint runs strict but silences deliberate project choices.
+# See docs/pyleans-plan.md and the post-task reviews for rationale.
+disable = [
+    # Tests have descriptive names; docstrings would be noise.
+    "missing-function-docstring",
+    "missing-class-docstring",
+    # `...` as a body is idiomatic for Protocol/ABC methods.
+    "unnecessary-ellipsis",
+    # Dataclasses, single-method classes, and test grouping classes are fine.
+    "too-few-public-methods",
+    # Framework internals and tests legitimately touch protected members.
+    "protected-access",
+    # Broad Exception catches are intentional at boundaries (timer ticks, gateway
+    # handlers, atexit, stream notifiers) where propagation would kill the loop.
+    "broad-exception-caught",
+    # Lazy imports are used to break circular dependencies and defer heavy imports.
+    "import-outside-toplevel",
+    # In tests we prefer `x == 0` over `not x` for integer-valued assertions.
+    "use-implicit-booleaness-not-comparison-to-zero",
+    # Deliberate naming: `TState` follows Grain[TState] convention; HEADER_SIZE etc.
+    "invalid-name",
+]

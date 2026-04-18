@@ -158,6 +158,7 @@ Never. If you think a piece of code doesn't need tests, you are wrong. Even triv
 - **Package manager**: pip with venv
 - **Build backend**: hatchling
 - **Formatting**: ruff (format + lint)
+- **Additional linter**: pylint (strict, tuned via `[tool.pylint.*]` in pyproject.toml)
 - **Test runner**: pytest
 - **Type checker**: mypy in strict mode
 - **Project layout**: flat layout with `src/` and `test/` per package
@@ -169,13 +170,14 @@ Never. If you think a piece of code doesn't need tests, you are wrong. Even triv
 python -m venv .venv             # create virtual environment
 .venv/Scripts/activate           # activate (Windows)
 # source .venv/bin/activate      # activate (Linux/macOS)
-pip install -e "src/pyleans[dev]"    # install pyleans + dev deps in editable mode
+pip install -e ".[dev]"              # install pyleans + dev deps in editable mode
 pytest                               # run all tests across workspace
 pytest src/pyleans/test              # run only pyleans tests
 pytest src/counter_app/test          # run only counter-app tests
 mypy src/pyleans/pyleans             # type-check pyleans
 ruff check .                     # lint everything
 ruff format .                    # format everything
+pylint src/pyleans/pyleans src/counter_app src/counter_client   # strict lint (must be 10/10)
 ```
 
 ## Package Relationships
@@ -212,9 +214,10 @@ After completing each task (code + tests passing), you MUST perform both reviews
 5. Fix all issues found in steps 3–4 and update the issues in the task file.
 6. Re-run tests to confirm fixes don't break anything
 7. Run `ruff check .` and `ruff format --check .` — fix all lint and formatting issues
-8. Run `mypy .` — fix all type errors
-9. Add a summary of changes to the task file
-10. Only then: commit
+8. Run `pylint src` — must score 10.00/10. Fix every finding; do not add blanket disables to the config to silence new warnings. If a specific finding is genuinely a false positive or a deliberate exception, use a narrowly-scoped `# pylint: disable=<code>` comment with a short justification on the same line or the line above.
+9. Run `mypy .` — fix all type errors
+10. Add a summary of changes to the task file
+11. Only then: commit
 
 ### Code Review Checklist
 

@@ -16,9 +16,9 @@ Create the pyleans project skeleton with modern Python packaging.
 ### What to create
 
 ```
+pyproject.toml              # single project file: pyleans metadata + tool config
 src/
-  pyleans/                  # framework project dir (pip-installed editable)
-    pyproject.toml
+  pyleans/                  # pyleans framework source tree
     pyleans/                # importable package (flat inner layout)
       __init__.py
       py.typed              # PEP 561 marker
@@ -44,7 +44,7 @@ src/
 
 ### Acceptance criteria
 
-- [x] `pip install -e "src/pyleans[dev]"` succeeds
+- [x] `pip install -e ".[dev]"` succeeds
 - [x] `import pyleans` works
 - [x] `import pyleans.server` works
 - [x] `import pyleans.client` works
@@ -59,17 +59,17 @@ _To be filled when task is complete._
 ## Summary of implementation
 
 ### Files created/modified
-- `src/pyleans/pyproject.toml` — Updated with full dependencies (`injector`, `orjson`, `pyyaml`), optional `[web]` deps (`fastapi`, `uvicorn`), `[dev]` deps (`pytest`, `pytest-asyncio`, `pytest-cov`, `mypy`, `ruff`), hatch build targets, and asyncio_mode config.
+- `pyproject.toml` (repo root) — Single pyproject defining pyleans's `[project]` metadata, runtime deps (`injector`, `orjson`, `pyyaml`), `[dev]` extras (`pytest`, `pytest-asyncio`, `pytest-cov`, `mypy`, `ruff`, `pylint`), hatchling build with `packages = ["src/pyleans/pyleans"]`, and all tool config (pytest, mypy, ruff, pyright, pylint).
 - `src/pyleans/pyleans/server/__init__.py` — Created server subpackage.
 - `src/pyleans/pyleans/client/__init__.py` — Created client subpackage.
 - `src/pyleans/pyleans/providers/__init__.py` — Created providers subpackage.
 
 ### Key decisions
 - Placed `counter_app/` and `counter_client/` under `src/` at workspace root (run as `python -m src.counter_app`) rather than nesting under `pyleans/examples/`.
-- Used `[tool.hatch.build.targets.wheel] packages = ["pyleans"]` so hatchling finds the package correctly in the flat layout.
+- Used `[tool.hatch.build.targets.wheel] packages = ["src/pyleans/pyleans"]` so hatchling finds the package under its nested src/ location.
 
 ### Deviations
-- Framework lives at `src/pyleans/` (project dir) with a flat inner package at `src/pyleans/pyleans/` — pip-installed editable, so imports are still bare `import pyleans`.
+- Framework source lives at `src/pyleans/pyleans/` with tests at `src/pyleans/test/`. The project is pip-installed editable from the repo root, so imports are still bare `import pyleans`.
 - Task originally nested examples under `pyleans/examples/` — moved `counter_app/` and `counter_client/` under `src/` at workspace root.
 - Test directory is `test/` (singular), not `tests/`.
 

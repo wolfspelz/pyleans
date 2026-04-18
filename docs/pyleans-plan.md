@@ -574,10 +574,9 @@ is an advanced pattern, not the default.
 Uses **pip + venv** with editable installs. See CLAUDE.md for the full directory tree.
 
 ```
-pyproject.toml                     # workspace root
-src/                               # all packages live under src/
-  pyleans/                         # framework package (pip-installed editable)
-    pyproject.toml
+pyproject.toml                     # single project file: pyleans metadata + tool config
+src/
+  pyleans/                         # pyleans framework source tree
     pyleans/                       # importable: import pyleans
       server/                      # silo runtime (heavy)
         string_cache_grain.py      # system grain: StringCacheGrain
@@ -599,7 +598,9 @@ src/                               # all packages live under src/
 
 ### Naming convention
 
-`pyleans` is a pip-installable package (`pip install -e src/pyleans`). The sample apps
+`pyleans` is a pip-installable package (`pip install -e .` from the repo root; the
+workspace `pyproject.toml` owns the package metadata and points hatchling at
+`src/pyleans/pyleans/`). The sample apps
 live under `src/` and are run as submodules — no pip install needed, just run
 from the project root.
 
@@ -626,8 +627,8 @@ All applications are run as Python modules. There are no installed console
 scripts -- everything uses `python -m`.
 
 ```bash
-# Install the framework in editable mode
-pip install -e src/pyleans
+# Install the framework in editable mode (from repo root)
+pip install -e ".[dev]"
 
 # Terminal 1: start the silo (blocks, Ctrl+C to stop)
 python -m src.counter_app

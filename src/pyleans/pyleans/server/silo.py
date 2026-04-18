@@ -108,6 +108,7 @@ class Silo:
 
         self._stop_event = asyncio.Event()
         self._heartbeat_task: asyncio.Task[None] | None = None
+        self._shutdown_task: asyncio.Task[None] | None = None
         self._started = False
         self._atexit_cleanup: typing.Callable[[], None] | None = None
 
@@ -293,9 +294,7 @@ class Silo:
             if not self._started:
                 return
             try:
-                import asyncio as _asyncio
-
-                loop = _asyncio.new_event_loop()
+                loop = asyncio.new_event_loop()
                 loop.run_until_complete(self._membership_provider.unregister_silo(self._silo_id))
                 loop.close()
                 logger.info("atexit: unregistered from membership table")
