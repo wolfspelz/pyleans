@@ -112,7 +112,7 @@ Abstracted TCP I/O. Every subsequent Phase 1 component that opens a socket consu
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 01-15 | [Network Port](task-01-15-network-port.md) | [ ] | 01-14 |
+| 01-15 | [Network Port](task-01-15-network-port.md) | [x] | 01-14 |
 | 01-16 | [In-Memory Network Simulator](task-01-16-in-memory-network-simulator.md) | [ ] | 01-15 |
 
 ### Layer 8: Silo Assembly (depends on everything above)
