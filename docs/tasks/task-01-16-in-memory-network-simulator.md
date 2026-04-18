@@ -220,36 +220,90 @@ A small pytest plugin hook (or a ruff rule) that scans each collected test modul
 
 **Core simulator behavior (`test_memory_network.py`):**
 
-- [ ] `start_server` + `open_connection` round-trip: bytes written to one side arrive at the other, in order
-- [ ] `open_connection` against unbound address raises `ConnectionRefusedError`
-- [ ] `start_server` twice on the same address raises `OSError` with `errno.EADDRINUSE`
-- [ ] `port=0` assigns a per-instance monotonic virtual port ≥40000
-- [ ] `writer.simulate_reset()` causes next `write` or `drain` to raise `ConnectionResetError`
-- [ ] `writer.simulate_peer_close()` causes peer `readexactly` to raise `IncompleteReadError`
-- [ ] `drain()` actually blocks above the high-water mark and releases below the low-water mark (test with explicit reads on the peer reader)
-- [ ] `server.close()` stops accepting; subsequent `open_connection` fails
-- [ ] `server.wait_closed()` awaits in-flight handler tasks to completion; does NOT cancel them
-- [ ] `writer.get_extra_info("peername")` / `("sockname")` return the virtual addresses
-- [ ] `ssl` parameter is accepted and logged at DEBUG, not raised
+- [x] `start_server` + `open_connection` round-trip: bytes written to one side arrive at the other, in order
+- [x] `open_connection` against unbound address raises `ConnectionRefusedError`
+- [x] `start_server` twice on the same address raises `OSError` with `errno.EADDRINUSE`
+- [x] `port=0` assigns a per-instance monotonic virtual port ≥40000
+- [x] `writer.simulate_reset()` causes next `write` or `drain` to raise `ConnectionResetError`
+- [x] `writer.simulate_peer_close()` causes peer `readexactly` to raise `IncompleteReadError`
+- [x] `drain()` actually blocks above the high-water mark and releases below the low-water mark (test with explicit reads on the peer reader)
+- [x] `server.close()` stops accepting; subsequent `open_connection` fails
+- [x] `server.wait_closed()` awaits in-flight handler tasks to completion; does NOT cancel them
+- [x] `writer.get_extra_info("peername")` / `("sockname")` return the virtual addresses
+- [x] `ssl` parameter is accepted and logged at DEBUG, not raised
 
 **Integration with the port:**
 
-- [ ] `InMemoryNetwork` is a full `INetwork` implementation (no unimplemented methods)
-- [ ] Shared instance between two consumers in the same test routes traffic correctly
+- [x] `InMemoryNetwork` is a full `INetwork` implementation (no unimplemented methods)
+- [x] Shared instance between two consumers in the same test routes traffic correctly
 
 **Regression guard:**
 
-- [ ] Canary test: intentionally importing `asyncio.start_server` in a test module triggers a collection failure with a message pointing to `INetwork`
+- [x] Canary test: intentionally importing `asyncio.start_server` in a test module triggers a collection failure with a message pointing to `INetwork`
 
 **Quality gates:**
 
-- [ ] `ruff`, `pylint` (10.00/10), `mypy` all clean
+- [x] `ruff`, `pylint` (10.00/10), `mypy` all clean
 
 ## Findings of code review
-_To be filled when task is complete._
+
+No issues found. Review checked:
+
+- Clean code: the module is organised top-down (socket info → reader → transport → writer → factory → server → network), each class has a single responsibility. Private helpers (`_MemorySocketInfo`, `_MemoryStreamReader`, `_MemoryTransport`, `_make_pair`) stay under one underscore since they are implementation details of the in-memory adapter.
+- SOLID: `InMemoryNetwork` depends only on the `INetwork` abstraction it implements; flow-control state lives on `_MemoryTransport` so the writer and protocol need no private-attribute coupling. `_MemoryStreamReader` only adds peer-notification callbacks, keeping inheritance narrow.
+- DRY/YAGNI: avoided building two separate drain mechanisms — the transport owns the single drain waiter and the writer's `drain()` delegates. `readuntil` is not overridden (no consumer uses it in pyleans today); the hooked read methods are the ones actually exercised.
+- Strict typing: `mypy -p pyleans.net` is clean. One narrowly-scoped `# pylint: disable-next=too-many-public-methods` on `_MemoryTransport` is justified by its obligation to implement the full `asyncio.Transport` contract.
+- Test coverage: 27 tests across 13 classes cover every acceptance criterion in the spec, including a subprocess-based end-to-end canary that proves `pytest --collect-only` fails when a test module imports `asyncio.start_server`.
 
 ## Findings of security review
-_To be filled when task is complete._
+
+No issues found. Review checked:
+
+- No new system-boundary inputs — the simulator is test-only and never binds a real socket.
+- Registry (`self._servers`) is keyed by `(host, port)` tuples; no user-controlled deserialisation, path handling, or subprocess invocation in production code. (The subprocess in the regression-guard canary test is scoped to the pytest harness itself and invokes `sys.executable` with a controlled argv.)
+- No unbounded resource consumption: each transport tracks a bounded buffer counter, not the actual bytes (the StreamReader buffer holds bytes, but pyleans' protocol frames bound reads); `handler_tasks` is discarded on completion.
+- Write-after-close raises `ConnectionResetError` immediately instead of silently dropping data.
+- TLS is explicitly not simulated and is documented — no false sense of security.
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created/modified
+
+- **Created**: `src/pyleans/pyleans/net/memory_network.py` — `InMemoryNetwork`, `InMemoryServer`, `MemoryStreamWriter`, and internal helpers (`_MemorySocketInfo`, `_MemoryStreamReader`, `_MemoryTransport`, `_make_pair`).
+- **Modified**: `src/pyleans/pyleans/net/__init__.py` — re-export `InMemoryNetwork`, `InMemoryServer`, `MemoryStreamWriter`.
+- **Modified**: `src/pyleans/pyleans/__init__.py` — re-export `InMemoryNetwork` at the package root.
+- **Modified**: `src/pyleans/test/conftest.py` — added `scan_for_forbidden_asyncio_net_calls` and the `pytest_collectstart` hook that fails collection for tests that bypass the port.
+- **Created**: `src/pyleans/test/test_memory_network.py` — 27 unit tests covering the full acceptance matrix including an end-to-end regression-guard canary.
+
+### Key implementation decisions
+
+- **Drain state owned by the transport, not the protocol.** The spec sketch reaches into `StreamReaderProtocol._drain_waiter`/`_paused`, which is brittle and fails strict mypy (those attrs aren't in the typeshed). Instead, `_MemoryTransport` owns the single `_drain_waiter` future and exposes `await_drain()`. `MemoryStreamWriter.drain()` delegates to it, and reads on the peer's `_MemoryStreamReader` release the waiter when the buffered count drops below `low_water`.
+- **`_MemoryStreamReader` is a true `asyncio.StreamReader` subclass.** Overriding `read`, `readexactly`, and `readline` is enough — `readuntil` isn't used by any pyleans consumer, so per YAGNI it isn't hooked. Tests that need it can still use it (backpressure would be slightly delayed, not broken).
+- **`MemoryStreamWriter` subclasses `asyncio.StreamWriter`.** This keeps `INetwork.open_connection`'s return type exactly `tuple[StreamReader, StreamWriter]`, so every consumer that already expects those types (existing gateway + client code) works unchanged.
+- **`_MemoryTransport` implements the full `asyncio.Transport` contract** including the `WriteTransport` and `ReadTransport` abstract methods (`set_write_buffer_limits`, `get_write_buffer_size`, `get_write_buffer_limits`, `pause_reading`, `resume_reading`, `is_reading`). Read-side methods are no-ops (there is no read side to pause in-memory); write-side methods mirror the adjustable water marks. This keeps pylint happy and makes the transport a drop-in for any asyncio code path that introspects it.
+- **Regression guard uses AST, not substring matching.** `scan_for_forbidden_asyncio_net_calls` walks the module AST so docstring/comment/string-literal mentions of `asyncio.start_server` do not trigger false positives — essential because the adapter's own tests and docstrings mention the call by name.
+- **Guard skips non-test modules.** The hook only fires for files named `test_*.py`, so the regression guard never interferes with production code (which is migrated separately in task-01-21 Phase B).
+
+### Deviations from original design
+
+- No spec-mandated `_SocketInfo` private type was introduced (see task-01-15 deviation). `SocketInfo` is the public Protocol consumed here.
+- `InMemoryNetwork.__init__` accepts `high_water`, `low_water`, and `reader_limit` kwargs so tests can deterministically drive backpressure below asyncio's default thresholds — documented as test-tuning knobs, not part of the production default.
+- The simulator exposes `active_addresses()` for test-time debugging. Trivial accessor, not part of the spec's API surface.
+
+### Test coverage summary
+
+27 tests across 13 classes:
+
+- `TestRoundTrip` (2) — ordered byte delivery; one shared instance powering two consumers.
+- `TestConnectionRefused` (2) — unbound address; address that was closed.
+- `TestAddressInUse` (2) — EADDRINUSE on duplicate registration; re-use after close.
+- `TestVirtualPortAllocation` (2) — monotonic ports ≥40000; per-instance counters independent.
+- `TestSimulateReset` (2) — raises on next `write`/`drain`; unblocks an in-flight `drain`.
+- `TestSimulatePeerClose` (1) — peer `readexactly` raises `IncompleteReadError`.
+- `TestDrainBackpressure` (2) — blocks above high-water / releases below low-water; small writes return immediately.
+- `TestServerLifecycle` (2) — `close()` stops accepting; `wait_closed()` awaits in-flight handlers without cancelling them.
+- `TestExtraInfo` (2) — `peername`/`sockname` are virtual addresses on both sides; unknown key returns default.
+- `TestSslParameter` (1) — `ssl` parameter is accepted and logged at DEBUG.
+- `TestINetworkInterface` (2) — `InMemoryNetwork` IS a `INetwork`; re-exports from `pyleans.net` and `pyleans`.
+- `TestInMemoryServerType` (1) — server IS a `NetworkServer` and `InMemoryServer`.
+- `TestRegressionGuard` (6) — scanner detects direct calls and `from asyncio import …`; ignores correct `INetwork` usage and string/comment occurrences; end-to-end subprocess test proves `pytest --collect-only` fails when a test module violates the rule.
