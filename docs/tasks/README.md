@@ -6,12 +6,13 @@ Tasks ordered by dependency. Each task can start when all its dependencies are c
 
 1. **Follow CLAUDE.md coding standards**: Clean code, SOLID, DRY, YAGNI, KISS, strict type hints, hexagonal architecture. See [CLAUDE.md](../CLAUDE.md) for the full list.
 2. **Tests are mandatory**: Every task must include unit tests. No feature is complete without tests. See CLAUDE.md "Testing Requirements" section.
-3. **Update the task file on completion**: When a task is done, fill in the "Summary of implementation" section at the bottom of the task file with:
+3. **New task files use the template**: Start from [task-template.md](task-template.md) -- it defines the required sections (Dependencies, References, Description, Acceptance criteria, review findings, Summary of implementation).
+4. **Update the task file on completion**: When a task is done, fill in the "Summary of implementation" section at the bottom of the task file with:
    - Files created/modified (with paths)
    - Key implementation decisions made during coding
    - Any deviations from the original design and why
    - Test coverage summary
-4. **Mark the task as done** in this tasklist by changing `[ ]` to `[x]`.
+5. **Mark the task as done** in this tasklist by changing `[ ]` to `[x]`.
 
 ## Dependency Graph
 
