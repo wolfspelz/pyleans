@@ -18,7 +18,7 @@ Set up the `injector` (type-hint-based) container that provides framework servic
 to grains via constructor injection. Matching Orleans' all-DI pattern.
 
 ### Files to create
-- `pyleans/pyleans/server/container.py`
+- `src/pyleans/pyleans/server/container.py`
 
 ### Framework Container
 
@@ -90,8 +90,8 @@ _To be filled when task is complete._
 ## Summary of implementation
 
 ### Files created
-- `pyleans/pyleans/server/container.py` — PyleansModule (injector) with framework services
-- `pyleans/test/test_container.py` — 10 tests
+- `src/pyleans/pyleans/server/container.py` — PyleansModule (injector) with framework services
+- `src/pyleans/test/test_container.py` — 10 tests
 
 ### Key decisions
 - Container provides JsonSerializer and empty storage_providers as defaults.

@@ -18,7 +18,7 @@ pub/sub channels identified by (namespace, key). Subscribers receive events
 through their grain inbox (turn-based).
 
 ### Files to create
-- `pyleans/pyleans/server/providers/memory_stream.py`
+- `src/pyleans/pyleans/server/providers/memory_stream.py`
 
 ### Design
 
@@ -117,8 +117,8 @@ class RoomGrain:
 ## Summary of implementation
 
 ### Files created
-- `pyleans/pyleans/server/providers/memory_stream.py` — `InMemoryStreamProvider`, `StreamRef`, `StreamManager`
-- `pyleans/test/test_memory_stream.py` — 24 unit tests
+- `src/pyleans/pyleans/server/providers/memory_stream.py` — `InMemoryStreamProvider`, `StreamRef`, `StreamManager`
+- `src/pyleans/test/test_memory_stream.py` — 24 unit tests
 
 ### Key implementation decisions
 - **Synchronous delivery**: publish awaits each callback sequentially, preserving event ordering and surfacing errors immediately via `ExceptionGroup`. Safer than fire-and-forget `create_task`.

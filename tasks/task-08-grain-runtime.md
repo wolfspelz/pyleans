@@ -21,7 +21,7 @@ Implement the grain runtime: the core engine that manages grain activations,
 enforces turn-based execution, and handles idle collection.
 
 ### Files to create
-- `pyleans/pyleans/server/runtime.py`
+- `src/pyleans/pyleans/server/runtime.py`
 
 ### GrainActivation
 
@@ -160,8 +160,8 @@ _To be filled when task is complete._
 ## Summary of implementation
 
 ### Files created
-- `pyleans/pyleans/server/runtime.py` — GrainRuntime, GrainActivation, worker loop, idle collector
-- `pyleans/test/test_runtime.py` — 20 tests
+- `src/pyleans/pyleans/server/runtime.py` — GrainRuntime, GrainActivation, worker loop, idle collector
+- `src/pyleans/test/test_runtime.py` — 20 tests
 
 ### Key decisions
 - Worker loop uses a sentinel object to signal shutdown (avoids cancellation races).

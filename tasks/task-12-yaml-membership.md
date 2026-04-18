@@ -17,7 +17,7 @@ Implement a YAML-file-based membership provider. A single YAML file acts as the
 membership table. Human-readable so operators can inspect cluster state.
 
 ### Files to create
-- `pyleans/pyleans/server/providers/yaml_membership.py`
+- `src/pyleans/pyleans/server/providers/yaml_membership.py`
 
 ### Design
 
@@ -102,8 +102,8 @@ _To be filled when task is complete._
 ## Summary of implementation
 
 ### Files created
-- `pyleans/pyleans/server/providers/yaml_membership.py` — YamlMembershipProvider
-- `pyleans/test/test_yaml_membership.py` — 14 tests
+- `src/pyleans/pyleans/server/providers/yaml_membership.py` — YamlMembershipProvider
+- `src/pyleans/test/test_yaml_membership.py` — 14 tests
 
 ### Key decisions
 - Single YAML file with version counter that increments on every write.

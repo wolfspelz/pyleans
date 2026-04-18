@@ -22,9 +22,9 @@ Implement the `Silo` class -- the main entry point that wires everything togethe
 This is the class users create in their `main.py`.
 
 ### Files to create
-- `pyleans/pyleans/server/silo.py`
-- `pyleans/pyleans/server/__init__.py` (re-exports Silo)
-- Update `pyleans/pyleans/__init__.py` (re-exports @grain, GrainRef, etc.)
+- `src/pyleans/pyleans/server/silo.py`
+- `src/pyleans/pyleans/server/__init__.py` (re-exports Silo)
+- Update `src/pyleans/pyleans/__init__.py` (re-exports @grain, GrainRef, etc.)
 
 ### Design
 
@@ -103,11 +103,11 @@ Grains that need silo info declare it in their constructor — the DI container
 resolves it automatically.
 
 #### Files to create
-- `pyleans/pyleans/server/silo_management.py`
-- `pyleans/pyleans/server/grains.py` (exports `system_grains()`)
+- `src/pyleans/pyleans/server/silo_management.py`
+- `src/pyleans/pyleans/server/grains.py` (exports `system_grains()`)
 
 ```python
-# pyleans/pyleans/server/silo_management.py
+# src/pyleans/pyleans/server/silo_management.py
 
 class SiloManagement:
     """Service providing silo metadata to grains.
@@ -158,7 +158,7 @@ class CounterGrain:
 #### system_grains() helper
 
 ```python
-# pyleans/pyleans/server/grains.py
+# src/pyleans/pyleans/server/grains.py
 from pyleans.server.string_cache_grain import StringCacheGrain
 
 def system_grains() -> list[type]:
@@ -215,7 +215,7 @@ persistence. Provided by `system_grains()` so users can opt in.
 Each grain instance is identified by key and stores a single string value.
 
 #### Files to create
-- `pyleans/pyleans/server/string_cache_grain.py`
+- `src/pyleans/pyleans/server/string_cache_grain.py`
 
 ```python
 from dataclasses import dataclass
@@ -369,10 +369,10 @@ No issues found. Review checked:
 ## Summary of implementation
 
 ### Files created/modified
-- **Created**: `pyleans/pyleans/server/silo.py` — Silo class with start/stop lifecycle, signal handling, heartbeat
-- **Modified**: `pyleans/pyleans/server/__init__.py` — re-exports Silo
-- **Modified**: `pyleans/pyleans/__init__.py` — re-exports grain, GrainId, GrainRef, GrainFactory
-- **Created**: `pyleans/test/test_silo.py` — 25 tests across 9 test classes
+- **Created**: `src/pyleans/pyleans/server/silo.py` — Silo class with start/stop lifecycle, signal handling, heartbeat
+- **Modified**: `src/pyleans/pyleans/server/__init__.py` — re-exports Silo
+- **Modified**: `src/pyleans/pyleans/__init__.py` — re-exports grain, GrainId, GrainRef, GrainFactory
+- **Created**: `src/pyleans/test/test_silo.py` — 25 tests across 9 test classes
 
 ### Key implementation decisions
 - Added `start_background()` method for non-blocking start (FastAPI embedding, tests) alongside blocking `start()`.

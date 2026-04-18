@@ -574,32 +574,32 @@ is an advanced pattern, not the default.
 Uses **pip + venv** with editable installs. See CLAUDE.md for the full directory tree.
 
 ```
-pyproject.toml                   # workspace root
-pyleans/                         # framework package
-  pyproject.toml
-  pyleans/                       # importable: import pyleans
-    server/                      # silo runtime (heavy)
-      string_cache_grain.py      # system grain: StringCacheGrain
-      grains.py                  # system_grains() helper
-    client/                      # lightweight client
-    gateway/                     # TCP gateway protocol
-    providers/                   # provider ABCs (ports)
-  test/
-src/                             # sample apps live under src/ (not pip-installed)
-  counter_app/                   # sample silo app
-    counter_grain.py             # one file per grain
-    main.py                      # Standalone silo
-    __main__.py                  # python -m src.counter_app
+pyproject.toml                     # workspace root
+src/                               # all packages live under src/
+  pyleans/                         # framework package (pip-installed editable)
+    pyproject.toml
+    pyleans/                       # importable: import pyleans
+      server/                      # silo runtime (heavy)
+        string_cache_grain.py      # system grain: StringCacheGrain
+        grains.py                  # system_grains() helper
+      client/                      # lightweight client
+      gateway/                     # TCP gateway protocol
+      providers/                   # provider ABCs (ports)
     test/
-  counter_client/                # sample CLI client
-    main.py                      # CLI entry point
-    __main__.py                  # python -m src.counter_client
+  counter_app/                     # sample silo app (not pip-installed)
+    counter_grain.py               # one file per grain
+    main.py                        # Standalone silo
+    __main__.py                    # python -m src.counter_app
+    test/
+  counter_client/                  # sample CLI client (not pip-installed)
+    main.py                        # CLI entry point
+    __main__.py                    # python -m src.counter_client
     test/
 ```
 
 ### Naming convention
 
-`pyleans` is a pip-installable package (`pip install -e pyleans`). The sample apps
+`pyleans` is a pip-installable package (`pip install -e src/pyleans`). The sample apps
 live under `src/` and are run as submodules — no pip install needed, just run
 from the project root.
 
@@ -614,7 +614,7 @@ from the project root.
 Every grain class lives in its own file, named after the grain in snake_case:
 `CounterGrain` → `counter_grain.py`, `StringCacheGrain` → `string_cache_grain.py`.
 
-This applies to both framework-provided grains (in `pyleans/server/`) and
+This applies to both framework-provided grains (in `src/pyleans/pyleans/server/`) and
 application grains (in user packages like `src/counter_app/`). The grain's state
 dataclass lives in the same file as the grain.
 
@@ -627,7 +627,7 @@ scripts -- everything uses `python -m`.
 
 ```bash
 # Install the framework in editable mode
-pip install -e pyleans
+pip install -e src/pyleans
 
 # Terminal 1: start the silo (blocks, Ctrl+C to stop)
 python -m src.counter_app

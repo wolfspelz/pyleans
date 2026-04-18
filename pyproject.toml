@@ -15,7 +15,7 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["pyleans/test", "src/counter_app/test", "src/counter_client/test"]
+testpaths = ["src/pyleans/test", "src/counter_app/test", "src/counter_client/test"]
 
 [tool.mypy]
 strict = true
@@ -31,8 +31,8 @@ line-length = 100
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM", "RUF"]
 
 [tool.pyright]
-include = ["pyleans/pyleans", "src/counter_app", "src/counter_client"]
-extraPaths = ["pyleans"]
+include = ["src/pyleans/pyleans", "src/counter_app", "src/counter_client"]
+extraPaths = ["src/pyleans"]
 pythonVersion = "3.12"
 venvPath = "."
 venv = ".venv"

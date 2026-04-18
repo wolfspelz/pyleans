@@ -16,20 +16,20 @@ Create the pyleans project skeleton with modern Python packaging.
 ### What to create
 
 ```
-pyleans/
-  pyproject.toml
-  pyleans/                  # flat layout (not src/)
-    __init__.py
-    py.typed                # PEP 561 marker
-    server/
+src/
+  pyleans/                  # framework project dir (pip-installed editable)
+    pyproject.toml
+    pyleans/                # importable package (flat inner layout)
       __init__.py
-    client/
-      __init__.py
-    providers/
-      __init__.py
-  test/
-src/                        # sample apps live under src/
-  counter_app/
+      py.typed              # PEP 561 marker
+      server/
+        __init__.py
+      client/
+        __init__.py
+      providers/
+        __init__.py
+    test/
+  counter_app/              # sample apps (not pip-installed)
   counter_client/
 ```
 
@@ -44,7 +44,7 @@ src/                        # sample apps live under src/
 
 ### Acceptance criteria
 
-- [x] `pip install -e "pyleans[dev]"` succeeds
+- [x] `pip install -e "src/pyleans[dev]"` succeeds
 - [x] `import pyleans` works
 - [x] `import pyleans.server` works
 - [x] `import pyleans.client` works
@@ -59,17 +59,17 @@ _To be filled when task is complete._
 ## Summary of implementation
 
 ### Files created/modified
-- `pyleans/pyproject.toml` — Updated with full dependencies (`injector`, `orjson`, `pyyaml`), optional `[web]` deps (`fastapi`, `uvicorn`), `[dev]` deps (`pytest`, `pytest-asyncio`, `pytest-cov`, `mypy`, `ruff`), hatch build targets, and asyncio_mode config.
-- `pyleans/pyleans/server/__init__.py` — Created server subpackage.
-- `pyleans/pyleans/client/__init__.py` — Created client subpackage.
-- `pyleans/pyleans/providers/__init__.py` — Created providers subpackage.
+- `src/pyleans/pyproject.toml` — Updated with full dependencies (`injector`, `orjson`, `pyyaml`), optional `[web]` deps (`fastapi`, `uvicorn`), `[dev]` deps (`pytest`, `pytest-asyncio`, `pytest-cov`, `mypy`, `ruff`), hatch build targets, and asyncio_mode config.
+- `src/pyleans/pyleans/server/__init__.py` — Created server subpackage.
+- `src/pyleans/pyleans/client/__init__.py` — Created client subpackage.
+- `src/pyleans/pyleans/providers/__init__.py` — Created providers subpackage.
 
 ### Key decisions
 - Placed `counter_app/` and `counter_client/` under `src/` at workspace root (run as `python -m src.counter_app`) rather than nesting under `pyleans/examples/`.
 - Used `[tool.hatch.build.targets.wheel] packages = ["pyleans"]` so hatchling finds the package correctly in the flat layout.
 
 ### Deviations
-- Task originally specified `src/pyleans/` layout — changed to flat `pyleans/pyleans/` layout (decision: keep flat).
+- Framework lives at `src/pyleans/` (project dir) with a flat inner package at `src/pyleans/pyleans/` — pip-installed editable, so imports are still bare `import pyleans`.
 - Task originally nested examples under `pyleans/examples/` — moved `counter_app/` and `counter_client/` under `src/` at workspace root.
 - Test directory is `test/` (singular), not `tests/`.
 

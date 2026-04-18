@@ -16,7 +16,7 @@
 Implement the `@grain` decorator that marks a Python class as a virtual actor.
 
 ### Files to create
-- `pyleans/pyleans/grain.py`
+- `src/pyleans/pyleans/grain.py`
 
 ### The @grain decorator
 
@@ -103,8 +103,8 @@ _To be filled when task is complete._
 ## Summary of implementation
 
 ### Files created
-- `pyleans/pyleans/grain.py` — `@grain` decorator, registry, method discovery
-- `pyleans/test/test_grain.py` — 19 tests
+- `src/pyleans/pyleans/grain.py` — `@grain` decorator, registry, method discovery
+- `src/pyleans/test/test_grain.py` — 19 tests
 
 ### Key decisions
 - Decorator stores metadata as class attributes (`_grain_type`, `_state_type`, `_storage_name`).

@@ -15,7 +15,7 @@
 Define the exception hierarchy for pyleans.
 
 ### Files to create
-- `pyleans/pyleans/errors.py`
+- `src/pyleans/pyleans/errors.py`
 
 ### Exception classes
 
@@ -69,8 +69,8 @@ _To be filled when task is complete._
 ## Summary of implementation
 
 ### Files created
-- `pyleans/pyleans/errors.py` — Full exception hierarchy
-- `pyleans/test/test_errors.py` — 23 tests
+- `src/pyleans/pyleans/errors.py` — Full exception hierarchy
+- `src/pyleans/test/test_errors.py` — 23 tests
 
 ### Key decisions
 - `StorageInconsistencyError` stores `expected_etag` and `actual_etag` as attributes and formats them in the message.

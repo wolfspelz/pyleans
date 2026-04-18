@@ -17,7 +17,7 @@ deactivation), high-frequency callbacks. They respect the turn-based model --
 timer callbacks are enqueued like regular grain method calls.
 
 ### Files to create
-- `pyleans/pyleans/server/timer.py`
+- `src/pyleans/pyleans/server/timer.py`
 
 ### Design
 
@@ -111,8 +111,8 @@ _To be filled when task is complete._
 ## Summary of implementation
 
 ### Files created
-- `pyleans/pyleans/server/timer.py` — GrainTimer, TimerRegistry
-- `pyleans/test/test_timer.py` — 7 tests
+- `src/pyleans/pyleans/server/timer.py` — GrainTimer, TimerRegistry
+- `src/pyleans/test/test_timer.py` — 7 tests
 
 ### Key decisions
 - Timer callbacks dispatched through runtime.invoke to maintain turn-based execution.

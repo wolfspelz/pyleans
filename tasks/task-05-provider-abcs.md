@@ -20,10 +20,10 @@ Define the three provider ABCs. These are the pluggable extension points of pyle
 following Orleans' provider model and hexagonal architecture principles.
 
 ### Files to create
-- `pyleans/pyleans/providers/storage.py`
-- `pyleans/pyleans/providers/membership.py`
-- `pyleans/pyleans/providers/streaming.py`
-- `pyleans/pyleans/providers/__init__.py` (re-exports)
+- `src/pyleans/pyleans/providers/storage.py`
+- `src/pyleans/pyleans/providers/membership.py`
+- `src/pyleans/pyleans/providers/streaming.py`
+- `src/pyleans/pyleans/providers/__init__.py` (re-exports)
 
 ### StorageProvider
 
@@ -121,11 +121,11 @@ _To be filled when task is complete._
 ## Summary of implementation
 
 ### Files created
-- `pyleans/pyleans/providers/storage.py` — StorageProvider ABC
-- `pyleans/pyleans/providers/membership.py` — MembershipProvider ABC
-- `pyleans/pyleans/providers/streaming.py` — StreamProvider ABC, StreamSubscription dataclass
-- `pyleans/pyleans/providers/__init__.py` — Re-exports all provider types
-- `pyleans/test/test_providers.py` — 15 tests
+- `src/pyleans/pyleans/providers/storage.py` — StorageProvider ABC
+- `src/pyleans/pyleans/providers/membership.py` — MembershipProvider ABC
+- `src/pyleans/pyleans/providers/streaming.py` — StreamProvider ABC, StreamSubscription dataclass
+- `src/pyleans/pyleans/providers/__init__.py` — Re-exports all provider types
+- `src/pyleans/test/test_providers.py` — 15 tests
 
 ### Key decisions
 - Used `dict[str, Any]` for state parameter in StorageProvider (typed dict values).

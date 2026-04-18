@@ -33,20 +33,20 @@ that adds noise and violates DRY.
 ### Files to create/modify
 
 **Create:**
-- `pyleans/pyleans/grain_base.py` -- `Grain[TState]` generic base class
+- `src/pyleans/pyleans/grain_base.py` -- `Grain[TState]` generic base class
 
 **Modify:**
-- `pyleans/pyleans/grain.py` -- `@grain` decorator: infer `state_type` from generic
+- `src/pyleans/pyleans/grain.py` -- `@grain` decorator: infer `state_type` from generic
   type argument when grain inherits `Grain[TState]`
-- `pyleans/pyleans/server/runtime.py` -- verify compatibility (binding mechanism unchanged)
+- `src/pyleans/pyleans/server/runtime.py` -- verify compatibility (binding mechanism unchanged)
 - `src/counter_app/counter_grain.py` -- inherit `Grain[CounterState]`, remove boilerplate
-- `pyleans/pyleans/server/string_cache_grain.py` -- inherit `Grain[StringCacheState]`, remove boilerplate
+- `src/pyleans/pyleans/server/string_cache_grain.py` -- inherit `Grain[StringCacheState]`, remove boilerplate
 - Tests for all modified files
 
 ### Design
 
 ```python
-# pyleans/pyleans/grain_base.py
+# src/pyleans/pyleans/grain_base.py
 from typing import Generic, TypeVar
 from pyleans.identity import GrainId
 from pyleans.errors import GrainActivationError
@@ -112,7 +112,7 @@ stubs exist only to provide:
 
 ### Acceptance criteria
 
-- [x] `Grain[TState]` base class in `pyleans/pyleans/grain_base.py`
+- [x] `Grain[TState]` base class in `src/pyleans/pyleans/grain_base.py`
 - [x] `identity`, `state` declared as attributes
 - [x] `write_state`, `clear_state`, `deactivate_on_idle` as stub methods that raise before activation
 - [x] `@grain` decorator infers `state_type` from `Grain[TState]` generic argument
@@ -142,19 +142,19 @@ type system — no user input, no deserialization, no external I/O.
 ## Summary of implementation
 
 ### Files created
-- `pyleans/pyleans/grain_base.py` — `Grain[TState]` generic base class (PEP 695 syntax)
-- `pyleans/test/test_grain_base.py` — 19 tests
+- `src/pyleans/pyleans/grain_base.py` — `Grain[TState]` generic base class (PEP 695 syntax)
+- `src/pyleans/test/test_grain_base.py` — 19 tests
 
 ### Files modified
-- `pyleans/pyleans/grain.py` — `_infer_state_type()`, `_BASE_CLASS_METHODS` exclusion set
-- `pyleans/pyleans/__init__.py` — export `Grain`
+- `src/pyleans/pyleans/grain.py` — `_infer_state_type()`, `_BASE_CLASS_METHODS` exclusion set
+- `src/pyleans/pyleans/__init__.py` — export `Grain`
 - `src/counter_app/counter_grain.py` — inherits `Grain[CounterState]`, removed boilerplate
-- `pyleans/pyleans/server/string_cache_grain.py` — inherits `Grain[StringCacheState]`, removed boilerplate
-- `pyleans/test/test_runtime.py` — test grain uses `Grain[CounterState]`
-- `pyleans/test/test_silo.py` — test grain uses `Grain[CounterState]`
-- `pyleans/test/test_silo_management.py` — test grain uses `Grain[MgmtCounterState]`
-- `pyleans/test/test_reference.py` — test grain uses `Grain[CounterState]`
-- `pyleans/test/test_gateway.py` — test grain uses `Grain[GwCounterState]`
+- `src/pyleans/pyleans/server/string_cache_grain.py` — inherits `Grain[StringCacheState]`, removed boilerplate
+- `src/pyleans/test/test_runtime.py` — test grain uses `Grain[CounterState]`
+- `src/pyleans/test/test_silo.py` — test grain uses `Grain[CounterState]`
+- `src/pyleans/test/test_silo_management.py` — test grain uses `Grain[MgmtCounterState]`
+- `src/pyleans/test/test_reference.py` — test grain uses `Grain[CounterState]`
+- `src/pyleans/test/test_gateway.py` — test grain uses `Grain[GwCounterState]`
 
 ### Key decisions
 - Used PEP 695 type parameter syntax (`class Grain[TState]`) per ruff UP046 rule and Python 3.12+ target.

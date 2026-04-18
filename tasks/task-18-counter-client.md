@@ -151,22 +151,22 @@ allows the client to call grains on a locally-running silo.
 ## Summary of implementation
 
 ### Files created
-- `pyleans/pyleans/gateway/__init__.py` — gateway module exports
-- `pyleans/pyleans/gateway/protocol.py` — binary frame encoding/decoding following the documented wire format
-- `pyleans/pyleans/gateway/listener.py` — `GatewayListener` TCP server that dispatches grain calls to runtime
-- `pyleans/pyleans/client/cluster_client.py` — `ClusterClient` and `RemoteGrainRef` for remote grain calls
+- `src/pyleans/pyleans/gateway/__init__.py` — gateway module exports
+- `src/pyleans/pyleans/gateway/protocol.py` — binary frame encoding/decoding following the documented wire format
+- `src/pyleans/pyleans/gateway/listener.py` — `GatewayListener` TCP server that dispatches grain calls to runtime
+- `src/pyleans/pyleans/client/cluster_client.py` — `ClusterClient` and `RemoteGrainRef` for remote grain calls
 - `src/counter_client/__init__.py` — package marker
 - `src/counter_client/main.py` — CLI with get/inc/set commands
 - `src/counter_client/__main__.py` — `python -m src.counter_client` entry point
-- `pyleans/test/test_gateway_protocol.py` — 14 tests for frame encoding/decoding
-- `pyleans/test/test_gateway.py` — 12 tests for gateway listener + client integration
+- `src/pyleans/test/test_gateway_protocol.py` — 14 tests for frame encoding/decoding
+- `src/pyleans/test/test_gateway.py` — 12 tests for gateway listener + client integration
 - `src/counter_client/test/test_counter_client.py` — 9 tests for CLI and client
 
 ### Files modified
-- `pyleans/pyleans/server/silo.py` — added `gateway_port` parameter, wired `GatewayListener` into start/stop
-- `pyleans/pyleans/client/__init__.py` — exports `ClusterClient` and `RemoteGrainRef`
+- `src/pyleans/pyleans/server/silo.py` — added `gateway_port` parameter, wired `GatewayListener` into start/stop
+- `src/pyleans/pyleans/client/__init__.py` — exports `ClusterClient` and `RemoteGrainRef`
 - `src/counter_client/pyproject.toml (removed — sample apps now live under src/ and are run as `python -m src.counter_client`)` — added `asyncio_mode` for pytest
-- `pyleans/test/test_silo.py` — added `gateway_port=0` to test helper
+- `src/pyleans/test/test_silo.py` — added `gateway_port=0` to test helper
 - `src/counter_app/test/test_counter_grain.py` — added `gateway_port=0` to test helper
 - `src/counter_app/test/test_counter_app.py` — added `gateway_port=0` to test helper
 

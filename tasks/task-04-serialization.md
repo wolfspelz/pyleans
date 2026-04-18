@@ -16,7 +16,7 @@
 Implement a pluggable serialization layer with JSON/orjson as the default.
 
 ### Files to create
-- `pyleans/pyleans/serialization.py`
+- `src/pyleans/pyleans/serialization.py`
 
 ### Design
 
@@ -65,8 +65,8 @@ _To be filled when task is complete._
 ## Summary of implementation
 
 ### Files created
-- `pyleans/pyleans/serialization.py` — Serializer ABC, JsonSerializer with orjson
-- `pyleans/test/test_serialization.py` — 22 tests
+- `src/pyleans/pyleans/serialization.py` — Serializer ABC, JsonSerializer with orjson
+- `src/pyleans/test/test_serialization.py` — 22 tests
 
 ### Key decisions
 - `_dataclass_to_dict` recursively converts nested dataclasses, lists, and dicts.

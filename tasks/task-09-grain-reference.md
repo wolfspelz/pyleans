@@ -19,7 +19,7 @@ Implement `GrainRef` -- a proxy object that represents a grain and forwards
 method calls to the runtime (local or remote).
 
 ### Files to create
-- `pyleans/pyleans/reference.py`
+- `src/pyleans/pyleans/reference.py`
 
 ### Design
 
@@ -109,9 +109,9 @@ _To be filled when task is complete._
 ## Summary of implementation
 
 ### Files created
-- `pyleans/pyleans/reference.py` — GrainRef proxy and GrainFactory
-- `pyleans/test/test_reference.py` — 13 tests
-- `pyleans/test/conftest.py` — Shared FakeStorageProvider for test reuse
+- `src/pyleans/pyleans/reference.py` — GrainRef proxy and GrainFactory
+- `src/pyleans/test/test_reference.py` — 13 tests
+- `src/pyleans/test/conftest.py` — Shared FakeStorageProvider for test reuse
 
 ### Key decisions
 - GrainRef uses `__getattr__` to return async callables that dispatch to the runtime.
@@ -120,7 +120,7 @@ _To be filled when task is complete._
 - GrainFactory does NOT activate grains — activation is deferred to first call.
 
 ### Deviations
-- Removed `pyleans/test/__init__.py` to allow conftest.py to be importable.
+- Removed `src/pyleans/test/__init__.py` to allow conftest.py to be importable.
 
 ### Test coverage
 - 13 tests: identity, repr, private attribute rejection, equality/hashing, proxy dispatch (stateless and stateful), multiple refs sharing activation, factory creation/non-activation/dispatch/different keys.

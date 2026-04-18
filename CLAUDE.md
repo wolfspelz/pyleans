@@ -169,11 +169,11 @@ Never. If you think a piece of code doesn't need tests, you are wrong. Even triv
 python -m venv .venv             # create virtual environment
 .venv/Scripts/activate           # activate (Windows)
 # source .venv/bin/activate      # activate (Linux/macOS)
-pip install -e "pyleans[dev]"    # install pyleans + dev deps in editable mode
-pytest                           # run all tests across workspace
-pytest pyleans/test              # run only pyleans tests
-pytest src/counter_app/test      # run only counter-app tests
-mypy pyleans/src                 # type-check pyleans
+pip install -e "src/pyleans[dev]"    # install pyleans + dev deps in editable mode
+pytest                               # run all tests across workspace
+pytest src/pyleans/test              # run only pyleans tests
+pytest src/counter_app/test          # run only counter-app tests
+mypy src/pyleans/pyleans             # type-check pyleans
 ruff check .                     # lint everything
 ruff format .                    # format everything
 ```
@@ -186,7 +186,7 @@ ruff format .                    # format everything
 - `pyleans.server` is the silo runtime (import only in silo processes)
 - `pyleans.client` is the lightweight client (import in external apps)
 - `pyleans.gateway` is the TCP gateway protocol (used by both server and client)
-- Shared code (grain.py, identity.py, etc.) lives at top-level `pyleans/`
+- Shared code (grain.py, identity.py, etc.) lives in the `pyleans` package at `src/pyleans/pyleans/`
 
 ### Running the applications
 
