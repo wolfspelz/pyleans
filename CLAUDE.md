@@ -41,75 +41,17 @@ Phase 1 does not include networking. Phase 2 adds TCP mesh transport.
 
 ## Mandatory Coding Standards
 
-Every contributor (human or AI) must follow these rules. No exceptions without explicit approval.
+Every contributor (human or AI) must follow the project coding standards. No exceptions without explicit approval.
 
-### Clean Code
+**See [.claude/coding-rules.md](.claude/coding-rules.md)** for the full rules: Clean Code, SOLID, DRY, YAGNI, KISS, composition over inheritance, fail fast, Law of Demeter, strict type hints, and hexagonal architecture — plus the reviewer checklist.
 
-- Code must be readable and self-explanatory. Prefer clear naming over comments.
-- Functions and methods must do one thing and do it well.
-- Keep functions short — if a function needs a comment to explain a section, extract that section.
-- No dead code, no commented-out code in committed files.
-- Avoid magic numbers and strings — use named constants or enums.
+The rules apply in three contexts, all equally binding:
 
-### SOLID Principles
+1. **Production and test code** under [src/](src/).
+2. **Pseudo-code / example code in task specs** under [docs/tasks/](docs/tasks/). Sketches omit bodies, never types or shape.
+3. **Example code in ADRs and architecture docs** under [docs/adr/](docs/adr/) and [docs/architecture/](docs/architecture/). Sketches here set the vocabulary the implementation uses.
 
-- **Single Responsibility**: Each class/module has exactly one reason to change.
-- **Open/Closed**: Classes are open for extension, closed for modification. Use abstract base classes and protocols to define extension points.
-- **Liskov Substitution**: Subtypes must be substitutable for their base types without breaking behavior.
-- **Interface Segregation**: Prefer small, focused interfaces (Protocols/ABCs) over large ones. Clients should not depend on methods they don't use.
-- **Dependency Inversion**: High-level modules must not depend on low-level modules. Both depend on abstractions (ports). Inject dependencies; never hardcode concrete implementations.
-
-### DRY (Don't Repeat Yourself)
-
-- Extract shared logic into a single authoritative location.
-- But: three similar lines are better than a premature abstraction. Wait until duplication is proven before abstracting.
-
-### YAGNI (You Aren't Gonna Need It)
-
-- Do not implement features, parameters, or abstractions until they are actually needed.
-- Do not design for hypothetical future requirements.
-- Remove unused code rather than keeping it "just in case."
-
-### KISS (Keep It Simple, Stupid)
-
-- Choose the simplest solution that solves the problem correctly.
-- Complexity must be justified by a concrete requirement, not by "what if."
-- Prefer standard library solutions over third-party dependencies when equivalent.
-
-### Composition over Inheritance
-
-- Prefer composing objects from smaller parts over deep inheritance hierarchies.
-- Use inheritance only for true "is-a" relationships with shared behavior.
-- Use Protocols for structural subtyping (duck typing with type safety).
-
-### Fail Fast
-
-- Validate inputs at system boundaries and raise clear exceptions immediately.
-- Do not silently swallow errors or return default values for invalid input.
-- Use specific exception types, not bare `Exception`.
-
-### Law of Demeter (Principle of Least Knowledge)
-
-- A method should only call methods on: `self`, its parameters, objects it creates, and its direct attributes.
-- Do not chain through objects (`a.get_b().get_c().do_thing()`). Provide direct methods instead.
-- This reduces coupling and makes code testable.
-
-### Strict Type Hints
-
-- All public functions, methods, and class attributes must have type annotations.
-- Use modern Python typing syntax (3.10+ union syntax `X | None`, 3.12+ generics where applicable).
-- Use `Protocol` for structural interfaces, `ABC` for contracts with shared implementation.
-- Avoid `Any` — use precise types. If `Any` is unavoidable, add a comment explaining why.
-- The project uses a static type checker (mypy or pyright) — code must pass strict mode.
-- **No `# type: ignore` in production code.** Fix the root cause instead: use `cast()`, `assert isinstance()`, typed helpers, or explicit attribute declarations. Test code may use `# type: ignore` where dynamic test patterns make strict typing impractical.
-
-### Hexagonal Architecture (Ports & Adapters)
-
-- The application core (domain logic, grain runtime, lifecycle) must have zero dependencies on frameworks, databases, or external systems.
-- All external dependencies are accessed through **port interfaces** (abstract base classes or Protocols).
-- Concrete implementations are **adapters** that live outside the core.
-- Dependencies always point inward: adapters depend on the core, never the reverse.
-- This applies to all providers: membership, storage, streaming, transport.
+Read the rules file before writing code in any of these three contexts.
 
 ## Logging Requirements — MANDATORY
 
@@ -151,8 +93,10 @@ All tests must cover:
 - Use in-memory fakes or test doubles (not mocks unless necessary) for driven port adapters.
 - Test file naming: `test_<module>.py` in the `test/` directory mirroring the package structure.
 - Each test function tests one behavior and has a descriptive name: `test_<what>_<condition>_<expected>`.
-- Arrange-Act-Assert structure in every test.
+- **Arrange / Act / Assert structure in every test, with explicitly labeled section comments** (`# Arrange`, `# Act`, `# Assert`). Exactly one Act step per test.
 - Tests are first-class code — they follow the same quality standards as production code.
+
+**See [.claude/testing-rules.md](.claude/testing-rules.md)** for the full rules: the AAA labeling contract, the unit / integration / smoke-test scopes, fakes-vs-mocks guidance, fixture placement, determinism rules, anti-patterns, and the pre-commit checklist.
 
 ### When Tests Can Be Skipped
 
@@ -229,11 +173,12 @@ After completing each task (code + tests passing), you MUST perform both reviews
 
 Review all code written or modified in the task for:
 
-- Adherence to coding standards in this file (clean code, SOLID, DRY, YAGNI, KISS)
+- Adherence to the rules in [.claude/coding-rules.md](.claude/coding-rules.md) (clean code, SOLID, DRY, YAGNI, KISS)
 - Correct use of type hints, error handling, and naming
-- Test quality and completeness (all acceptance criteria covered)
+- Test quality and completeness per [.claude/testing-rules.md](.claude/testing-rules.md) (all acceptance criteria covered, AAA labeling, fakes-vs-mocks)
 - Architectural consistency with hexagonal architecture
 - No dead code, unused imports, or magic constants
+- Sketches added or modified in [docs/tasks/](docs/tasks/) and [docs/adr/](docs/adr/) also meet the coding rules
 
 Fix all issues found before proceeding.
 
