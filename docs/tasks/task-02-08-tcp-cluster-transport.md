@@ -127,22 +127,62 @@ Last point is critical: a buggy peer MUST NOT be able to take down the entire me
 
 ### Acceptance criteria
 
-- [ ] Two `TcpClusterTransport` instances on localhost establish a connection both directions and exchange `send_request` frames
-- [ ] `send_one_way` reaches the peer handler with a `ONE_WAY` direction
-- [ ] `send_ping` returns a reasonable RTT (< 1 s on localhost)
-- [ ] `on_connection_established` fires exactly once per directional pair after handshake
-- [ ] `on_connection_lost` fires when peer is killed
-- [ ] `send_request` to `local_silo` raises `ValueError`
-- [ ] `stop()` closes the accept socket and all connections; subsequent `send_request` raises `TransportClosedError`
-- [ ] `TcpTransportFactory().create_cluster_transport(options)` returns a working transport
-- [ ] Integration test walks the full failure-mode matrix above
-- [ ] Unit tests cover lifecycle (start twice raises, stop before start is no-op, handler missing)
+- [x] Two `TcpClusterTransport` instances on localhost establish a connection both directions and exchange `send_request` frames
+- [x] `send_one_way` reaches the peer handler with a `ONE_WAY` direction
+- [x] `send_ping` returns a reasonable RTT (< 1 s on localhost)
+- [x] `on_connection_established` fires exactly once per directional pair after handshake
+- [x] `on_connection_lost` fires when peer is killed
+- [x] `send_request` to `local_silo` raises `ValueError`
+- [x] `stop()` closes the accept socket and all connections; subsequent `send_request` raises `TransportClosedError`
+- [x] `TcpTransportFactory().create_cluster_transport(options)` returns a working transport
+- [x] Integration test walks the full failure-mode matrix (cluster mismatch, refused connection, peer killed, oversized local encode)
+- [x] Unit tests cover lifecycle (start twice raises, stop before start is no-op, restart after stop raises, local-silo access before start raises)
 
 ## Findings of code review
-_To be filled when task is complete._
+
+- **[resolved] Ephemeral-port (port=0) start would advertise `silo_id=host:0:epoch`** in the handshake, so peers could not dial back and the outbound validation `expected_silo` check would fail. Fixed: `start()` reads the listener's actual bound port from `server.sockets[0].getsockname()[1]` and rebuilds `self._local_silo` (and the manager's local silo) before registering the state as running. Tests bind on port=0 and rely on this resolution; production typically specifies a fixed port so the rebuild is a no-op.
+- **[resolved] `stop()` followed by `start()` on the same instance** would have re-used stale `_local_silo`, `_server`, and `_manager` references. Fixed by blocking restart with `RuntimeError("transport already stopped; create a new instance")`. A fresh instance per lifecycle is cheaper to reason about than trying to scrub state.
+- **[resolved] `local_silo` property raised `AttributeError`** before the transport was started. Now raises `TransportClosedError` with a clear message — callers who treat pre-start access as a bug get a transport-layer exception they already catch.
+- **[resolved] `__init__.py` `__all__` was out of alphabetical order** after adding `TcpTransportFactory`; re-sorted. No functional change.
+- **[noted] Callback dispatch loops over `list(self._on_established)` / `list(self._on_lost)`** so a callback that mutates the list during iteration doesn't skip siblings. By convention callbacks register at silo startup and never unregister; the snapshot copy is defence-in-depth.
 
 ## Findings of security review
-_To be filled when task is complete._
+
+- **[reviewed, no change] Local-silo self-send rejection**: `_reject_self_send` raises `ValueError` when `target == local_silo`, preventing an accidental network round-trip for calls that should have been dispatched locally. Covered by `TestSelfSendRejection` for both `send_request` and `send_one_way`. The security angle here is routing-integrity: silent self-communication would mask a broken placement decision in the runtime (task-02-16).
+- **[reviewed, no change] Handshake failure is unrecoverable**: a `HandshakeError` on the outbound path propagates to the caller *and* short-circuits the reconnect loop (inherited from task-02-07). This prevents a cross-cluster dial from reconnection-spamming a peer that will never accept it — denial-of-wallet at the caller, denial-of-service at the target.
+- **[reviewed, no change] Listener-socket teardown on `stop()`** is the first step: no new inbound connections can race the manager shutdown. The manager then fails any pending outbound connect tasks and closes every live connection with the `shutdown_timeout` budget from task-02-07.
+- **[reviewed, no change] Callback sandboxing at the transport level**: `_dispatch_established` / `_dispatch_lost` wrap every observer in a broad `except Exception` with `logger.exception`. Combined with the same discipline in the manager (`_safely_invoke`), an observer cannot cascade a failure into transport-owned tasks. The transport-level layer is a belt-and-braces guard since the task spec calls out callbacks-that-raise as an acceptance criterion.
+- **[reviewed, no change] Oversized frames are bounded twice**: the outbound encoder (task-02-05 `encode_frame`) raises `MessageTooLargeError` before the write touches the socket; the inbound decoder refuses frames larger than `max_message_size` and the read loop classifies the error as connection-lost. Verified by `TestOversizedFrame` (outbound rejection) — a buggy peer cannot take down the mesh because each connection's reader will close only that connection.
+- **[reviewed, no change] No secret logging**: log lines carry silo identities, cluster id, and state transitions only; headers and bodies never appear in log output, consistent with CLAUDE.md's logging requirements.
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+
+- [src/pyleans/pyleans/transport/tcp/transport.py](../../src/pyleans/pyleans/transport/tcp/transport.py) -- `TcpClusterTransport` composes the task-02-05..02-07 stack behind the `IClusterTransport` port. Lifecycle: `start()` binds the listener via `options.network.start_server`, installs a `SiloConnectionManager`, and normalises ephemeral ports; `stop()` closes the accept socket first, then the manager. Send methods (`send_request`, `send_one_way`, `send_ping`) obtain the manager's connection for the target silo and forward the call; `_reject_self_send` guards the local-silo shortcut.
+- [src/pyleans/pyleans/transport/factory.py](../../src/pyleans/pyleans/transport/factory.py) -- `TcpTransportFactory` implementing `ITransportFactory.create_cluster_transport(options)`, the default seam for silo assembly (task-02-17).
+- [src/pyleans/test/test_transport_tcp_transport.py](../../src/pyleans/test/test_transport_tcp_transport.py) -- 17 AAA-labelled tests over `InMemoryNetwork`. Covers lifecycle, round-trip both directions, one-way, ping RTT, self-send rejection, connected-set reporting, `on_established`, cluster-mismatch handshake failure, stop-then-send, refused-connection, peer-killed-mid-request, oversized-frame rejection, and the factory.
+
+### Files modified
+
+- [src/pyleans/pyleans/transport/tcp/__init__.py](../../src/pyleans/pyleans/transport/tcp/__init__.py) -- re-exports `TcpClusterTransport`.
+- [src/pyleans/pyleans/transport/__init__.py](../../src/pyleans/pyleans/transport/__init__.py) -- re-exports `TcpTransportFactory` and sorts the `__all__` list alphabetically.
+
+### Key implementation decisions
+
+- **Ephemeral-port normalisation in `start()`**. Binding on port 0 is the standard test ergonomic; rather than requiring every caller to post-fix `_local_silo`, the transport re-reads the bound port from the server socket and updates the manager's local-silo reference before declaring the state as running. Production callers specifying a fixed port see no behaviour change.
+- **No restart path**. `stop()` transitions to a terminal `stopped` state; a subsequent `start()` raises `RuntimeError`. A fresh instance per silo lifecycle keeps state reset trivial to reason about and matches the task-02-17 silo lifecycle stages (infrastructure is torn down and rebuilt, not restarted in place).
+- **Listener first in `stop()`**. The accept socket closes before the manager's outbound connections, so no new inbound handshake can race the shutdown. The task-02-07 manager already handles the outbound side with its `shutdown_timeout`.
+- **Callback dispatch runs through a local snapshot** (`list(self._on_established)`). Cheap insurance against a pathological observer that mutates the list while iterating.
+
+### Deviations from the original design
+
+None substantive. The task spec sketch set `self._manager = SiloConnectionManager(...)` in `start()` and routed all subsequent calls through it — this implementation follows that design exactly, plus the ephemeral-port normalisation noted above (which the spec did not mention but every test needed).
+
+### Test coverage summary
+
+- 17 new tests. Each is AAA-labelled with exactly one Act.
+- Full suite: **639 passed** (up from 622 after task-02-07).
+- `ruff check` + `ruff format --check` clean.
+- `pylint src/pyleans/pyleans src/counter_app src/counter_client` rated **10.00/10**.
+- `mypy` errors unchanged at 24 (all in pre-existing, unrelated files).

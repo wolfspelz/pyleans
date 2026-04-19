@@ -14,6 +14,7 @@ from pyleans.transport.cluster import (
     ITransportFactory,
     MessageHandler,
 )
+from pyleans.transport.factory import TcpTransportFactory
 from pyleans.transport.error_payload import (
     APPLICATION_ERROR_BASE,
     MAX_REASON_BYTES,
@@ -77,6 +78,7 @@ __all__ = [
     "MessageHandler",
     "MessageTooLargeError",
     "MessageType",
+    "TcpTransportFactory",
     "TransportClosedError",
     "TransportConnectionError",
     "TransportError",
