@@ -51,8 +51,11 @@ class TransportMessage:
     ``header`` and ``body`` are bytes supplied by the layer above; the
     transport forwards them without inspection. ``correlation_id`` is a
     64-bit unsigned identifier the sender uses to pair a response with
-    the original request; it is 0 for :attr:`MessageType.ONE_WAY`,
-    :attr:`MessageType.PING`, and :attr:`MessageType.PONG`.
+    its request. It is 0 for :attr:`MessageType.ONE_WAY`. For
+    :attr:`MessageType.PING` / :attr:`MessageType.PONG`, the sender
+    allocates a non-zero id so the PONG can be matched to its PING
+    (keepalive RTT measurement); all other message types always carry a
+    non-zero id.
     """
 
     message_type: MessageType
