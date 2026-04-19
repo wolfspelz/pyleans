@@ -90,6 +90,50 @@ class TestSiloAddress:
         addr = SiloAddress(host="10.0.0.1", port=11111, epoch=1700000000)
         assert addr.encoded == "10.0.0.1_11111_1700000000"
 
+    def test_silo_id_returns_colon_separated_form(self) -> None:
+        # Arrange
+        addr = SiloAddress(host="10.0.0.1", port=11111, epoch=1700000000)
+
+        # Act
+        result = addr.silo_id
+
+        # Assert
+        assert result == "10.0.0.1:11111:1700000000"
+
+    def test_less_than_orders_by_silo_id_lexicographically(self) -> None:
+        # Arrange
+        lower = SiloAddress(host="10.0.0.1", port=11111, epoch=1)
+        higher = SiloAddress(host="10.0.0.2", port=11111, epoch=1)
+
+        # Act
+        result = lower < higher
+
+        # Assert
+        assert result is True
+
+    def test_less_than_is_not_symmetric(self) -> None:
+        # Arrange
+        a = SiloAddress(host="10.0.0.1", port=11111, epoch=1)
+        b = SiloAddress(host="10.0.0.2", port=11111, epoch=1)
+
+        # Act
+        result = b < a
+
+        # Assert
+        assert result is False
+
+    def test_sorted_is_deterministic(self) -> None:
+        # Arrange
+        s1 = SiloAddress(host="10.0.0.3", port=11111, epoch=1)
+        s2 = SiloAddress(host="10.0.0.1", port=11111, epoch=1)
+        s3 = SiloAddress(host="10.0.0.2", port=11111, epoch=1)
+
+        # Act
+        result = sorted([s1, s2, s3])
+
+        # Assert
+        assert [s.host for s in result] == ["10.0.0.1", "10.0.0.2", "10.0.0.3"]
+
     def test_frozen(self) -> None:
         addr = SiloAddress(host="localhost", port=11111, epoch=1000)
         try:
@@ -140,3 +184,68 @@ class TestSiloInfo:
         info.last_heartbeat = 2000.0
         assert info.status == SiloStatus.ACTIVE
         assert info.last_heartbeat == 2000.0
+
+    def test_phase1_construction_still_works_without_new_fields(self) -> None:
+        # Arrange
+        addr = SiloAddress(host="localhost", port=11111, epoch=1000)
+
+        # Act
+        info = SiloInfo(
+            address=addr,
+            status=SiloStatus.ACTIVE,
+            last_heartbeat=1000.0,
+            start_time=999.0,
+        )
+
+        # Assert
+        assert info.cluster_id is None
+        assert info.gateway_port is None
+        assert info.version == 0
+
+    def test_cluster_id_accepted_as_keyword(self) -> None:
+        # Arrange
+        addr = SiloAddress(host="localhost", port=11111, epoch=1000)
+
+        # Act
+        info = SiloInfo(
+            address=addr,
+            status=SiloStatus.ACTIVE,
+            last_heartbeat=1000.0,
+            start_time=999.0,
+            cluster_id="dev",
+        )
+
+        # Assert
+        assert info.cluster_id == "dev"
+
+    def test_gateway_port_accepted_as_keyword(self) -> None:
+        # Arrange
+        addr = SiloAddress(host="localhost", port=11111, epoch=1000)
+
+        # Act
+        info = SiloInfo(
+            address=addr,
+            status=SiloStatus.ACTIVE,
+            last_heartbeat=1000.0,
+            start_time=999.0,
+            gateway_port=30000,
+        )
+
+        # Assert
+        assert info.gateway_port == 30000
+
+    def test_version_accepted_as_keyword(self) -> None:
+        # Arrange
+        addr = SiloAddress(host="localhost", port=11111, epoch=1000)
+
+        # Act
+        info = SiloInfo(
+            address=addr,
+            status=SiloStatus.ACTIVE,
+            last_heartbeat=1000.0,
+            start_time=999.0,
+            version=7,
+        )
+
+        # Assert
+        assert info.version == 7

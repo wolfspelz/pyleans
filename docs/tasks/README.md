@@ -191,7 +191,7 @@ One-time transformation of the existing codebase into the ideal Phase 1 state. E
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 02-01 | [Cluster Identity](task-02-01-cluster-identity.md) | [ ] | 01-02 |
+| 02-01 | [Cluster Identity](task-02-01-cluster-identity.md) | [x] | 01-02 |
 | 02-02 | [Consistent Hash Ring](task-02-02-consistent-hash-ring.md) | [ ] | 02-01 |
 | 02-03 | [Placement Strategies](task-02-03-placement-strategies.md) | [ ] | 02-01 |
 

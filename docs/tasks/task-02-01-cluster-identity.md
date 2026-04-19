@@ -114,19 +114,54 @@ These are the only two hash entry points the rest of Phase 2 uses — every othe
 
 ### Acceptance criteria
 
-- [ ] `ClusterId("dev-cluster")` validates and is hashable / usable as dict key
-- [ ] `ClusterId("bad/id")` raises `ValueError`
-- [ ] `SiloAddress.silo_id` returns `"host:port:epoch"` and is lexicographically orderable via `<`
-- [ ] `SiloInfo` backwards-compatible: Phase 1 construction `SiloInfo(address, status, last_heartbeat, start_time)` still works
-- [ ] `stable_hash(b"abc")` returns the same `int` across Python processes (test by spawning subprocess)
-- [ ] `hash_grain_id` and `hash_silo_virtual_node` are pure, deterministic, and covered
-- [ ] Unit tests cover happy path, validation, cross-process determinism, hash distribution smoke check
+- [x] `ClusterId("dev-cluster")` validates and is hashable / usable as dict key
+- [x] `ClusterId("bad/id")` raises `ValueError`
+- [x] `SiloAddress.silo_id` returns `"host:port:epoch"` and is lexicographically orderable via `<`
+- [x] `SiloInfo` backwards-compatible: Phase 1 construction `SiloInfo(address, status, last_heartbeat, start_time)` still works
+- [x] `stable_hash(b"abc")` returns the same `int` across Python processes (test by spawning subprocess)
+- [x] `hash_grain_id` and `hash_silo_virtual_node` are pure, deterministic, and covered
+- [x] Unit tests cover happy path, validation, cross-process determinism, hash distribution smoke check
 
 ## Findings of code review
-_To be filled when task is complete._
+
+No open issues. Review checked:
+
+- **Clean Code / SOLID / DRY / YAGNI / KISS**: `ClusterId` is a minimal frozen value type with post-init validation; `stable_hash` is one function with a single, documented contract; `hash_grain_id` / `hash_silo_virtual_node` are thin wrappers that encode the canonical string form, which is the DRY centralisation point every Phase 2 ring computation reuses.
+- **Type hints**: fully typed, mypy strict clean.
+- **Hexagonal architecture**: module sits in the core namespace (value type + pure function), not a provider. Correct location.
+- **Tests**: AAA labels, exactly one Act per test, descriptive names, fast (<150 ms for 57 tests), deterministic. Cross-process determinism covered via a subprocess invocation with `PYTHONHASHSEED=random`. Distribution smoke check uses 10,000 keys across 16 buckets with a ±25% band per bucket.
+- **No dead code or unused imports**. (One round of cleanup removed an unused `logger` during review — logging is deferred to subsystems that actually emit events.)
+- **Naming**: `ClassName`, `lower_snake_case`, `_MODULE_CONSTANT`.
 
 ## Findings of security review
-_To be filled when task is complete._
+
+No open issues. Review of the changes and the surrounding codebase:
+
+- **Input validation** on `ClusterId` rejects the two characters that break downstream encodings: `/` (membership row / topic separator) and `\0` (string termination in any C-backed layer). Wider validation (whitespace, control chars, length cap) is deferred — no current subsystem is broken by them, and rejecting them now would be speculative per YAGNI.
+- **Hashing**: SHA-256 is cryptographic; we truncate to 64 bits for a non-auth placement function. Not an authentication or authorisation decision, so collision-resistance margin is irrelevant; the choice trades "no extra dep" against `xxhash`.
+- **Subprocess in tests** uses `sys.executable` (absolute path), a literal command string, and `env={"PYTHONHASHSEED": "random", "PATH": ""}` — no injection vector.
+- **No filesystem, network, or external-service access** introduced. No deserialisation. No unbounded allocations (`stable_hash` input is any size, output is always 8 bytes).
+- **OWASP Top 10**: not applicable to this change.
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+- [src/pyleans/pyleans/cluster.py](../../src/pyleans/pyleans/cluster.py) — `ClusterId` value type, `stable_hash`, `hash_grain_id`, `hash_silo_virtual_node`.
+- [src/pyleans/test/test_cluster.py](../../src/pyleans/test/test_cluster.py) — 27 unit tests.
+
+### Files modified
+- [src/pyleans/pyleans/identity.py](../../src/pyleans/pyleans/identity.py) — `SiloAddress` gained `silo_id` property and `__lt__`; `SiloInfo` gained optional `cluster_id`, `gateway_port`, `version` fields (all with safe defaults so Phase 1 callers are unchanged).
+- [src/pyleans/test/test_identity.py](../../src/pyleans/test/test_identity.py) — tests added for `silo_id`, lexicographic ordering, and the new `SiloInfo` fields.
+- [pyproject.toml](../../pyproject.toml) — added `types-PyYAML>=6.0` to dev deps so `mypy` strict passes out of the box (was a pre-existing gap surfaced by this task's verification pass).
+
+### Key decisions
+- **SHA-256 truncated to 64 bits, not `xxhash`**. Chosen to avoid an extra dependency; the PoC is not hash-throughput-bound. If profiling later shows `stable_hash` as a hot path, switching backends is a one-line change contained to `cluster.py`.
+- **Canonical hash inputs**: `grain_type/grain_key` (slash separator, matches `GrainId.__str__`) and `silo_id#vnode_index` (hash separator, disambiguates virtual nodes from their owning silo). These two entry points are the only places in Phase 2 that compute ring positions from domain values — every other ring computation in the upcoming tasks routes through them, guaranteeing identical ring positions on every silo.
+- **`SiloInfo` additions are additive**. Defaults (`cluster_id=None`, `gateway_port=None`, `version=0`) mean Phase 1 construction keeps working unchanged. Phase 2 will populate these in tasks 02-09 (membership extensions) and 02-17 (lifecycle stages).
+- **Minimal `ClusterId` validation**. Reject only `/` and `\0` — the two characters that definitely break membership-row and null-terminated encodings. Wider policy (length, whitespace) is left to subsystems that impose the constraint.
+
+### Deviations
+- None from the task spec. One infra fix added: `types-PyYAML` in dev deps (pre-existing gap; unrelated to the task's feature scope but required for the task's mypy check to succeed on a fresh clone).
+
+### Test coverage summary
+57 tests covering: `ClusterId` validation (empty, slash, null byte), frozen semantics, equality, dict-key use, `str`; `stable_hash` return type, range, in-process determinism, distinctness, empty input, cross-process determinism (via subprocess with empty `PATH`), distribution smoke check across 16 buckets over 10,000 keys; `hash_grain_id` and `hash_silo_virtual_node` determinism, distinctness along each input axis, match against canonical string form; `SiloAddress.silo_id` format, `<` ordering, `sorted()` determinism; `SiloInfo` Phase 1 backwards compatibility and each new keyword field.
