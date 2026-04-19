@@ -2,18 +2,17 @@
 
 import asyncio
 from dataclasses import dataclass
-from typing import Any
 
 import pytest
 from pyleans.client import ClusterClient, RemoteGrainRef
 from pyleans.errors import TransportError
 from pyleans.grain import _grain_registry, grain
 from pyleans.grain_base import Grain
-from pyleans.identity import GrainId, SiloStatus
+from pyleans.identity import GrainId
 from pyleans.net import InMemoryNetwork
-from pyleans.providers.membership import MembershipProvider
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.silo import Silo
+from pyleans.testing import InMemoryMembershipProvider
 
 from conftest import FakeStorageProvider
 
@@ -63,24 +62,7 @@ def _reset_registry() -> None:
 # --- Fake membership ---
 
 
-class FakeMembershipProvider(MembershipProvider):
-    def __init__(self) -> None:
-        self.silos: dict[str, Any] = {}
-
-    async def register_silo(self, silo: Any) -> None:
-        self.silos[silo.address.encoded] = silo
-
-    async def unregister_silo(self, silo_id: str) -> None:
-        self.silos.pop(silo_id, None)
-
-    async def get_active_silos(self) -> list[Any]:
-        return list(self.silos.values())
-
-    async def heartbeat(self, silo_id: str) -> None:
-        pass
-
-    async def update_status(self, silo_id: str, status: SiloStatus) -> None:
-        pass
+FakeMembershipProvider = InMemoryMembershipProvider
 
 
 # --- Helpers ---

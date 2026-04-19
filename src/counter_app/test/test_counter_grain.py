@@ -7,10 +7,10 @@ import pytest
 from pyleans.grain import _grain_registry, get_grain_class, get_grain_methods
 from pyleans.identity import GrainId
 from pyleans.net import InMemoryNetwork
-from pyleans.providers.membership import MembershipProvider
 from pyleans.providers.storage import StorageProvider
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.silo import Silo
+from pyleans.testing import InMemoryMembershipProvider
 
 from src.counter_app.counter_grain import CounterGrain, CounterState
 
@@ -54,26 +54,7 @@ class FakeStorageProvider(StorageProvider):
         self._store.pop(key, None)
 
 
-class FakeMembershipProvider(MembershipProvider):
-    """In-memory membership for testing."""
-
-    def __init__(self) -> None:
-        self.silos: dict[str, Any] = {}
-
-    async def register_silo(self, silo: Any) -> None:
-        self.silos[silo.address.encoded] = silo
-
-    async def unregister_silo(self, silo_id: str) -> None:
-        self.silos.pop(silo_id, None)
-
-    async def get_active_silos(self) -> list[Any]:
-        return list(self.silos.values())
-
-    async def heartbeat(self, silo_id: str) -> None:
-        pass
-
-    async def update_status(self, silo_id: str, status: Any) -> None:
-        pass
+FakeMembershipProvider = InMemoryMembershipProvider
 
 
 # --- Fixtures ---

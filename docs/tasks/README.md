@@ -209,7 +209,7 @@ One-time transformation of the existing codebase into the ideal Phase 1 state. E
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 02-09 | [Membership Table Extensions](task-02-09-membership-table-extensions.md) | [ ] | 02-01, 01-12 |
+| 02-09 | [Membership Table Extensions](task-02-09-membership-table-extensions.md) | [x] | 02-01, 01-12 |
 | 02-10 | [File Locking for Membership](task-02-10-file-locking-membership.md) | [ ] | 02-09 |
 | 02-11 | [Failure Detector](task-02-11-failure-detector.md) | [ ] | 02-02, 02-08, 02-09 |
 

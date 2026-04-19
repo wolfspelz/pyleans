@@ -13,7 +13,8 @@ from pyleans.gateway.listener import GatewayListener
 from pyleans.grain import _grain_registry, get_grain_type_name
 from pyleans.identity import SiloAddress, SiloInfo, SiloStatus
 from pyleans.net import AsyncioNetwork, INetwork
-from pyleans.providers.membership import MembershipProvider
+from pyleans.providers.errors import SiloNotFoundError, TableStaleError
+from pyleans.providers.membership import MembershipProvider, with_replacements
 from pyleans.providers.storage import StorageProvider
 from pyleans.providers.streaming import StreamProvider
 from pyleans.reference import GrainFactory
@@ -29,6 +30,7 @@ from pyleans.server.timer import TimerRegistry
 logger = logging.getLogger(__name__)
 
 _HEARTBEAT_INTERVAL = 30.0
+_OCC_MAX_RETRIES = 5
 _DEFAULT_IDLE_TIMEOUT = 900.0
 _DEFAULT_PORT = 11111
 _DEFAULT_GATEWAY_PORT = 30000
@@ -79,7 +81,7 @@ class Silo:
 
         epoch = int(time.time())
         self._silo_address = SiloAddress(host=self._host, port=self._port, epoch=epoch)
-        self._silo_id = self._silo_address.encoded
+        self._silo_id = self._silo_address.silo_id
 
         self._silo_management = SiloManagement(silo=self)
         self._serializer = JsonSerializer()
@@ -199,7 +201,7 @@ class Silo:
 
         logger.info("Silo shutting down...")
 
-        await self._membership_provider.update_status(self._silo_id, SiloStatus.SHUTTING_DOWN)
+        await self._transition_status(SiloStatus.SHUTTING_DOWN)
 
         if self._heartbeat_task is not None:
             self._heartbeat_task.cancel()
@@ -210,7 +212,7 @@ class Silo:
         await self._gateway.stop()
         await self._runtime.stop()
 
-        await self._membership_provider.unregister_silo(self._silo_id)
+        await self._unregister_from_membership()
         logger.info("Unregistered from membership table")
 
         if self._atexit_cleanup is not None:
@@ -245,24 +247,25 @@ class Silo:
             _grain_registry[grain_type] = cls
 
     async def _register_in_membership(self) -> None:
-        """Register this silo in the membership table."""
+        """Register this silo in the membership table via the OCC primitive."""
         now = time.time()
         silo_info = SiloInfo(
             address=self._silo_address,
             status=SiloStatus.ACTIVE,
             last_heartbeat=now,
             start_time=now,
+            i_am_alive=now,
         )
-        await self._membership_provider.register_silo(silo_info)
+        await self._occ_write(silo_info)
         logger.info("Registered in membership table as %s", self._silo_id)
 
     async def _heartbeat_loop(self) -> None:
-        """Periodically update heartbeat in membership table."""
+        """Periodically bump i_am_alive in the membership table."""
         try:
             while True:
                 await asyncio.sleep(_HEARTBEAT_INTERVAL)
                 try:
-                    await self._membership_provider.heartbeat(self._silo_id)
+                    await self._bump_heartbeat()
                     logger.debug("Heartbeat sent for %s", self._silo_id)
                 except Exception:
                     logger.warning(
@@ -272,6 +275,70 @@ class Silo:
                     )
         except asyncio.CancelledError:
             return
+
+    async def _bump_heartbeat(self) -> None:
+        """Read-modify-write the current row to refresh ``i_am_alive``."""
+        for _ in range(_OCC_MAX_RETRIES):
+            current = await self._membership_provider.read_silo(self._silo_id)
+            if current is None:
+                raise SiloNotFoundError(f"Silo {self._silo_id!r} not found in membership table")
+            now = time.time()
+            updated = with_replacements(current, i_am_alive=now, last_heartbeat=now)
+            try:
+                await self._membership_provider.try_update_silo(updated)
+                return
+            except TableStaleError:
+                continue
+        raise TableStaleError(
+            f"heartbeat for {self._silo_id!r} failed after {_OCC_MAX_RETRIES} retries"
+        )
+
+    async def _transition_status(self, status: SiloStatus) -> None:
+        """Read-modify-write the current row to transition its status."""
+        for _ in range(_OCC_MAX_RETRIES):
+            current = await self._membership_provider.read_silo(self._silo_id)
+            if current is None:
+                raise SiloNotFoundError(f"Silo {self._silo_id!r} not found in membership table")
+            updated = with_replacements(current, status=status)
+            try:
+                await self._membership_provider.try_update_silo(updated)
+                return
+            except TableStaleError:
+                continue
+        raise TableStaleError(
+            f"status transition for {self._silo_id!r} failed after {_OCC_MAX_RETRIES} retries"
+        )
+
+    async def _unregister_from_membership(self) -> None:
+        """Physically remove this silo's row via the OCC delete primitive."""
+        for _ in range(_OCC_MAX_RETRIES):
+            current = await self._membership_provider.read_silo(self._silo_id)
+            if current is None:
+                return
+            try:
+                await self._membership_provider.try_delete_silo(current)
+                return
+            except TableStaleError:
+                continue
+        raise TableStaleError(
+            f"unregister for {self._silo_id!r} failed after {_OCC_MAX_RETRIES} retries"
+        )
+
+    async def _occ_write(self, silo_info: SiloInfo) -> None:
+        """Create-or-update the local row, retrying on etag races."""
+        for _ in range(_OCC_MAX_RETRIES):
+            existing = await self._membership_provider.read_silo(self._silo_id)
+            candidate = with_replacements(
+                silo_info, etag=existing.etag if existing is not None else None
+            )
+            try:
+                await self._membership_provider.try_update_silo(candidate)
+                return
+            except TableStaleError:
+                continue
+        raise TableStaleError(
+            f"register for {self._silo_id!r} failed after {_OCC_MAX_RETRIES} retries"
+        )
 
     def _install_signal_handlers(self) -> None:
         """Install handlers for all catchable termination signals."""
@@ -302,7 +369,7 @@ class Silo:
                 return
             try:
                 loop = asyncio.new_event_loop()
-                loop.run_until_complete(self._membership_provider.unregister_silo(self._silo_id))
+                loop.run_until_complete(self._unregister_from_membership())
                 loop.close()
                 logger.info("atexit: unregistered from membership table")
             except Exception:

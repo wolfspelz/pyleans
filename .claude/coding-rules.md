@@ -76,7 +76,15 @@ No exceptions without explicit approval.
 - The project uses a static type checker (mypy or pyright) — code must pass strict mode.
 - **No `# type: ignore` in production code.** Fix the root cause instead: use `cast()`, `assert isinstance()`, typed helpers, or explicit attribute declarations. Test code may use `# type: ignore` where dynamic test patterns make strict typing impractical.
 
-## 10. Hexagonal Architecture (Ports & Adapters)
+## 10. Remove Legacy Code
+
+- When a subsystem evolves to a new contract, **remove the old one** — do not keep backward-compatibility shims, legacy method names, or deprecated wrappers "to avoid churn in tests or examples."
+- Tests and examples that depend on the old surface are **part of the change set**: update them to the new contract in the same commit as the contract change.
+- If an old method is retained, it must be because it independently belongs in the new design — not because call sites are "too many to update" or because a sample would need to change.
+- Exception: when an ADR explicitly defines a migration window with a named end-state (e.g., task-01-21 was an explicit one-time migration), follow the ADR. Otherwise, never leave two ways to do the same thing.
+- Rationale: legacy wrappers double the surface every consumer (including future ones) has to understand. They also hide ABI breaks that belong in the changelog. Removing old code at the point of change keeps the codebase coherent and forces reviewers to think about the migration.
+
+## 11. Hexagonal Architecture (Ports & Adapters)
 
 - The application core (domain logic, grain runtime, lifecycle) must have zero dependencies on frameworks, databases, or external systems.
 - All external dependencies are accessed through **port interfaces** (abstract base classes or Protocols).

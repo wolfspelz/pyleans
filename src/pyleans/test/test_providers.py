@@ -51,39 +51,45 @@ class TestStorageProviderABC:
 
 class TestMembershipProviderABC:
     def test_cannot_instantiate(self) -> None:
+        # Act / Assert
         with pytest.raises(TypeError):
             MembershipProvider()  # type: ignore[abstract]
 
-    def test_has_all_methods(self) -> None:
+    def test_has_occ_primitives(self) -> None:
+        # Assert
         for method in [
-            "register_silo",
-            "unregister_silo",
-            "get_active_silos",
-            "heartbeat",
-            "update_status",
+            "read_all",
+            "read_silo",
+            "try_update_silo",
+            "try_add_suspicion",
+            "try_delete_silo",
         ]:
             assert hasattr(MembershipProvider, method)
 
-    def test_concrete_subclass(self) -> None:
-        from pyleans.identity import SiloInfo, SiloStatus
+    def test_concrete_subclass_instantiates(self) -> None:
+        # Arrange
+        from pyleans.identity import SiloInfo, SuspicionVote
+        from pyleans.providers.membership import MembershipSnapshot
 
         class FakeMembership(MembershipProvider):
-            async def register_silo(self, silo: SiloInfo) -> None:
-                pass
+            async def read_all(self) -> MembershipSnapshot:
+                return MembershipSnapshot(version=0)
 
-            async def unregister_silo(self, silo_id: str) -> None:
-                pass
+            async def try_update_silo(self, silo: SiloInfo) -> SiloInfo:
+                return silo
 
-            async def get_active_silos(self) -> list[SiloInfo]:
-                return []
+            async def try_add_suspicion(
+                self, silo_id: str, vote: SuspicionVote, expected_etag: str
+            ) -> SiloInfo:
+                raise NotImplementedError
 
-            async def heartbeat(self, silo_id: str) -> None:
-                pass
+            async def try_delete_silo(self, silo: SiloInfo) -> None:
+                return None
 
-            async def update_status(self, silo_id: str, status: SiloStatus) -> None:
-                pass
-
+        # Act
         membership = FakeMembership()
+
+        # Assert
         assert isinstance(membership, MembershipProvider)
 
 

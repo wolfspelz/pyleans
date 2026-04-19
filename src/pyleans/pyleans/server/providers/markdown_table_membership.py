@@ -1,20 +1,33 @@
-"""Markdown-table-based membership provider."""
+"""Markdown-table-based membership provider with Phase 2 OCC schema.
 
+Same semantics as :class:`YamlMembershipProvider`; the difference is
+the on-disk format — a Markdown table renders legibly in any viewer and
+is the default provider for the dev-mode counter sample.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import json
 import logging
-import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
 from pyleans.errors import MembershipError
-from pyleans.identity import SiloAddress, SiloInfo, SiloStatus
-from pyleans.providers.membership import MembershipProvider
+from pyleans.identity import SiloAddress, SiloInfo, SiloStatus, SuspicionVote
+from pyleans.providers.errors import SiloNotFoundError, TableStaleError
+from pyleans.providers.membership import MembershipProvider, MembershipSnapshot
 
 logger = logging.getLogger(__name__)
 
-_HEADER = "| ID | Host | Port | Epoch | Status | Last Heartbeat | Start Time |"
-_SEPARATOR = "| --- | --- | --- | --- | --- | --- | --- |"
-_COLUMN_COUNT = 7
+_HEADER = (
+    "| ID | Host | Port | Epoch | Status | ClusterId | GatewayPort "
+    "| LastHeartbeat | IAmAlive | StartTime | Suspicions | ETag |"
+)
+_SEPARATOR = "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+_COLUMN_COUNT = 12
 
 
 @dataclass
@@ -24,89 +37,150 @@ class _State:
 
 
 class MarkdownTableMembershipProvider(MembershipProvider):
-    """Stores membership in a single Markdown file as a human-readable table.
+    """Stores membership in a Markdown file as a human-readable OCC table.
 
-    Intended for development: the file renders nicely in any Markdown viewer,
-    making the cluster membership observable at a glance.
-
-    File format::
+    File layout::
 
         # Membership
 
         Version: N
 
-        | ID | Host | Port | Epoch | Status | Last Heartbeat | Start Time |
-        | --- | --- | --- | --- | --- | --- | --- |
-        | host_port_epoch | host | port | epoch | status | ISO-8601 UTC | ISO-8601 UTC |
+        | ID | ... | ETag |
+        | --- | ... | --- |
+        | host_port_epoch | ... | h-xxxxxx |
 
-    Timestamps are rendered with second-level resolution for readability; sub-second
-    precision is not preserved across a round trip.
+    Sub-second precision is not preserved through the ISO-8601 timestamp
+    columns; ``last_heartbeat`` and ``i_am_alive`` are rounded to the
+    nearest second for readability.
     """
 
     def __init__(self, file_path: str = "./data/membership.md") -> None:
         self._file_path = Path(file_path)
+        self._lock = asyncio.Lock()
 
-    async def register_silo(self, silo: SiloInfo) -> None:
-        state = self._read_file()
-        silo_id = silo.address.encoded
-        for i, entry in enumerate(state.silos):
-            if entry.address.encoded == silo_id:
-                state.silos[i] = silo
-                self._write_file(state)
-                logger.info("Silo re-registered: %s", silo_id)
+    async def read_all(self) -> MembershipSnapshot:
+        async with self._lock:
+            state = self._load_table()
+        return MembershipSnapshot(version=state.version, silos=list(state.silos))
+
+    async def try_update_silo(self, silo: SiloInfo) -> SiloInfo:
+        async with self._lock:
+            state = self._load_table()
+            silo_id = silo.address.silo_id
+            index = _find_silo_index(state.silos, silo_id)
+            if index is None:
+                if silo.etag is not None:
+                    raise SiloNotFoundError(
+                        f"Silo {silo_id!r} not found — cannot update with etag {silo.etag!r}"
+                    )
+                state.silos.append(silo)
+                return self._finalise_write(state, len(state.silos) - 1)
+            current = state.silos[index]
+            if current.etag != silo.etag:
+                raise TableStaleError(
+                    f"etag mismatch for {silo_id!r}: "
+                    f"expected {silo.etag!r}, current {current.etag!r}"
+                )
+            state.silos[index] = _with_etag(silo, None)
+            return self._finalise_write(state, index)
+
+    async def try_delete_silo(self, silo: SiloInfo) -> None:
+        async with self._lock:
+            state = self._load_table()
+            silo_id = silo.address.silo_id
+            index = _find_silo_index(state.silos, silo_id)
+            if index is None:
                 return
-        state.silos.append(silo)
-        self._write_file(state)
-        logger.info("Silo registered: %s", silo_id)
+            current = state.silos[index]
+            if current.etag != silo.etag:
+                raise TableStaleError(
+                    f"etag mismatch for {silo_id!r}: "
+                    f"expected {silo.etag!r}, current {current.etag!r}"
+                )
+            del state.silos[index]
+            state.version += 1
+            try:
+                self._file_path.parent.mkdir(parents=True, exist_ok=True)
+                self._file_path.write_text(_render(state), encoding="utf-8")
+            except OSError as exc:
+                logger.error("Failed to write membership file: %s", exc)
+                raise MembershipError(f"Failed to write membership file: {exc}") from exc
 
-    async def unregister_silo(self, silo_id: str) -> None:
-        state = self._read_file()
-        state.silos = [s for s in state.silos if s.address.encoded != silo_id]
-        self._write_file(state)
-        logger.info("Silo unregistered: %s", silo_id)
+    async def try_add_suspicion(
+        self, silo_id: str, vote: SuspicionVote, expected_etag: str
+    ) -> SiloInfo:
+        async with self._lock:
+            state = self._load_table()
+            index = _find_silo_index(state.silos, silo_id)
+            if index is None:
+                raise SiloNotFoundError(f"Silo {silo_id!r} not found")
+            current = state.silos[index]
+            if current.etag != expected_etag:
+                raise TableStaleError(
+                    f"etag mismatch for {silo_id!r}: "
+                    f"expected {expected_etag!r}, current {current.etag!r}"
+                )
+            current.suspicions.append(vote)
+            return self._finalise_write(state, index)
 
-    async def get_active_silos(self) -> list[SiloInfo]:
-        state = self._read_file()
-        return [s for s in state.silos if s.status == SiloStatus.ACTIVE]
-
-    async def heartbeat(self, silo_id: str) -> None:
-        state = self._read_file()
-        for entry in state.silos:
-            if entry.address.encoded == silo_id:
-                entry.last_heartbeat = time.time()
-                self._write_file(state)
-                logger.debug("Heartbeat updated for %s", silo_id)
-                return
-        raise MembershipError(f"Silo {silo_id!r} not found in membership table")
-
-    async def update_status(self, silo_id: str, status: SiloStatus) -> None:
-        state = self._read_file()
-        for entry in state.silos:
-            if entry.address.encoded == silo_id:
-                entry.status = status
-                self._write_file(state)
-                logger.info("Status updated for %s: %s", silo_id, status.value)
-                return
-        raise MembershipError(f"Silo {silo_id!r} not found in membership table")
-
-    def _read_file(self) -> _State:
+    def _load_table(self) -> _State:
         if not self._file_path.exists():
             return _State()
         try:
             content = self._file_path.read_text(encoding="utf-8")
-        except OSError as e:
-            logger.error("Failed to read membership file: %s", e)
-            raise MembershipError(f"Failed to read membership file: {e}") from e
+        except OSError as exc:
+            logger.error("Failed to read membership file: %s", exc)
+            raise MembershipError(f"Failed to read membership file: {exc}") from exc
         return _parse(content)
 
-    def _write_file(self, state: _State) -> None:
+    def _read_file(self) -> _State:
+        """Internal accessor kept for legacy-test compatibility."""
+        return self._load_table()
+
+    def _finalise_write(self, state: _State, target_index: int) -> SiloInfo:
         state.version += 1
+        target = state.silos[target_index]
+        fresh = _with_etag(target, _compute_etag(target, state.version))
+        state.silos[target_index] = fresh
         try:
             self._file_path.parent.mkdir(parents=True, exist_ok=True)
             self._file_path.write_text(_render(state), encoding="utf-8")
-        except OSError as e:
-            logger.error("Failed to write membership file: %s", e)
-            raise MembershipError(f"Failed to write membership file: {e}") from e
+        except OSError as exc:
+            logger.error("Failed to write membership file: %s", exc)
+            raise MembershipError(f"Failed to write membership file: {exc}") from exc
+        return fresh
+
+
+def _find_silo_index(silos: list[SiloInfo], silo_id: str) -> int | None:
+    for i, silo in enumerate(silos):
+        if silo.address.silo_id == silo_id:
+            return i
+    return None
+
+
+def _with_etag(silo: SiloInfo, etag: str | None) -> SiloInfo:
+    return replace(silo, suspicions=list(silo.suspicions), etag=etag)
+
+
+def _compute_etag(silo: SiloInfo, version: int) -> str:
+    payload = json.dumps(
+        {
+            "silo_id": silo.address.silo_id,
+            "status": silo.status.value,
+            "cluster_id": silo.cluster_id,
+            "gateway_port": silo.gateway_port,
+            "last_heartbeat": silo.last_heartbeat,
+            "i_am_alive": silo.i_am_alive,
+            "start_time": silo.start_time,
+            "suspicions": [
+                {"suspecting_silo": v.suspecting_silo, "timestamp": v.timestamp}
+                for v in silo.suspicions
+            ],
+        },
+        sort_keys=True,
+    )
+    digest = hashlib.sha256(f"{version}::{payload}".encode()).hexdigest()
+    return f"h-{digest[:12]}"
 
 
 def _render(state: _State) -> str:
@@ -118,7 +192,7 @@ def _render(state: _State) -> str:
         _HEADER,
         _SEPARATOR,
     ]
-    lines.extend(_render_row(s) for s in state.silos)
+    lines.extend(_render_row(silo) for silo in state.silos)
     lines.append("")
     return "\n".join(lines)
 
@@ -130,13 +204,24 @@ def _render_row(silo: SiloInfo) -> str:
         str(silo.address.port),
         str(silo.address.epoch),
         silo.status.value,
+        silo.cluster_id or "",
+        str(silo.gateway_port) if silo.gateway_port is not None else "",
         _format_timestamp(silo.last_heartbeat),
+        _format_timestamp(silo.i_am_alive),
         _format_timestamp(silo.start_time),
+        _render_suspicions(silo.suspicions),
+        silo.etag or "",
     ]
     for cell in cells:
         if "|" in cell or "\n" in cell or "\r" in cell:
             raise MembershipError(f"Membership cell contains table-breaking character: {cell!r}")
     return "| " + " | ".join(cells) + " |"
+
+
+def _render_suspicions(votes: list[SuspicionVote]) -> str:
+    if not votes:
+        return ""
+    return ";".join(f"{vote.suspecting_silo}@{_format_timestamp(vote.timestamp)}" for vote in votes)
 
 
 def _parse(content: str) -> _State:
@@ -165,29 +250,70 @@ def _parse(content: str) -> _State:
 def _parse_version(line: str) -> int:
     try:
         return int(line.split(":", 1)[1].strip())
-    except (IndexError, ValueError) as e:
-        raise MembershipError(f"Malformed version line: {line!r}") from e
+    except (IndexError, ValueError) as exc:
+        raise MembershipError(f"Malformed version line: {line!r}") from exc
 
 
 def _parse_row(line: str) -> SiloInfo:
     cells = [c.strip() for c in line.strip("|").split("|")]
     if len(cells) != _COLUMN_COUNT:
         raise MembershipError(f"Malformed membership row: {line!r}")
-    _, host, port, epoch, status, last_heartbeat, start_time = cells
+    (
+        _,
+        host,
+        port,
+        epoch,
+        status,
+        cluster_id,
+        gateway_port,
+        last_heartbeat,
+        i_am_alive,
+        start_time,
+        suspicions_cell,
+        etag_cell,
+    ) = cells
     try:
-        return SiloInfo(
-            address=SiloAddress(host=host, port=int(port), epoch=int(epoch)),
+        address = SiloAddress(host=host, port=int(port), epoch=int(epoch))
+        silo = SiloInfo(
+            address=address,
             status=SiloStatus(status),
             last_heartbeat=_parse_timestamp(last_heartbeat),
             start_time=_parse_timestamp(start_time),
+            cluster_id=cluster_id or None,
+            gateway_port=int(gateway_port) if gateway_port else None,
+            i_am_alive=_parse_timestamp(i_am_alive) if i_am_alive else 0.0,
+            suspicions=_parse_suspicions(suspicions_cell),
+            etag=etag_cell or None,
         )
-    except (ValueError, TypeError) as e:
-        raise MembershipError(f"Malformed membership row: {line!r}") from e
+        return silo
+    except (ValueError, TypeError) as exc:
+        raise MembershipError(f"Malformed membership row: {line!r}") from exc
+
+
+def _parse_suspicions(cell: str) -> list[SuspicionVote]:
+    if not cell:
+        return []
+    votes: list[SuspicionVote] = []
+    for chunk in cell.split(";"):
+        if "@" not in chunk:
+            raise MembershipError(f"Malformed suspicion entry: {chunk!r}")
+        suspecting, timestamp = chunk.rsplit("@", 1)
+        votes.append(
+            SuspicionVote(
+                suspecting_silo=suspecting,
+                timestamp=_parse_timestamp(timestamp),
+            )
+        )
+    return votes
 
 
 def _format_timestamp(ts: float) -> str:
+    if ts == 0.0:
+        return ""
     return datetime.fromtimestamp(ts, tz=UTC).isoformat(timespec="seconds")
 
 
 def _parse_timestamp(s: str) -> float:
+    if not s:
+        return 0.0
     return datetime.fromisoformat(s).timestamp()

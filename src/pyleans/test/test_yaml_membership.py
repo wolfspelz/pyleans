@@ -1,10 +1,18 @@
-"""Tests for YAML membership provider."""
+"""Tests for the YAML membership provider file format and lifecycle.
+
+OCC-contract coverage lives in :mod:`test_membership_occ`. The tests in
+this module focus on file-format particulars (YAML structure, version
+bump on write, read-after-write) that the OCC suite does not need to
+exercise per-provider.
+"""
+
+from __future__ import annotations
 
 import time
+from pathlib import Path
 
 import pytest
 import yaml
-from pyleans.errors import MembershipError
 from pyleans.identity import SiloAddress, SiloInfo, SiloStatus
 from pyleans.server.providers.yaml_membership import YamlMembershipProvider
 
@@ -15,131 +23,130 @@ def make_silo(
     epoch: int = 1000,
     status: SiloStatus = SiloStatus.ACTIVE,
 ) -> SiloInfo:
+    now = time.time()
     return SiloInfo(
         address=SiloAddress(host=host, port=port, epoch=epoch),
         status=status,
-        last_heartbeat=time.time(),
-        start_time=time.time(),
+        last_heartbeat=now,
+        start_time=now,
+        i_am_alive=now,
     )
 
 
 @pytest.fixture
-def provider(tmp_path: object) -> YamlMembershipProvider:
-    return YamlMembershipProvider(file_path=str(tmp_path) + "/membership.yaml")
+def provider(tmp_path: Path) -> YamlMembershipProvider:
+    return YamlMembershipProvider(file_path=str(tmp_path / "membership.yaml"))
 
 
-class TestRegisterSilo:
-    async def test_register_creates_file(self, provider: YamlMembershipProvider) -> None:
+class TestFileFormat:
+    async def test_creates_file_with_version_and_silos_keys(
+        self, provider: YamlMembershipProvider
+    ) -> None:
+        # Arrange
         silo = make_silo()
-        await provider.register_silo(silo)
-        assert provider._file_path.exists()
 
-    async def test_register_and_get(self, provider: YamlMembershipProvider) -> None:
-        silo = make_silo()
-        await provider.register_silo(silo)
-        silos = await provider.get_active_silos()
-        assert len(silos) == 1
-        assert silos[0].address == silo.address
+        # Act
+        await provider.try_update_silo(silo)
 
-    async def test_register_multiple_silos(self, provider: YamlMembershipProvider) -> None:
-        s1 = make_silo(port=11111, epoch=1000)
-        s2 = make_silo(port=11112, epoch=2000)
-        await provider.register_silo(s1)
-        await provider.register_silo(s2)
-        silos = await provider.get_active_silos()
-        assert len(silos) == 2
-
-    async def test_register_updates_existing(self, provider: YamlMembershipProvider) -> None:
-        silo = make_silo()
-        await provider.register_silo(silo)
-        silo.status = SiloStatus.SHUTTING_DOWN
-        await provider.register_silo(silo)
-
-        data = provider._read_file()
-        assert len(data["silos"]) == 1
-        assert data["silos"][0]["status"] == "shutting_down"
-
-
-class TestUnregisterSilo:
-    async def test_unregister_removes(self, provider: YamlMembershipProvider) -> None:
-        silo = make_silo()
-        await provider.register_silo(silo)
-        await provider.unregister_silo(silo.address.encoded)
-        silos = await provider.get_active_silos()
-        assert len(silos) == 0
-
-    async def test_unregister_nonexistent_is_noop(self, provider: YamlMembershipProvider) -> None:
-        await provider.unregister_silo("nonexistent")
-
-
-class TestGetActiveSilos:
-    async def test_filters_by_status(self, provider: YamlMembershipProvider) -> None:
-        active = make_silo(port=11111, epoch=1000, status=SiloStatus.ACTIVE)
-        dead = make_silo(port=11112, epoch=2000, status=SiloStatus.DEAD)
-        joining = make_silo(port=11113, epoch=3000, status=SiloStatus.JOINING)
-        await provider.register_silo(active)
-        await provider.register_silo(dead)
-        await provider.register_silo(joining)
-
-        silos = await provider.get_active_silos()
-        assert len(silos) == 1
-        assert silos[0].address.port == 11111
-
-    async def test_empty_returns_empty(self, provider: YamlMembershipProvider) -> None:
-        silos = await provider.get_active_silos()
-        assert silos == []
-
-
-class TestHeartbeat:
-    async def test_heartbeat_updates_timestamp(self, provider: YamlMembershipProvider) -> None:
-        silo = make_silo()
-        silo.last_heartbeat = 1000.0
-        await provider.register_silo(silo)
-
-        await provider.heartbeat(silo.address.encoded)
-        data = provider._read_file()
-        assert data["silos"][0]["last_heartbeat"] > 1000.0
-
-    async def test_heartbeat_unknown_silo_raises(self, provider: YamlMembershipProvider) -> None:
-        with pytest.raises(MembershipError):
-            await provider.heartbeat("nonexistent")
-
-
-class TestUpdateStatus:
-    async def test_update_status(self, provider: YamlMembershipProvider) -> None:
-        silo = make_silo(status=SiloStatus.JOINING)
-        await provider.register_silo(silo)
-        await provider.update_status(silo.address.encoded, SiloStatus.ACTIVE)
-
-        silos = await provider.get_active_silos()
-        assert len(silos) == 1
-        assert silos[0].status == SiloStatus.ACTIVE
-
-    async def test_update_unknown_silo_raises(self, provider: YamlMembershipProvider) -> None:
-        with pytest.raises(MembershipError):
-            await provider.update_status("nonexistent", SiloStatus.DEAD)
-
-
-class TestVersioning:
-    async def test_version_increments(self, provider: YamlMembershipProvider) -> None:
-        silo = make_silo()
-        await provider.register_silo(silo)
-        data1 = provider._read_file()
-        v1 = data1["version"]
-
-        await provider.heartbeat(silo.address.encoded)
-        data2 = provider._read_file()
-        v2 = data2["version"]
-        assert v2 > v1
-
-
-class TestYamlReadability:
-    async def test_file_is_valid_yaml(self, provider: YamlMembershipProvider) -> None:
-        silo = make_silo()
-        await provider.register_silo(silo)
-
-        content = provider._file_path.read_text(encoding="utf-8")
-        data = yaml.safe_load(content)
+        # Assert
+        data = yaml.safe_load(provider._file_path.read_text(encoding="utf-8"))
         assert "version" in data
         assert "silos" in data
         assert len(data["silos"]) == 1
+
+    async def test_row_stores_new_phase2_fields(self, provider: YamlMembershipProvider) -> None:
+        # Arrange
+        silo = make_silo()
+        silo.cluster_id = "demo"
+        silo.gateway_port = 30000
+
+        # Act
+        await provider.try_update_silo(silo)
+
+        # Assert
+        data = yaml.safe_load(provider._file_path.read_text(encoding="utf-8"))
+        row = data["silos"][0]
+        assert row["cluster_id"] == "demo"
+        assert row["gateway_port"] == 30000
+        assert "i_am_alive" in row
+        assert "suspicions" in row
+        assert row["etag"] is not None
+
+    async def test_multiple_silos_round_trip(self, provider: YamlMembershipProvider) -> None:
+        # Arrange
+        a = make_silo(port=11111, epoch=1000)
+        b = make_silo(port=11112, epoch=2000)
+
+        # Act
+        await provider.try_update_silo(a)
+        await provider.try_update_silo(b)
+        snapshot = await provider.read_all()
+
+        # Assert
+        assert len(snapshot.silos) == 2
+
+
+class TestGetActive:
+    async def test_filters_by_status(self, provider: YamlMembershipProvider) -> None:
+        # Arrange
+        active = make_silo(port=11111, epoch=1000, status=SiloStatus.ACTIVE)
+        dead = make_silo(port=11112, epoch=2000, status=SiloStatus.DEAD)
+
+        # Act
+        await provider.try_update_silo(active)
+        await provider.try_update_silo(dead)
+        snapshot = await provider.read_all()
+        active_rows = [s for s in snapshot.silos if s.status == SiloStatus.ACTIVE]
+
+        # Assert
+        assert len(active_rows) == 1
+        assert active_rows[0].address.port == 11111
+
+    async def test_empty_snapshot_has_no_silos(self, provider: YamlMembershipProvider) -> None:
+        # Act
+        snapshot = await provider.read_all()
+
+        # Assert
+        assert snapshot.silos == []
+
+
+class TestVersionIncrement:
+    async def test_version_bumps_on_every_write(self, provider: YamlMembershipProvider) -> None:
+        # Arrange
+        silo = await provider.try_update_silo(make_silo())
+        first_version = (await provider.read_all()).version
+
+        # Act
+        silo.status = SiloStatus.SHUTTING_DOWN
+        await provider.try_update_silo(silo)
+        second_version = (await provider.read_all()).version
+
+        # Assert
+        assert second_version == first_version + 1
+
+
+class TestPhysicalDelete:
+    async def test_try_delete_silo_removes_row(self, provider: YamlMembershipProvider) -> None:
+        # Arrange
+        silo = await provider.try_update_silo(make_silo())
+
+        # Act
+        await provider.try_delete_silo(silo)
+
+        # Assert
+        snapshot = await provider.read_all()
+        assert snapshot.silos == []
+
+
+class TestHumanReadableYaml:
+    async def test_file_is_valid_yaml(self, provider: YamlMembershipProvider) -> None:
+        # Arrange
+        await provider.try_update_silo(make_silo())
+
+        # Act
+        content = provider._file_path.read_text(encoding="utf-8")
+        data = yaml.safe_load(content)
+
+        # Assert
+        assert isinstance(data, dict)
+        assert "silos" in data

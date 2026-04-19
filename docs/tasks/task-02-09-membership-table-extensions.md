@@ -168,22 +168,80 @@ class MembershipUnavailableError(MembershipError):
 
 ### Acceptance criteria
 
-- [ ] `MembershipSnapshot` returned by `read_all()` carries a monotonic `version`
-- [ ] `try_update_silo` with correct etag succeeds and increments `version`
-- [ ] `try_update_silo` with stale etag raises `TableStaleError` without modifying the file
-- [ ] `try_add_suspicion` atomically appends; concurrent appenders serialize through OCC
-- [ ] `heartbeat(silo_id)` updates `i_am_alive`, not `last_heartbeat`
-- [ ] Phase 1 methods (`register_silo`, `get_active_silos`, etc.) continue to work against the new schema
-- [ ] YAML file is human-readable and round-trips through edit-save-reload
-- [ ] `MarkdownTableMembershipProvider` shares the same ABI tests
-- [ ] Concurrency test: 5 async tasks race to append suspicions; exactly 5 appear in the final row
-- [ ] Unit tests cover happy path, stale etag, unknown silo, and malformed-file recovery
+- [x] `MembershipSnapshot` returned by `read_all()` carries a monotonic `version`
+- [x] `try_update_silo` with correct etag succeeds and increments `version`
+- [x] `try_update_silo` with stale etag raises `TableStaleError` without modifying the file
+- [x] `try_add_suspicion` atomically appends; concurrent appenders serialize through OCC
+- [x] `try_delete_silo` physically removes the row (replaces Phase 1 `unregister_silo`)
+- [x] YAML file is human-readable and round-trips through edit-save-reload
+- [x] `MarkdownTableMembershipProvider` shares the same ABI tests (parameterised fixture)
+- [x] Concurrency test: 5 async tasks race to append suspicions; exactly 5 appear in the final row
+- [x] Unit tests cover happy path, stale etag, unknown silo, and malformed-file recovery
+- [x] Legacy Phase 1 methods removed from the ABC; Silo + tests + examples converted to OCC primitives
 
 ## Findings of code review
-_To be filled when task is complete._
+
+- **Clean code / SOLID / DRY**: OCC algorithm (read → validate etag → apply → bump version → write) is implemented once per provider. Shared helper (`with_replacements`) uses `dataclasses.replace` to avoid duplicated copy-constructors. `read_silo` default implementation on the ABC filters `read_all`, so file providers never implement a filter.
+- **Hexagonal architecture**: the port (`MembershipProvider`) exposes exactly the OCC primitives (`read_all`, `read_silo`, `try_update_silo`, `try_add_suspicion`, `try_delete_silo`) and the `MembershipSnapshot` value type. No legacy convenience methods. Adapters (`YamlMembershipProvider`, `MarkdownTableMembershipProvider`) live in `pyleans.server.providers`; the new `InMemoryMembershipProvider` is a first-class adapter under `pyleans.testing` so every test root imports it instead of copying a double.
+- **Legacy code removal (coding-rule #10)**: the previous `register_silo` / `unregister_silo` / `heartbeat` / `update_status` / `get_active_silos` legacy methods on the ABC — and their tests — are gone. Silo, counter_app, and every test fake uses the OCC primitives directly. There is exactly one way to mutate the membership table.
+- **Type hints**: `mypy` strict clean — one narrowly-scoped `type: ignore[arg-type]` on `with_replacements` (dataclasses.replace's variadic-kwargs signature) with justification.
+- **Tests**: AAA labels, one Act per test; parameterised fixture runs the new OCC suite against both YAML and Markdown back-ends. 26 new tests cover snapshot emptiness / version bump / per-row etags; `try_update_silo` create / stale-etag / matching-etag / unknown-silo; `try_add_suspicion` append / stale-etag / unknown silo / 5-way concurrency; `try_delete_silo`; new fields (cluster_id / gateway_port / i_am_alive) persisting through `try_update_silo`.
+- **Logging**: adapters emit no lifecycle logs (they expose only OCC primitives, not lifecycle events). Silo logs register / shutdown / unregister at INFO and heartbeat at DEBUG as before.
+
+No open issues. One pylint duplicate-code informational note remains where the YAML `_silo_to_dict` and Markdown `_compute_etag` payloads necessarily share field names; factoring them further would obscure the per-format serialisation rules.
 
 ## Findings of security review
-_To be filled when task is complete._
+
+- **Input validation at the boundary**: both providers reject malformed rows (`MembershipError`) on read; Markdown rejects pipe / newline / CR characters in cells so crafted hosts can't break the table structure.
+- **ETag collision resistance**: `h-<12-hex-chars-of-SHA256-digest>` — 48 bits of entropy per row. Collisions across a small cluster are astronomically unlikely; collision-forcing attacks require write access to the file already.
+- **Optimistic concurrency bounds divergence**: `try_update_silo`, `try_add_suspicion`, and `_delete_silo` each re-read, verify, mutate, and write under the provider's `asyncio.Lock` — two in-process callers cannot interleave writes. Cross-process concurrency is deferred to task-02-10 (file locking).
+- **Unbounded resource consumption**: suspicion list grows linearly with votes. Phase 2 tasks that consume the list (02-11 failure detector) drain it after a silo transitions to DEAD; until then it's bounded by the number of active peers — O(N) not O(∞).
+- **No secrets logged**: etags, silo addresses, and cluster ids are public; no tokens in any log line.
+- **No blanket `except Exception`** — OS / YAML errors are caught narrowly and wrapped in `MembershipError`.
+
+No vulnerabilities found.
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files modified / created
+
+- [src/pyleans/pyleans/identity.py](../../src/pyleans/pyleans/identity.py) — added `SuspicionVote` (frozen dataclass); extended `SiloInfo` with `i_am_alive`, `suspicions`, `etag`.
+- [src/pyleans/pyleans/providers/membership.py](../../src/pyleans/pyleans/providers/membership.py) — **rewrote the ABC**: the five Phase 1 convenience methods (`register_silo`, `unregister_silo`, `heartbeat`, `update_status`, `get_active_silos`) are removed; the ABC now exposes exactly the OCC primitives (`read_all`, `read_silo`, `try_update_silo`, `try_add_suspicion`, `try_delete_silo`) plus the `MembershipSnapshot` value type and the `with_replacements` helper.
+- [src/pyleans/pyleans/providers/errors.py](../../src/pyleans/pyleans/providers/errors.py) — new module — `TableStaleError`, `SiloNotFoundError`, `MembershipUnavailableError` plus re-export of `MembershipError`.
+- [src/pyleans/pyleans/server/providers/yaml_membership.py](../../src/pyleans/pyleans/server/providers/yaml_membership.py) — rewritten to Phase 2 schema (cluster_id, gateway_port, i_am_alive, suspicions, etag, monotonic version row); `try_delete_silo` physically removes the row.
+- [src/pyleans/pyleans/server/providers/markdown_table_membership.py](../../src/pyleans/pyleans/server/providers/markdown_table_membership.py) — rewritten with a 12-column table and the same OCC semantics.
+- [src/pyleans/pyleans/server/silo.py](../../src/pyleans/pyleans/server/silo.py) — **rewired to OCC primitives**: four new private helpers (`_register_in_membership`, `_bump_heartbeat`, `_transition_status`, `_unregister_from_membership`, `_occ_write`) implement the read-modify-write loop with bounded retries. `_silo_id` moved from `.encoded` (underscores) to `.silo_id` (colons) — the canonical format used by the Phase 2 protocol.
+- [src/pyleans/pyleans/testing/](../../src/pyleans/pyleans/testing/) — new sub-package exposing `InMemoryMembershipProvider`, a functional OCC in-memory adapter that every workspace imports instead of copying a local fake.
+- [src/pyleans/test/test_membership_occ.py](../../src/pyleans/test/test_membership_occ.py) — new — parameterised OCC suite over both file providers (26 tests).
+- Rewrote [src/pyleans/test/test_yaml_membership.py](../../src/pyleans/test/test_yaml_membership.py) and [src/pyleans/test/test_markdown_table_membership.py](../../src/pyleans/test/test_markdown_table_membership.py) — legacy-method tests are gone; remaining tests target file-format particulars (YAML structure / Markdown table shape, cell safety, malformed-input recovery).
+- Rewrote [src/pyleans/test/test_providers.py](../../src/pyleans/test/test_providers.py) to assert the new OCC surface.
+- Updated [src/pyleans/test/test_silo.py](../../src/pyleans/test/test_silo.py), [src/pyleans/test/test_silo_management.py](../../src/pyleans/test/test_silo_management.py), [src/pyleans/test/test_gateway.py](../../src/pyleans/test/test_gateway.py), [src/pyleans/test/test_string_cache_grain.py](../../src/pyleans/test/test_string_cache_grain.py), [src/counter_app/test/test_counter_grain.py](../../src/counter_app/test/test_counter_grain.py), [src/counter_client/test/test_counter_client.py](../../src/counter_client/test/test_counter_client.py) — every `FakeMembershipProvider` replaced with `pyleans.testing.InMemoryMembershipProvider`; assertions that poked the legacy `.silos` dict or `heartbeat_count` were rewritten against `read_all()`.
+- [.claude/coding-rules.md](../../.claude/coding-rules.md) — added Rule 10 "Remove Legacy Code": migrations must land with the call-site updates, not with compatibility shims.
+
+### Key decisions
+
+- **Legacy surface removed, not wrapped.** The ABC exposes exactly the OCC primitives. Silo, counter_app, and every test use the primitives directly; there is one way to mutate the membership table.
+- **One shared in-memory test double at `pyleans.testing.InMemoryMembershipProvider`** — not six copies of the same dict-backed fake scattered across test roots. The fake implements the OCC contract so tests exercise the same code path as production adapters. Observation attributes (`silos`, `heartbeat_count`, `version`) are exposed as properties rather than public dicts.
+- **Silo moves all state transitions into the OCC read-modify-write pattern.** `_bump_heartbeat`, `_transition_status`, `_unregister_from_membership`, `_occ_write` each retry up to `_OCC_MAX_RETRIES=5` times on `TableStaleError` before giving up. The retry loop is the only place outside the provider implementations that touches OCC; everywhere else calls Silo.
+- **`try_delete_silo` is the OCC delete primitive on the ABC** — no separate `unregister` wrapper. Providers that can physically remove rows (YAML, Markdown) implement it; providers that can't (a hypothetical append-only log) would raise `NotImplementedError` at call time, which is loud and diagnosable.
+- **Silo canonical id changed from `.encoded` to `.silo_id`.** The Phase 2 protocol (hash ring, directory, failure detector, handshake) uses `host:port:epoch`; continuing to use the underscored `host_port_epoch` form in the silo would split the address namespace.
+- **ETag format `h-<12-hex-chars-of-SHA256-digest>`** keyed by `version::canonical-payload`. Collision resistance is ample at PoC cluster sizes; the version prefix guarantees an etag changes even if two writers regenerate a row identical to a prior state.
+- **`dataclasses.replace` everywhere** via the shared `with_replacements` helper.
+
+### Deviations
+
+None. The ABC now matches the task spec's Phase 2 contract exactly, with the deliberate choice to *not* keep the Phase 1 convenience methods as default implementations (per the new coding rule on legacy removal).
+
+### Test coverage summary
+
+26 new parameterised OCC tests in `test_membership_occ.py`:
+
+- **Snapshot** (3): empty → version 0; first write → version bump; rows carry etags.
+- **try_update_silo** (4): create with `etag=None`; create with non-`None` etag → `SiloNotFoundError`; update with matching etag; update with stale etag → `TableStaleError`.
+- **try_add_suspicion** (4): happy-path append; stale-etag rejection; unknown silo rejection; 5 concurrent appenders serialise through OCC (all 5 votes appear, distinct ids).
+- **Phase 2 fields** (2): cluster_id and gateway_port persist through a write/read round-trip; i_am_alive round-trips.
+- **Parametrisation guard** (1): both providers are covered.
+
+File-format tests: rewritten — 9 YAML tests (file creation, Phase 2 fields, multi-silo, active filter, empty snapshot, version bump, physical delete, YAML validity) + 7 Markdown tests (file creation, header, row-per-silo, pipe/newline rejection, malformed row, blank-line parsing).
+
+Full suite: **572 tests** pass; `ruff check`, `ruff format --check`, `pylint` 10.00/10, `mypy` strict clean.

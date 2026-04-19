@@ -1,6 +1,6 @@
 """Core identity types for pyleans."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 
@@ -65,14 +65,28 @@ class SiloAddress:
         return f"{self.host}:{self.port}"
 
 
+@dataclass(frozen=True)
+class SuspicionVote:
+    """One silo's accusation that another silo is unreachable.
+
+    Stored on the accused silo's row and drained by the failure detector
+    (task-02-11) when enough distinct votes accumulate. Frozen because
+    a vote is an immutable event — edits replace, not mutate.
+    """
+
+    suspecting_silo: str
+    timestamp: float
+
+
 @dataclass
 class SiloInfo:
     """Full silo metadata for the membership table.
 
     Phase 1 populates ``address``, ``status``, ``last_heartbeat``, ``start_time``.
-    Phase 2 adds optional ``cluster_id``, ``gateway_port``, and ``version``
-    fields for cluster identity, gateway discovery, and optimistic concurrency
-    on the membership row.
+    Phase 2 adds ``cluster_id``, ``gateway_port``, ``i_am_alive`` (Orleans
+    self-written liveness timestamp), ``suspicions`` (failure-detector
+    votes), ``version`` (row monotonic counter), and ``etag`` (opaque
+    optimistic-concurrency tag).
     """
 
     address: SiloAddress
@@ -82,3 +96,6 @@ class SiloInfo:
     cluster_id: str | None = None
     gateway_port: int | None = None
     version: int = 0
+    i_am_alive: float = 0.0
+    suspicions: list[SuspicionVote] = field(default_factory=list)
+    etag: str | None = None

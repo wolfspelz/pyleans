@@ -2,7 +2,6 @@
 
 import asyncio
 from dataclasses import dataclass
-from typing import Any
 
 import pytest
 from pyleans.grain import _grain_registry, grain
@@ -17,6 +16,7 @@ from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.runtime import GrainRuntime
 from pyleans.server.silo import Silo
 from pyleans.server.timer import TimerRegistry
+from pyleans.testing import InMemoryMembershipProvider
 
 from conftest import FakeStorageProvider
 
@@ -78,33 +78,7 @@ def _reset_registry() -> None:
 # --- Fake membership provider ---
 
 
-class FakeMembershipProvider(MembershipProvider):
-    """In-memory membership for testing."""
-
-    def __init__(self) -> None:
-        self.silos: dict[str, dict[str, Any]] = {}
-        self.heartbeat_count: int = 0
-
-    async def register_silo(self, silo: Any) -> None:
-        self.silos[silo.address.encoded] = {
-            "info": silo,
-            "status": silo.status,
-        }
-
-    async def unregister_silo(self, silo_id: str) -> None:
-        self.silos.pop(silo_id, None)
-
-    async def get_active_silos(self) -> list[Any]:
-        return [
-            entry["info"] for entry in self.silos.values() if entry["status"] == SiloStatus.ACTIVE
-        ]
-
-    async def heartbeat(self, silo_id: str) -> None:
-        self.heartbeat_count += 1
-
-    async def update_status(self, silo_id: str, status: SiloStatus) -> None:
-        if silo_id in self.silos:
-            self.silos[silo_id]["status"] = status
+FakeMembershipProvider = InMemoryMembershipProvider
 
 
 # --- Helpers ---
@@ -260,9 +234,9 @@ class TestMembershipIntegration:
         silo = make_silo(network, membership=membership)
         await silo.start_background()
 
-        assert len(membership.silos) == 1
-        silo_entry = next(iter(membership.silos.values()))
-        assert silo_entry["status"] == SiloStatus.ACTIVE
+        snapshot = await membership.read_all()
+        assert len(snapshot.silos) == 1
+        assert snapshot.silos[0].status == SiloStatus.ACTIVE
 
         await silo.stop()
 
@@ -270,10 +244,10 @@ class TestMembershipIntegration:
         membership = FakeMembershipProvider()
         silo = make_silo(network, membership=membership)
         await silo.start_background()
-        assert len(membership.silos) == 1
+        assert len((await membership.read_all()).silos) == 1
 
         await silo.stop()
-        assert len(membership.silos) == 0
+        assert (await membership.read_all()).silos == []
 
     async def test_silo_status_shutting_down_before_unregister(
         self, network: InMemoryNetwork
@@ -283,13 +257,13 @@ class TestMembershipIntegration:
         await silo.start_background()
 
         statuses: list[SiloStatus] = []
-        original_update = membership.update_status
+        original_try_update = membership.try_update_silo
 
-        async def track_status(sid: str, status: SiloStatus) -> None:
-            statuses.append(status)
-            await original_update(sid, status)
+        async def track_status(silo_info):  # type: ignore[no-untyped-def]
+            statuses.append(silo_info.status)
+            return await original_try_update(silo_info)
 
-        membership.update_status = track_status  # type: ignore[assignment]
+        membership.try_update_silo = track_status  # type: ignore[assignment]
 
         await silo.stop()
         assert SiloStatus.SHUTTING_DOWN in statuses

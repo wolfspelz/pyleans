@@ -24,6 +24,8 @@
       "Bash(python -m venv .venv)",
       "Bash(ruff *)",
       "Bash(ruff)",
+      "Bash(sed *)",
+      "Bash(sed)",
 
       "Bash(.venv/bin/pip *)",
       "Bash(.venv/bin/pip)",
