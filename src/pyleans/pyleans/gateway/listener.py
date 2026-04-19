@@ -16,6 +16,7 @@ import orjson
 from pyleans.errors import PyleansError, TransportError
 from pyleans.gateway.protocol import MessageType, decode_frame, encode_frame, read_frame
 from pyleans.identity import GrainId
+from pyleans.net import AsyncioNetwork, INetwork, NetworkServer
 
 if TYPE_CHECKING:
     from pyleans.server.runtime import GrainRuntime
@@ -26,11 +27,19 @@ logger = logging.getLogger(__name__)
 class GatewayListener:
     """TCP server that accepts client connections and dispatches grain calls."""
 
-    def __init__(self, runtime: GrainRuntime, host: str, port: int) -> None:
+    def __init__(
+        self,
+        runtime: GrainRuntime,
+        host: str,
+        port: int,
+        *,
+        network: INetwork | None = None,
+    ) -> None:
         self._runtime = runtime
         self._host = host
         self._port = port
-        self._server: asyncio.Server | None = None
+        self._network = network or AsyncioNetwork()
+        self._server: NetworkServer | None = None
 
     @property
     def port(self) -> int:
@@ -42,7 +51,7 @@ class GatewayListener:
 
     async def start(self) -> None:
         """Start accepting client connections."""
-        self._server = await asyncio.start_server(self._handle_client, self._host, self._port)
+        self._server = await self._network.start_server(self._handle_client, self._host, self._port)
         actual_port = self.port
         logger.info("Gateway listening on %s:%s", self._host, actual_port)
 

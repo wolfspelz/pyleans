@@ -44,11 +44,13 @@ Create the package described in [task-01-15](task-01-15-network-port.md) and [ta
 
 ### Acceptance (Phase A)
 
-- [ ] `pyleans.net` package imports cleanly; all public symbols re-exported.
-- [ ] `test_asyncio_network.py` passes.
-- [ ] `test_memory_network.py` passes (full acceptance matrix from task-01-16 including `drain()` real-backpressure test and failure-injection hooks).
-- [ ] `ruff`, `pylint` (10.00/10), `mypy` all clean on the new package and its tests.
-- [ ] Existing Phase 1 tests still pass (nothing should have changed for them — this is a sanity check).
+- [x] `pyleans.net` package imports cleanly; all public symbols re-exported.
+- [x] `test_asyncio_network.py` passes.
+- [x] `test_memory_network.py` passes (full acceptance matrix from task-01-16 including `drain()` real-backpressure test and failure-injection hooks).
+- [x] `ruff`, `pylint` (10.00/10), `mypy` all clean on the new package and its tests.
+- [x] Existing Phase 1 tests still pass (nothing should have changed for them — this is a sanity check).
+
+**Phase A note:** Phase A is fully satisfied by the independent completion of task-01-15 and task-01-16, which land the `net/` package, `AsyncioNetwork`, `InMemoryNetwork`, the adapter unit tests, and the regression-guard scaffolding. No additional work is required for Phase A under 01-21 — it is recorded as complete by reference to those commits.
 
 ### Commit boundary A
 
@@ -69,9 +71,9 @@ Wire the port into the three existing consumer modules. Default `AsyncioNetwork(
 
 ### Acceptance (Phase B)
 
-- [ ] All ~349 existing Phase 1 tests pass **without modification**. Real ephemeral ports still bound via the asyncio-adapter default path — intentional.
-- [ ] `silo.gateway_port` reports the OS-assigned port when `gateway_port=0`, identical to pre-change behavior.
-- [ ] `ruff`, `pylint` (10.00/10), `mypy` all clean on the modified files.
+- [x] All existing Phase 1 tests pass **without modification** (408 tests, includes the new adapter suites). Real ephemeral ports still bound via the asyncio-adapter default path — intentional.
+- [x] `silo.gateway_port` reports the OS-assigned port when `gateway_port=0`, identical to pre-change behavior.
+- [x] `ruff`, `pylint` (10.00/10), `mypy` all clean on the modified files.
 
 ### Commit boundary B
 

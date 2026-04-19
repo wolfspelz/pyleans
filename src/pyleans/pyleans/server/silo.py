@@ -12,6 +12,7 @@ from injector import Injector
 from pyleans.gateway.listener import GatewayListener
 from pyleans.grain import _grain_registry, get_grain_type_name
 from pyleans.identity import SiloAddress, SiloInfo, SiloStatus
+from pyleans.net import AsyncioNetwork, INetwork
 from pyleans.providers.membership import MembershipProvider
 from pyleans.providers.storage import StorageProvider
 from pyleans.providers.streaming import StreamProvider
@@ -56,12 +57,15 @@ class Silo:
         gateway_port: int = _DEFAULT_GATEWAY_PORT,
         host: str = _DEFAULT_HOST,
         idle_timeout: float = _DEFAULT_IDLE_TIMEOUT,
+        *,
+        network: INetwork | None = None,
     ) -> None:
         self._grain_classes = grains
         self._host = host
         self._port = port
         self._gateway_port = gateway_port
         self._idle_timeout = idle_timeout
+        self._network = network or AsyncioNetwork()
 
         self._storage_providers = storage_providers or {
             "default": FileStorageProvider("./data/storage"),
@@ -103,7 +107,10 @@ class Silo:
         self._runtime._grain_factory = self._injector.get
 
         self._gateway = GatewayListener(
-            runtime=self._runtime, host=self._host, port=self._gateway_port
+            runtime=self._runtime,
+            host=self._host,
+            port=self._gateway_port,
+            network=self._network,
         )
 
         self._stop_event = asyncio.Event()

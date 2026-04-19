@@ -16,6 +16,7 @@ from pyleans.gateway.protocol import (
 )
 from pyleans.grain import get_grain_type_name
 from pyleans.identity import GrainId
+from pyleans.net import AsyncioNetwork, INetwork
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +39,14 @@ class ClusterClient:
         self,
         gateways: list[str],
         timeout: float = _DEFAULT_TIMEOUT,
+        *,
+        network: INetwork | None = None,
     ) -> None:
         if not gateways:
             raise ValueError("At least one gateway address is required")
         self._gateways = gateways
         self._timeout = timeout
+        self._network = network or AsyncioNetwork()
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
         self._correlation_counter = 0
@@ -60,7 +64,7 @@ class ClusterClient:
         for addr in self._gateways:
             host, port = _parse_address(addr)
             try:
-                self._reader, self._writer = await asyncio.open_connection(host, port)
+                self._reader, self._writer = await self._network.open_connection(host, port)
                 self._read_task = asyncio.create_task(self._read_loop())
                 logger.info("Connected to gateway %s:%s", host, port)
                 return
