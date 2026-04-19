@@ -218,7 +218,7 @@ One-time transformation of the existing codebase into the ideal Phase 1 state. E
 | # | Task | Status | Dependencies |
 |---|---|---|---|
 | 02-12 | [Grain Directory Port](task-02-12-grain-directory-port.md) | [x] | 01-08 |
-| 02-13 | [Distributed Grain Directory](task-02-13-distributed-grain-directory.md) | [ ] | 02-02, 02-03, 02-08, 02-12 |
+| 02-13 | [Distributed Grain Directory](task-02-13-distributed-grain-directory.md) | [x] | 02-02, 02-03, 02-08, 02-12 |
 | 02-14 | [Directory Cache](task-02-14-directory-cache.md) | [ ] | 02-13 |
 | 02-15 | [Directory Recovery](task-02-15-directory-recovery.md) | [ ] | 02-11, 02-13 |
 

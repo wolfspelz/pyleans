@@ -7,6 +7,10 @@ subsequent tasks — placement, transport, directory, and membership pieces.
 """
 
 from pyleans.cluster.directory import DirectoryEntry, IGrainDirectory
+from pyleans.cluster.distributed_directory import (
+    ClusterNotReadyError,
+    DistributedGrainDirectory,
+)
 from pyleans.cluster.failure_detector import (
     INDIRECT_PROBE_HEADER,
     INDIRECT_PROBE_RESP_FAIL,
@@ -50,8 +54,10 @@ __all__ = [
     "MEMBERSHIP_SNAPSHOT_HEADER",
     "VIRTUAL_NODES_PER_SILO",
     "ClusterId",
+    "ClusterNotReadyError",
     "ConsistentHashRing",
     "DirectoryEntry",
+    "DistributedGrainDirectory",
     "FailureDetector",
     "FailureDetectorOptions",
     "IGrainDirectory",
