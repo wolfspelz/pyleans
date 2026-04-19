@@ -32,6 +32,10 @@ packages = ["src/pyleans/pyleans"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["src/pyleans/test", "src/counter_app/test", "src/counter_client/test"]
+markers = [
+    "integration: end-to-end multi-silo scenarios (slow; opt-in via `pytest -m integration`)",
+]
+addopts = "-m 'not integration'"
 
 [tool.mypy]
 strict = true

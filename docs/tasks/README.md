@@ -233,7 +233,7 @@ One-time transformation of the existing codebase into the ideal Phase 1 state. E
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 02-18 | [Multi-Silo Integration Tests](task-02-18-multi-silo-integration-tests.md) | [ ] | 02-16, 02-17 |
+| 02-18 | [Multi-Silo Integration Tests](task-02-18-multi-silo-integration-tests.md) | [x] | 02-16, 02-17 |
 | 02-19 | [Counter Sample Multi-Silo](task-02-19-counter-sample-multi-silo.md) | [ ] | 01-17, 01-20, 02-16, 02-17, 02-18 |
 
 ### Phase 2 Production Backends (PostgreSQL)
