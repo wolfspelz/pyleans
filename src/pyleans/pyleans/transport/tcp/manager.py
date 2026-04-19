@@ -19,7 +19,7 @@ import logging
 import random
 from collections.abc import Awaitable, Callable
 
-from pyleans.cluster import ClusterId
+from pyleans.cluster.identity import ClusterId
 from pyleans.identity import SiloAddress
 from pyleans.transport.cluster import (
     ConnectionCallback,

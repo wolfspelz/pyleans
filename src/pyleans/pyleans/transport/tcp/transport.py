@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from typing import Literal
 
-from pyleans.cluster import ClusterId
+from pyleans.cluster.identity import ClusterId
 from pyleans.identity import SiloAddress
 from pyleans.net import NetworkServer
 from pyleans.transport.cluster import (

@@ -15,7 +15,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 
-from pyleans.cluster import ClusterId
+from pyleans.cluster.identity import ClusterId
 from pyleans.identity import SiloAddress
 from pyleans.transport.messages import TransportMessage
 from pyleans.transport.options import TransportOptions

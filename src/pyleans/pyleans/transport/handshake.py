@@ -24,7 +24,7 @@ import asyncio
 import struct
 from dataclasses import dataclass
 
-from pyleans.cluster import ClusterId
+from pyleans.cluster.identity import ClusterId
 from pyleans.identity import SiloAddress
 from pyleans.transport._io import readexactly_or_raise
 from pyleans.transport.errors import HandshakeError

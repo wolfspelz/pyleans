@@ -211,7 +211,7 @@ One-time transformation of the existing codebase into the ideal Phase 1 state. E
 |---|---|---|---|
 | 02-09 | [Membership Table Extensions](task-02-09-membership-table-extensions.md) | [x] | 02-01, 01-12 |
 | 02-10 | [File Locking for Membership](task-02-10-file-locking-membership.md) | [x] | 02-09 |
-| 02-11 | [Failure Detector](task-02-11-failure-detector.md) | [ ] | 02-02, 02-08, 02-09 |
+| 02-11 | [Failure Detector](task-02-11-failure-detector.md) | [x] | 02-02, 02-08, 02-09 |
 
 ### Phase 2 Layer 4: Distributed Grain Directory
 
