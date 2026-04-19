@@ -5,13 +5,14 @@ import asyncio
 import sys
 
 from pyleans.client import ClusterClient
+from pyleans.net import INetwork
 
 DEFAULT_GATEWAY = "localhost:30000"
 
 
-async def run(args: argparse.Namespace) -> None:
+async def run(args: argparse.Namespace, *, network: INetwork | None = None) -> None:
     """Connect to the silo, execute the command, and print the result."""
-    client = ClusterClient(gateways=[args.gateway])
+    client = ClusterClient(gateways=[args.gateway], network=network)
     try:
         await client.connect()
     except ConnectionError as e:

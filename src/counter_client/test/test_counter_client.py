@@ -6,6 +6,7 @@ import pytest
 from pyleans.client import ClusterClient
 from pyleans.grain import _grain_registry
 from pyleans.identity import SiloStatus
+from pyleans.net import InMemoryNetwork
 from pyleans.providers.membership import MembershipProvider
 from pyleans.providers.storage import StorageProvider
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
@@ -13,6 +14,8 @@ from pyleans.server.silo import Silo
 
 from src.counter_app.counter_grain import CounterGrain
 from src.counter_client.main import run
+
+_UNBOUND_GATEWAY = "localhost:59999"
 
 # --- Fake providers ---
 
@@ -80,13 +83,14 @@ def _ensure_grain_registered() -> None:
     _grain_registry["CounterGrain"] = CounterGrain
 
 
-def make_silo() -> Silo:
+def make_silo(network: InMemoryNetwork) -> Silo:
     return Silo(
         grains=[CounterGrain],
         storage_providers={"default": FakeStorageProvider()},
         membership_provider=FakeMembershipProvider(),
         stream_providers={"default": InMemoryStreamProvider()},
         gateway_port=0,
+        network=network,
     )
 
 
@@ -110,11 +114,11 @@ class _FakeArgs:
 
 
 class TestClientGetCommand:
-    async def test_get_returns_zero_initially(self) -> None:
-        silo = make_silo()
+    async def test_get_returns_zero_initially(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
-        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"])
+        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"], network=network)
         await client.connect()
         counter = client.get_grain(CounterGrain, "test")
         assert await counter.get_value() == 0
@@ -123,11 +127,11 @@ class TestClientGetCommand:
 
 
 class TestClientIncCommand:
-    async def test_increment_returns_new_value(self) -> None:
-        silo = make_silo()
+    async def test_increment_returns_new_value(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
-        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"])
+        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"], network=network)
         await client.connect()
         counter = client.get_grain(CounterGrain, "test")
         assert await counter.increment() == 1
@@ -137,11 +141,11 @@ class TestClientIncCommand:
 
 
 class TestClientSetCommand:
-    async def test_set_value(self) -> None:
-        silo = make_silo()
+    async def test_set_value(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
-        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"])
+        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"], network=network)
         await client.connect()
         counter = client.get_grain(CounterGrain, "test")
         await counter.set_value(42)
@@ -151,8 +155,8 @@ class TestClientSetCommand:
 
 
 class TestClientConnectionError:
-    async def test_connect_to_down_silo_raises(self) -> None:
-        client = ClusterClient(gateways=["localhost:59999"])
+    async def test_connect_to_down_silo_raises(self, network: InMemoryNetwork) -> None:
+        client = ClusterClient(gateways=[_UNBOUND_GATEWAY], network=network)
         with pytest.raises(ConnectionError):
             await client.connect()
 
@@ -160,8 +164,10 @@ class TestClientConnectionError:
 class TestRunFunction:
     """Test the async run() function used by the CLI."""
 
-    async def test_run_get(self, capsys: pytest.CaptureFixture[str]) -> None:
-        silo = make_silo()
+    async def test_run_get(
+        self, network: InMemoryNetwork, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         args = _FakeArgs(
@@ -169,14 +175,16 @@ class TestRunFunction:
             counter_id="foo",
             gateway=f"localhost:{silo.gateway_port}",
         )
-        await run(args)  # type: ignore[arg-type]
+        await run(args, network=network)  # type: ignore[arg-type]
         captured = capsys.readouterr()
         assert "Counter 'foo': 0" in captured.out
 
         await silo.stop()
 
-    async def test_run_inc(self, capsys: pytest.CaptureFixture[str]) -> None:
-        silo = make_silo()
+    async def test_run_inc(
+        self, network: InMemoryNetwork, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         args = _FakeArgs(
@@ -184,14 +192,16 @@ class TestRunFunction:
             counter_id="bar",
             gateway=f"localhost:{silo.gateway_port}",
         )
-        await run(args)  # type: ignore[arg-type]
+        await run(args, network=network)  # type: ignore[arg-type]
         captured = capsys.readouterr()
         assert "Counter 'bar': 1" in captured.out
 
         await silo.stop()
 
-    async def test_run_set(self, capsys: pytest.CaptureFixture[str]) -> None:
-        silo = make_silo()
+    async def test_run_set(
+        self, network: InMemoryNetwork, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         args = _FakeArgs(
@@ -200,14 +210,14 @@ class TestRunFunction:
             gateway=f"localhost:{silo.gateway_port}",
             value=100,
         )
-        await run(args)  # type: ignore[arg-type]
+        await run(args, network=network)  # type: ignore[arg-type]
         captured = capsys.readouterr()
         assert "Counter 'baz': 100" in captured.out
 
         await silo.stop()
 
-    async def test_run_set_without_value_exits(self) -> None:
-        silo = make_silo()
+    async def test_run_set_without_value_exits(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         args = _FakeArgs(
@@ -217,13 +227,15 @@ class TestRunFunction:
             value=None,
         )
         with pytest.raises(SystemExit) as exc_info:
-            await run(args)  # type: ignore[arg-type]
+            await run(args, network=network)  # type: ignore[arg-type]
         assert exc_info.value.code == 1
 
         await silo.stop()
 
-    async def test_run_info(self, capsys: pytest.CaptureFixture[str]) -> None:
-        silo = make_silo()
+    async def test_run_info(
+        self, network: InMemoryNetwork, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         args = _FakeArgs(
@@ -231,7 +243,7 @@ class TestRunFunction:
             counter_id="any",
             gateway=f"localhost:{silo.gateway_port}",
         )
-        await run(args)  # type: ignore[arg-type]
+        await run(args, network=network)  # type: ignore[arg-type]
         captured = capsys.readouterr()
         assert "Silo info (via 'any'):" in captured.out
         assert "silo_id:" in captured.out
@@ -239,12 +251,12 @@ class TestRunFunction:
 
         await silo.stop()
 
-    async def test_run_connection_error_exits(self) -> None:
+    async def test_run_connection_error_exits(self, network: InMemoryNetwork) -> None:
         args = _FakeArgs(
             command="get",
             counter_id="foo",
-            gateway="localhost:59999",
+            gateway=_UNBOUND_GATEWAY,
         )
         with pytest.raises(SystemExit) as exc_info:
-            await run(args)  # type: ignore[arg-type]
+            await run(args, network=network)  # type: ignore[arg-type]
         assert exc_info.value.code == 1

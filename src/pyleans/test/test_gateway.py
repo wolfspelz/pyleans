@@ -5,15 +5,21 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
-from conftest import FakeStorageProvider
 from pyleans.client import ClusterClient, RemoteGrainRef
 from pyleans.errors import TransportError
 from pyleans.grain import _grain_registry, grain
 from pyleans.grain_base import Grain
 from pyleans.identity import GrainId, SiloStatus
+from pyleans.net import InMemoryNetwork
 from pyleans.providers.membership import MembershipProvider
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.silo import Silo
+
+from conftest import FakeStorageProvider
+
+# Any unbound virtual address works — InMemoryNetwork.open_connection raises
+# ConnectionRefusedError (OSError subclass) when no server is registered.
+_UNBOUND_GATEWAY = "localhost:59999"
 
 # --- Test grains ---
 
@@ -80,13 +86,14 @@ class FakeMembershipProvider(MembershipProvider):
 # --- Helpers ---
 
 
-def make_silo() -> Silo:
+def make_silo(network: InMemoryNetwork) -> Silo:
     return Silo(
         grains=_GW_GRAINS,
         storage_providers={"default": FakeStorageProvider()},
         membership_provider=FakeMembershipProvider(),
         stream_providers={"default": InMemoryStreamProvider()},
-        gateway_port=0,  # OS-assigned port
+        gateway_port=0,  # simulator assigns a virtual port
+        network=network,
     )
 
 
@@ -96,11 +103,11 @@ def make_silo() -> Silo:
 class TestGatewayConnection:
     """Test that a ClusterClient can connect to the silo gateway."""
 
-    async def test_connect_and_close(self) -> None:
-        silo = make_silo()
+    async def test_connect_and_close(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
-        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"])
+        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"], network=network)
         await client.connect()
         assert client.connected
 
@@ -109,8 +116,8 @@ class TestGatewayConnection:
 
         await silo.stop()
 
-    async def test_connect_to_nonexistent_gateway_raises(self) -> None:
-        client = ClusterClient(gateways=["localhost:59999"])
+    async def test_connect_to_nonexistent_gateway_raises(self, network: InMemoryNetwork) -> None:
+        client = ClusterClient(gateways=[_UNBOUND_GATEWAY], network=network)
         with pytest.raises(ConnectionError, match="Could not connect"):
             await client.connect()
 
@@ -122,11 +129,11 @@ class TestGatewayConnection:
 class TestRemoteGrainCalls:
     """Test grain calls over the gateway protocol."""
 
-    async def test_get_grain_returns_remote_ref(self) -> None:
-        silo = make_silo()
+    async def test_get_grain_returns_remote_ref(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
-        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"])
+        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"], network=network)
         await client.connect()
 
         ref = client.get_grain(GwCounterGrain, "c1")
@@ -136,11 +143,11 @@ class TestRemoteGrainCalls:
         await client.close()
         await silo.stop()
 
-    async def test_remote_increment(self) -> None:
-        silo = make_silo()
+    async def test_remote_increment(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
-        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"])
+        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"], network=network)
         await client.connect()
 
         counter = client.get_grain(GwCounterGrain, "c1")
@@ -151,11 +158,11 @@ class TestRemoteGrainCalls:
         await client.close()
         await silo.stop()
 
-    async def test_remote_set_value(self) -> None:
-        silo = make_silo()
+    async def test_remote_set_value(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
-        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"])
+        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"], network=network)
         await client.connect()
 
         counter = client.get_grain(GwCounterGrain, "c1")
@@ -165,11 +172,11 @@ class TestRemoteGrainCalls:
         await client.close()
         await silo.stop()
 
-    async def test_multiple_grains_independent(self) -> None:
-        silo = make_silo()
+    async def test_multiple_grains_independent(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
-        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"])
+        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"], network=network)
         await client.connect()
 
         c1 = client.get_grain(GwCounterGrain, "a")
@@ -185,11 +192,11 @@ class TestRemoteGrainCalls:
         await client.close()
         await silo.stop()
 
-    async def test_concurrent_remote_calls(self) -> None:
-        silo = make_silo()
+    async def test_concurrent_remote_calls(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
-        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"])
+        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"], network=network)
         await client.connect()
 
         refs = [client.get_grain(GwCounterGrain, f"c{i}") for i in range(5)]
@@ -204,11 +211,11 @@ class TestRemoteGrainCalls:
 class TestRemoteErrorHandling:
     """Test error propagation through the gateway."""
 
-    async def test_grain_error_returns_error(self) -> None:
-        silo = make_silo()
+    async def test_grain_error_returns_error(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
-        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"])
+        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"], network=network)
         await client.connect()
 
         ref = client.get_grain(GwErrorGrain, "e1")
@@ -218,11 +225,11 @@ class TestRemoteErrorHandling:
         await client.close()
         await silo.stop()
 
-    async def test_unknown_grain_returns_error(self) -> None:
-        silo = make_silo()
+    async def test_unknown_grain_returns_error(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
-        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"])
+        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"], network=network)
         await client.connect()
 
         # Manually create a ref for a non-existent grain type
@@ -233,8 +240,8 @@ class TestRemoteErrorHandling:
         await client.close()
         await silo.stop()
 
-    async def test_invoke_without_connection_raises(self) -> None:
-        client = ClusterClient(gateways=["localhost:59999"])
+    async def test_invoke_without_connection_raises(self, network: InMemoryNetwork) -> None:
+        client = ClusterClient(gateways=[_UNBOUND_GATEWAY], network=network)
         ref = RemoteGrainRef(grain_id=GrainId("Counter", "x"), client=client)
         with pytest.raises(ConnectionError, match="Not connected"):
             await ref.some_method()
@@ -243,20 +250,20 @@ class TestRemoteErrorHandling:
 class TestClientGatewayIntegration:
     """End-to-end: silo with gateway, client calls, state persisted."""
 
-    async def test_state_persists_across_client_sessions(self) -> None:
-        silo = make_silo()
+    async def test_state_persists_across_client_sessions(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
         gateway = f"localhost:{silo.gateway_port}"
 
         # First client session
-        client1 = ClusterClient(gateways=[gateway])
+        client1 = ClusterClient(gateways=[gateway], network=network)
         await client1.connect()
         counter = client1.get_grain(GwCounterGrain, "persist")
         await counter.set_value(77)
         await client1.close()
 
         # Second client session — same silo, new client
-        client2 = ClusterClient(gateways=[gateway])
+        client2 = ClusterClient(gateways=[gateway], network=network)
         await client2.connect()
         counter2 = client2.get_grain(GwCounterGrain, "persist")
         assert await counter2.get_value() == 77

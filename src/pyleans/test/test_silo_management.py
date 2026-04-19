@@ -6,15 +6,17 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
-from conftest import FakeStorageProvider
 from pyleans.grain import _grain_registry, grain
 from pyleans.grain_base import Grain
 from pyleans.identity import SiloStatus
+from pyleans.net import InMemoryNetwork
 from pyleans.providers.membership import MembershipProvider
 from pyleans.server.grains import StringCacheGrain, system_grains
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.silo import Silo
 from pyleans.server.silo_management import SiloManagement
+
+from conftest import FakeStorageProvider
 
 # --- Test grain that uses DI for SiloManagement ---
 
@@ -77,13 +79,14 @@ def _reset_registry() -> None:
         _grain_registry[cls.__name__] = cls
 
 
-def make_silo() -> Silo:
+def make_silo(network: InMemoryNetwork) -> Silo:
     return Silo(
         grains=_TEST_GRAINS,
         storage_providers={"default": FakeStorageProvider()},
         membership_provider=FakeMembershipProvider(),
         stream_providers={"default": InMemoryStreamProvider()},
         gateway_port=0,
+        network=network,
     )
 
 
@@ -105,8 +108,8 @@ class TestSystemGrains:
 
 
 class TestSiloManagementDI:
-    async def test_silo_management_injected_via_di(self) -> None:
-        silo = make_silo()
+    async def test_silo_management_injected_via_di(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(MgmtCounterGrain, "c1")
@@ -116,8 +119,8 @@ class TestSiloManagementDI:
 
         await silo.stop()
 
-    async def test_di_injection_accessible_from_any_grain(self) -> None:
-        silo = make_silo()
+    async def test_di_injection_accessible_from_any_grain(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         c1 = silo.grain_factory.get_grain(MgmtCounterGrain, "a")
@@ -131,8 +134,8 @@ class TestSiloManagementDI:
 
 
 class TestSiloManagementGetInfo:
-    async def test_returns_dict(self) -> None:
-        silo = make_silo()
+    async def test_returns_dict(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(MgmtCounterGrain, "c1")
@@ -141,8 +144,8 @@ class TestSiloManagementGetInfo:
 
         await silo.stop()
 
-    async def test_all_keys_present(self) -> None:
-        silo = make_silo()
+    async def test_all_keys_present(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(MgmtCounterGrain, "c1")
@@ -165,8 +168,8 @@ class TestSiloManagementGetInfo:
 
         await silo.stop()
 
-    async def test_silo_id(self) -> None:
-        silo = make_silo()
+    async def test_silo_id(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(MgmtCounterGrain, "c1")
@@ -175,8 +178,8 @@ class TestSiloManagementGetInfo:
 
         await silo.stop()
 
-    async def test_host_and_port(self) -> None:
-        silo = make_silo()
+    async def test_host_and_port(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(MgmtCounterGrain, "c1")
@@ -187,8 +190,8 @@ class TestSiloManagementGetInfo:
 
         await silo.stop()
 
-    async def test_hostname_and_platform(self) -> None:
-        silo = make_silo()
+    async def test_hostname_and_platform(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(MgmtCounterGrain, "c1")
@@ -198,8 +201,8 @@ class TestSiloManagementGetInfo:
 
         await silo.stop()
 
-    async def test_status_active(self) -> None:
-        silo = make_silo()
+    async def test_status_active(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(MgmtCounterGrain, "c1")
@@ -208,8 +211,8 @@ class TestSiloManagementGetInfo:
 
         await silo.stop()
 
-    async def test_uptime_positive(self) -> None:
-        silo = make_silo()
+    async def test_uptime_positive(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(MgmtCounterGrain, "c1")
@@ -218,8 +221,8 @@ class TestSiloManagementGetInfo:
 
         await silo.stop()
 
-    async def test_grain_count(self) -> None:
-        silo = make_silo()
+    async def test_grain_count(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(MgmtCounterGrain, "c1")
@@ -229,8 +232,8 @@ class TestSiloManagementGetInfo:
 
         await silo.stop()
 
-    async def test_idle_timeout(self) -> None:
-        silo = make_silo()
+    async def test_idle_timeout(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(MgmtCounterGrain, "c1")
@@ -241,13 +244,13 @@ class TestSiloManagementGetInfo:
 
 
 class TestSiloManagementViaGateway:
-    async def test_get_info_via_gateway(self) -> None:
+    async def test_get_info_via_gateway(self, network: InMemoryNetwork) -> None:
         from pyleans.client import ClusterClient
 
-        silo = make_silo()
+        silo = make_silo(network)
         await silo.start_background()
 
-        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"])
+        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"], network=network)
         await client.connect()
 
         ref = client.get_grain(MgmtCounterGrain, "c1")

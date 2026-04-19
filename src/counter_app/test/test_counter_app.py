@@ -8,6 +8,7 @@ from pathlib import Path
 
 import yaml
 from pyleans.identity import GrainId
+from pyleans.net import InMemoryNetwork
 from pyleans.server.providers.file_storage import FileStorageProvider
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.providers.yaml_membership import YamlMembershipProvider
@@ -16,7 +17,7 @@ from pyleans.server.silo import Silo
 from src.counter_app.counter_grain import CounterGrain
 
 
-def make_silo(tmp_path: Path) -> Silo:
+def make_silo(tmp_path: Path, network: InMemoryNetwork) -> Silo:
     """Create a silo wired to real file-based providers in a temp directory."""
     return Silo(
         grains=[CounterGrain],
@@ -28,14 +29,17 @@ def make_silo(tmp_path: Path) -> Silo:
         ),
         stream_providers={"default": InMemoryStreamProvider()},
         gateway_port=0,
+        network=network,
     )
 
 
 class TestSiloStartStop:
     """Verify the silo starts, registers in membership, and shuts down cleanly."""
 
-    async def test_membership_file_created_on_start(self, tmp_path: Path) -> None:
-        silo = make_silo(tmp_path)
+    async def test_membership_file_created_on_start(
+        self, tmp_path: Path, network: InMemoryNetwork
+    ) -> None:
+        silo = make_silo(tmp_path, network)
         await silo.start_background()
 
         membership_path = tmp_path / "membership.yaml"
@@ -47,8 +51,10 @@ class TestSiloStartStop:
 
         await silo.stop()
 
-    async def test_membership_empty_after_clean_shutdown(self, tmp_path: Path) -> None:
-        silo = make_silo(tmp_path)
+    async def test_membership_empty_after_clean_shutdown(
+        self, tmp_path: Path, network: InMemoryNetwork
+    ) -> None:
+        silo = make_silo(tmp_path, network)
         await silo.start_background()
         await silo.stop()
 
@@ -56,8 +62,8 @@ class TestSiloStartStop:
         data = yaml.safe_load(membership_path.read_text(encoding="utf-8"))
         assert data["silos"] == []
 
-    async def test_stop_is_idempotent(self, tmp_path: Path) -> None:
-        silo = make_silo(tmp_path)
+    async def test_stop_is_idempotent(self, tmp_path: Path, network: InMemoryNetwork) -> None:
+        silo = make_silo(tmp_path, network)
         await silo.start_background()
         await silo.stop()
         await silo.stop()  # second stop should be a no-op
@@ -66,8 +72,10 @@ class TestSiloStartStop:
 class TestGrainStatePersistence:
     """Verify grain state is persisted to files and survives silo restarts."""
 
-    async def test_state_file_created_on_grain_call(self, tmp_path: Path) -> None:
-        silo = make_silo(tmp_path)
+    async def test_state_file_created_on_grain_call(
+        self, tmp_path: Path, network: InMemoryNetwork
+    ) -> None:
+        silo = make_silo(tmp_path, network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(CounterGrain, "test-counter")
@@ -81,8 +89,10 @@ class TestGrainStatePersistence:
 
         await silo.stop()
 
-    async def test_state_survives_silo_restart(self, tmp_path: Path) -> None:
-        silo1 = make_silo(tmp_path)
+    async def test_state_survives_silo_restart(
+        self, tmp_path: Path, network: InMemoryNetwork
+    ) -> None:
+        silo1 = make_silo(tmp_path, network)
         await silo1.start_background()
 
         ref = silo1.grain_factory.get_grain(CounterGrain, "persist")
@@ -93,7 +103,7 @@ class TestGrainStatePersistence:
 
         await silo1.stop()
 
-        silo2 = make_silo(tmp_path)
+        silo2 = make_silo(tmp_path, network)
         await silo2.start_background()
 
         ref2 = silo2.grain_factory.get_grain(CounterGrain, "persist")
@@ -101,8 +111,10 @@ class TestGrainStatePersistence:
 
         await silo2.stop()
 
-    async def test_multiple_grains_create_separate_files(self, tmp_path: Path) -> None:
-        silo = make_silo(tmp_path)
+    async def test_multiple_grains_create_separate_files(
+        self, tmp_path: Path, network: InMemoryNetwork
+    ) -> None:
+        silo = make_silo(tmp_path, network)
         await silo.start_background()
 
         for name in ["alpha", "beta", "gamma"]:
@@ -119,8 +131,10 @@ class TestGrainStatePersistence:
 class TestGrainLifecycle:
     """Verify grain deactivation saves state and silo shutdown deactivates all."""
 
-    async def test_deactivate_saves_state_to_file(self, tmp_path: Path) -> None:
-        silo = make_silo(tmp_path)
+    async def test_deactivate_saves_state_to_file(
+        self, tmp_path: Path, network: InMemoryNetwork
+    ) -> None:
+        silo = make_silo(tmp_path, network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(CounterGrain, "deact")
@@ -135,8 +149,10 @@ class TestGrainLifecycle:
 
         await silo.stop()
 
-    async def test_shutdown_deactivates_all_grains(self, tmp_path: Path) -> None:
-        silo = make_silo(tmp_path)
+    async def test_shutdown_deactivates_all_grains(
+        self, tmp_path: Path, network: InMemoryNetwork
+    ) -> None:
+        silo = make_silo(tmp_path, network)
         await silo.start_background()
 
         for i in range(3):
@@ -149,7 +165,7 @@ class TestGrainLifecycle:
         assert len(silo.runtime.activations) == 0
 
         # State should be on disk — verify by restarting
-        silo2 = make_silo(tmp_path)
+        silo2 = make_silo(tmp_path, network)
         await silo2.start_background()
 
         for i in range(3):
@@ -162,11 +178,11 @@ class TestGrainLifecycle:
 class TestFullIntegration:
     """End-to-end: start silo, call grain, stop silo, verify persistence."""
 
-    async def test_full_lifecycle(self, tmp_path: Path) -> None:
+    async def test_full_lifecycle(self, tmp_path: Path, network: InMemoryNetwork) -> None:
         membership_path = tmp_path / "membership.yaml"
 
         # Start silo
-        silo = make_silo(tmp_path)
+        silo = make_silo(tmp_path, network)
         await silo.start_background()
         assert silo.started
 
@@ -200,7 +216,7 @@ class TestFullIntegration:
         assert (storage_dir / "counter-2.json").exists()
 
         # Restart and verify state survived
-        silo2 = make_silo(tmp_path)
+        silo2 = make_silo(tmp_path, network)
         await silo2.start_background()
 
         c1r = silo2.grain_factory.get_grain(CounterGrain, "counter-1")

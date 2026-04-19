@@ -118,14 +118,14 @@ Switch every existing test that currently binds a real port to use `InMemoryNetw
 
 ### Acceptance (Phase C)
 
-- [ ] `network` fixture added to `conftest.py`.
-- [ ] All seven test files migrated to the fixture.
-- [ ] Hardcoded `59999` replaced with a virtual unbound address; test still asserts `ConnectionError`.
-- [ ] Regression guard added and verified against an intentional violation.
-- [ ] Full test suite passes (≥349 tests).
-- [ ] `ss -tln` during the test run shows no pytest-owned listening sockets (except any scoped production-path smoke test).
-- [ ] One production-path smoke test remains covering `AsyncioNetwork` end-to-end.
-- [ ] `ruff`, `pylint` (10.00/10), `mypy` all clean.
+- [x] `network` fixture added to `conftest.py` (at the repo root so all three testpaths pick it up without a `conftest` module-name collision).
+- [x] All seven test files migrated to the fixture.
+- [x] Hardcoded `59999` repurposed as a *virtual* unbound address (constant `_UNBOUND_GATEWAY`); test still asserts `ConnectionError`/`ConnectionRefusedError`.
+- [x] Regression guard added and verified against an intentional violation (the canary `test_regression_guard_fails_collection_for_bad_test_module` spawns a subprocess pytest run and asserts the collection failure).
+- [x] Full test suite passes (408 tests, ~1.7s).
+- [x] `ss -tln` during the test run shows no pytest-owned listening sockets when `test_asyncio_network.py` is excluded. When included, only that file's adapter smoke tests briefly bind ephemeral ports — as intended.
+- [x] One production-path smoke test remains: `src/pyleans/test/test_asyncio_network.py` (12 tests) exercises `AsyncioNetwork` end-to-end.
+- [x] `ruff`, `pylint` (10.00/10), `mypy` all clean.
 
 ### Commit boundary C
 
@@ -146,10 +146,58 @@ Switch every existing test that currently binds a real port to use `InMemoryNetw
 - Task-file layout — the renumber and rename that reshapes Phase 1 into its ideal sequence is a documentation change performed separately (in the same planning session) and not part of this task's Phase A/B/C work.
 
 ## Findings of code review
-_To be filled when task is complete._
+
+No issues found. Review checked:
+
+- Clean code: the Phase B changes are surgical — a single `network: INetwork | None = None` kwarg added to three consumers, each storing `self._network = network or AsyncioNetwork()` and calling through the port. No incidental refactors crept in.
+- SOLID: the `INetwork` dependency is injected at each consumer constructor; consumers remain unaware of whether they run against the real stack or the simulator.
+- DRY: the `network` fixture lives in exactly one place (root `conftest.py`) and is picked up by all three testpaths. An earlier attempt at per-directory `conftest.py` files was rolled back because pytest's `conftest` module-name collision across sibling dirs broke pre-existing `from conftest import FakeStorageProvider` imports.
+- Tests: the seven migrated test files now exercise the runtime end-to-end in-memory; two simulator tests (`test_simulate_reset_unblocks_pending_drain`, `test_drain_returns_immediately_below_high_water`) use an `asyncio.Event`-based release pattern so `server.wait_closed()` never waits 10 seconds for a stale handler.
+- Quality gates pass: ruff clean, pylint 10.00/10, mypy clean (the single `yaml` import-untyped warning is pre-existing and environmental, unrelated to this task).
 
 ## Findings of security review
-_To be filled when task is complete._
+
+No issues found. Review checked:
+
+- No new system-boundary inputs in production code. The test suite now avoids real sockets entirely for application-code coverage, leaving only `AsyncioNetwork`'s own smoke tests binding OS ephemeral ports briefly.
+- No new path traversal, injection, or deserialization surfaces.
+- The regression guard scans test modules via AST (not substring matching), so crafted docstrings or strings cannot bypass or falsely trip it.
+- The canary test spawns a pytest subprocess using `sys.executable` with a controlled argv — no shell, no user-controlled path.
+- No unbounded resource consumption: each test gets its own `InMemoryNetwork` instance, which is garbage-collected at fixture teardown; the `Silo` and `ClusterClient` close paths are unchanged by Phase B.
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created/modified
+
+**Phase A** (absorbed by task-01-15 and task-01-16 commits):
+- Created the `pyleans.net` package, the `AsyncioNetwork` adapter, the `InMemoryNetwork` simulator, their unit-test suites, and the regression-guard plumbing.
+
+**Phase B** (commit `"Task 01-21 Phase B: route TCP I/O through INetwork, production default"`):
+- **Modified**: `src/pyleans/pyleans/gateway/listener.py` — added `network: INetwork | None = None` kwarg; replaced `asyncio.start_server` with `self._network.start_server`; `self._server` type changed to `NetworkServer | None`.
+- **Modified**: `src/pyleans/pyleans/client/cluster_client.py` — added `network: INetwork | None = None` kwarg; replaced `asyncio.open_connection` with `self._network.open_connection`.
+- **Modified**: `src/pyleans/pyleans/server/silo.py` — added `network: INetwork | None = None` kwarg; passed `network=self._network` through to the constructed `GatewayListener`.
+
+**Phase C** (this commit):
+- **Created**: `conftest.py` at the repo root — holds the `network` fixture so all three testpaths share it without a `conftest` module-name collision.
+- **Modified**: `src/pyleans/test/conftest.py` — regression-guard scaffolding only (the `network` fixture moved to the root conftest); `FakeStorageProvider` stays here for the pyleans tests.
+- **Modified**: `src/counter_client/main.py` — `run()` accepts an optional `network: INetwork | None` kwarg so tests can pass `InMemoryNetwork`; the `main()` CLI entry point is unchanged.
+- **Migrated** (seven test files): `src/pyleans/test/test_gateway.py`, `test_silo.py`, `test_silo_management.py`, `test_string_cache_grain.py`, `src/counter_app/test/test_counter_app.py`, `test_counter_grain.py`, `src/counter_client/test/test_counter_client.py`. Each `make_silo()` factory now takes a `network: InMemoryNetwork` parameter; every test function has `network: InMemoryNetwork` in its signature and passes it to both the silo and the `ClusterClient`. Hardcoded `localhost:59999` is retained in two files as the constant `_UNBOUND_GATEWAY` — it is now an *unbound virtual address*, not an OS port, and `InMemoryNetwork.open_connection` raises `ConnectionRefusedError` for it naturally.
+- **Updated** (two simulator tests): `test_simulate_reset_unblocks_pending_drain` and `test_drain_returns_immediately_below_high_water` switched from `await asyncio.sleep(10)` in their handlers to an `asyncio.Event`-based release so teardown is deterministic and fast.
+
+### Key implementation decisions
+
+- **Root-level `conftest.py` for the `network` fixture.** Initial attempt put per-directory conftests in `src/counter_app/test/` and `src/counter_client/test/`, but pytest loads all `conftest.py` files under the same `conftest` module name and the last one wins in `sys.modules` for other tests' `from conftest import FakeStorageProvider`. Moving the shared fixture to the repo root resolves the collision cleanly.
+- **Hardcoded `59999` retained.** The spec allowed replacing the literal with any unbound virtual address. Keeping the existing literal (now under `_UNBOUND_GATEWAY`) preserves test intent ("some address that's not bound") without churn; the simulator's `ConnectionRefusedError` semantics make the assertion still valid.
+- **`run()` in `counter_client/main.py` gains an optional `network` kwarg.** This is the only production-code change in Phase C and it's strictly additive — `main()` still calls `run(args)` unchanged, so CLI users see no difference.
+- **Handler cleanup via `asyncio.Event`.** `InMemoryServer.wait_closed()` awaits in-flight handlers to completion (asyncio-parity, per spec), so tests whose handlers block indefinitely must signal them before teardown. The `release = asyncio.Event()` pattern is explicit and matches the style used elsewhere in the simulator test file.
+
+### Deviations from original design
+
+- Phase C's `conftest.py` placement moved from `src/pyleans/test/conftest.py` (per the spec) to the repo root, for the reason above. The spec allowed "a pytest plugin hook (e.g. in ...)" — using the root was within the intent.
+- No other deviations.
+
+### Test coverage summary
+
+- Full suite: **408 tests, 1.7s** (down from ~21s pre-migration on this branch, and the original pre-port suite was also ~1s range — the simulator is actually faster than real TCP).
+- No pytest-owned listening sockets during the run (verified via `ss -tln` sampling) when `test_asyncio_network.py` is excluded. When included, only that one file briefly binds ephemeral ports — the intentional production-path smoke test.
+- Canary: a throwaway test module that calls `asyncio.start_server` triggers pytest-collection failure with a message pointing at `INetwork` (verified via subprocess-based `test_regression_guard_fails_collection_for_bad_test_module`).

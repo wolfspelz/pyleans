@@ -5,10 +5,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
-from conftest import FakeStorageProvider
 from pyleans.grain import _grain_registry, grain
 from pyleans.grain_base import Grain
 from pyleans.identity import GrainId, SiloStatus
+from pyleans.net import InMemoryNetwork
 from pyleans.providers.membership import MembershipProvider
 from pyleans.providers.storage import StorageProvider
 from pyleans.providers.streaming import StreamProvider
@@ -17,6 +17,8 @@ from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.runtime import GrainRuntime
 from pyleans.server.silo import Silo
 from pyleans.server.timer import TimerRegistry
+
+from conftest import FakeStorageProvider
 
 # --- Test grains ---
 
@@ -109,6 +111,7 @@ class FakeMembershipProvider(MembershipProvider):
 
 
 def make_silo(
+    network: InMemoryNetwork,
     grains: list[type] | None = None,
     storage: StorageProvider | None = None,
     membership: MembershipProvider | None = None,
@@ -125,6 +128,7 @@ def make_silo(
         stream_providers=stream_providers,
         idle_timeout=idle_timeout,
         gateway_port=0,
+        network=network,
     )
 
 
@@ -132,27 +136,27 @@ def make_silo(
 
 
 class TestSiloStartStop:
-    async def test_start_and_stop(self) -> None:
-        silo = make_silo()
+    async def test_start_and_stop(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
         assert silo.started is True
         await silo.stop()
         assert silo.started is False
 
-    async def test_stop_without_start_is_noop(self) -> None:
-        silo = make_silo()
+    async def test_stop_without_start_is_noop(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.stop()
         assert silo.started is False
 
-    async def test_double_stop_is_safe(self) -> None:
-        silo = make_silo()
+    async def test_double_stop_is_safe(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
         await silo.stop()
         await silo.stop()
         assert silo.started is False
 
-    async def test_start_blocking_stops_on_stop_event(self) -> None:
-        silo = make_silo()
+    async def test_start_blocking_stops_on_stop_event(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
 
         async def stop_after_delay() -> None:
             await asyncio.sleep(0.05)
@@ -165,40 +169,40 @@ class TestSiloStartStop:
 
 
 class TestSiloProperties:
-    async def test_grain_factory_property(self) -> None:
-        silo = make_silo()
+    async def test_grain_factory_property(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         assert isinstance(silo.grain_factory, GrainFactory)
 
-    async def test_runtime_property(self) -> None:
-        silo = make_silo()
+    async def test_runtime_property(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         assert isinstance(silo.runtime, GrainRuntime)
 
-    async def test_timer_registry_property(self) -> None:
-        silo = make_silo()
+    async def test_timer_registry_property(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         assert isinstance(silo.timer_registry, TimerRegistry)
 
 
 class TestGrainRegistration:
-    async def test_grain_classes_registered(self) -> None:
+    async def test_grain_classes_registered(self, network: InMemoryNetwork) -> None:
         _grain_registry.clear()
-        silo = make_silo()
+        silo = make_silo(network)
         await silo.start_background()
         assert "SiloCounterGrain" in _grain_registry
         assert "SiloStatelessGrain" in _grain_registry
         assert "SiloLifecycleGrain" in _grain_registry
         await silo.stop()
 
-    async def test_empty_grain_list(self) -> None:
+    async def test_empty_grain_list(self, network: InMemoryNetwork) -> None:
         _grain_registry.clear()
-        silo = make_silo(grains=[])
+        silo = make_silo(network, grains=[])
         await silo.start_background()
         assert silo.started is True
         await silo.stop()
 
 
 class TestGrainCalls:
-    async def test_stateless_grain_call(self) -> None:
-        silo = make_silo()
+    async def test_stateless_grain_call(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(SiloStatelessGrain, "s1")
@@ -207,9 +211,9 @@ class TestGrainCalls:
 
         await silo.stop()
 
-    async def test_stateful_grain_call(self) -> None:
+    async def test_stateful_grain_call(self, network: InMemoryNetwork) -> None:
         storage = FakeStorageProvider()
-        silo = make_silo(storage=storage)
+        silo = make_silo(network, storage=storage)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(SiloCounterGrain, "c1")
@@ -220,8 +224,8 @@ class TestGrainCalls:
 
         await silo.stop()
 
-    async def test_lifecycle_hooks_called(self) -> None:
-        silo = make_silo()
+    async def test_lifecycle_hooks_called(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(SiloLifecycleGrain, "l1")
@@ -232,9 +236,9 @@ class TestGrainCalls:
         await silo.stop()
         assert instance.deactivated is True
 
-    async def test_multiple_grains_independent(self) -> None:
+    async def test_multiple_grains_independent(self, network: InMemoryNetwork) -> None:
         storage = FakeStorageProvider()
-        silo = make_silo(storage=storage)
+        silo = make_silo(network, storage=storage)
         await silo.start_background()
 
         c1 = silo.grain_factory.get_grain(SiloCounterGrain, "c1")
@@ -251,9 +255,9 @@ class TestGrainCalls:
 
 
 class TestMembershipIntegration:
-    async def test_silo_registers_on_start(self) -> None:
+    async def test_silo_registers_on_start(self, network: InMemoryNetwork) -> None:
         membership = FakeMembershipProvider()
-        silo = make_silo(membership=membership)
+        silo = make_silo(network, membership=membership)
         await silo.start_background()
 
         assert len(membership.silos) == 1
@@ -262,18 +266,20 @@ class TestMembershipIntegration:
 
         await silo.stop()
 
-    async def test_silo_unregisters_on_stop(self) -> None:
+    async def test_silo_unregisters_on_stop(self, network: InMemoryNetwork) -> None:
         membership = FakeMembershipProvider()
-        silo = make_silo(membership=membership)
+        silo = make_silo(network, membership=membership)
         await silo.start_background()
         assert len(membership.silos) == 1
 
         await silo.stop()
         assert len(membership.silos) == 0
 
-    async def test_silo_status_shutting_down_before_unregister(self) -> None:
+    async def test_silo_status_shutting_down_before_unregister(
+        self, network: InMemoryNetwork
+    ) -> None:
         membership = FakeMembershipProvider()
-        silo = make_silo(membership=membership)
+        silo = make_silo(network, membership=membership)
         await silo.start_background()
 
         statuses: list[SiloStatus] = []
@@ -290,7 +296,7 @@ class TestMembershipIntegration:
 
 
 class TestHeartbeat:
-    async def test_heartbeat_runs_periodically(self) -> None:
+    async def test_heartbeat_runs_periodically(self, network: InMemoryNetwork) -> None:
         membership = FakeMembershipProvider()
         silo = Silo(
             grains=_TEST_GRAINS,
@@ -298,6 +304,7 @@ class TestHeartbeat:
             membership_provider=membership,
             stream_providers={"default": InMemoryStreamProvider()},
             gateway_port=0,
+            network=network,
         )
 
         # Patch heartbeat interval to be very short for testing
@@ -314,9 +321,9 @@ class TestHeartbeat:
             silo_module._HEARTBEAT_INTERVAL = original_interval
             await silo.stop()
 
-    async def test_heartbeat_cancelled_on_stop(self) -> None:
+    async def test_heartbeat_cancelled_on_stop(self, network: InMemoryNetwork) -> None:
         membership = FakeMembershipProvider()
-        silo = make_silo(membership=membership)
+        silo = make_silo(network, membership=membership)
         await silo.start_background()
         await silo.stop()
 
@@ -326,8 +333,8 @@ class TestHeartbeat:
 
 
 class TestGracefulShutdown:
-    async def test_stop_deactivates_all_grains(self) -> None:
-        silo = make_silo()
+    async def test_stop_deactivates_all_grains(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref1 = silo.grain_factory.get_grain(SiloStatelessGrain, "s1")
@@ -339,9 +346,9 @@ class TestGracefulShutdown:
         await silo.stop()
         assert len(silo.runtime.activations) == 0
 
-    async def test_state_persisted_on_stop(self) -> None:
+    async def test_state_persisted_on_stop(self, network: InMemoryNetwork) -> None:
         storage = FakeStorageProvider()
-        silo = make_silo(storage=storage)
+        silo = make_silo(network, storage=storage)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(SiloCounterGrain, "c1")
@@ -357,12 +364,12 @@ class TestGracefulShutdown:
 
 
 class TestIntegrationEndToEnd:
-    async def test_start_call_stop_restart_state_persisted(self) -> None:
+    async def test_start_call_stop_restart_state_persisted(self, network: InMemoryNetwork) -> None:
         """Full integration: start, call grain, stop, restart, verify state."""
         storage = FakeStorageProvider()
         membership = FakeMembershipProvider()
 
-        silo1 = make_silo(storage=storage, membership=membership)
+        silo1 = make_silo(network, storage=storage, membership=membership)
         await silo1.start_background()
 
         ref = silo1.grain_factory.get_grain(SiloCounterGrain, "persist-test")
@@ -373,7 +380,7 @@ class TestIntegrationEndToEnd:
         await silo1.stop()
 
         # Start a new silo with the same storage
-        silo2 = make_silo(storage=storage, membership=membership)
+        silo2 = make_silo(network, storage=storage, membership=membership)
         await silo2.start_background()
 
         ref2 = silo2.grain_factory.get_grain(SiloCounterGrain, "persist-test")
@@ -382,8 +389,8 @@ class TestIntegrationEndToEnd:
 
         await silo2.stop()
 
-    async def test_concurrent_grain_calls(self) -> None:
-        silo = make_silo()
+    async def test_concurrent_grain_calls(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(SiloStatelessGrain, "conc")

@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 from pyleans.grain import _grain_registry, get_grain_class, get_grain_methods
 from pyleans.identity import GrainId
+from pyleans.net import InMemoryNetwork
 from pyleans.providers.membership import MembershipProvider
 from pyleans.providers.storage import StorageProvider
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
@@ -84,7 +85,7 @@ def _ensure_grain_registered() -> None:
     _grain_registry["CounterGrain"] = CounterGrain
 
 
-def make_silo(storage: FakeStorageProvider | None = None) -> Silo:
+def make_silo(network: InMemoryNetwork, storage: FakeStorageProvider | None = None) -> Silo:
     s = storage or FakeStorageProvider()
     return Silo(
         grains=[CounterGrain],
@@ -92,6 +93,7 @@ def make_silo(storage: FakeStorageProvider | None = None) -> Silo:
         membership_provider=FakeMembershipProvider(),
         stream_providers={"default": InMemoryStreamProvider()},
         gateway_port=0,
+        network=network,
     )
 
 
@@ -129,8 +131,8 @@ class TestCounterState:
 
 
 class TestGetValue:
-    async def test_returns_zero_initially(self) -> None:
-        silo = make_silo()
+    async def test_returns_zero_initially(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(CounterGrain, "c1")
@@ -140,8 +142,8 @@ class TestGetValue:
 
 
 class TestIncrement:
-    async def test_increment_returns_new_value(self) -> None:
-        silo = make_silo()
+    async def test_increment_returns_new_value(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(CounterGrain, "c1")
@@ -151,9 +153,9 @@ class TestIncrement:
 
         await silo.stop()
 
-    async def test_increment_persists(self) -> None:
+    async def test_increment_persists(self, network: InMemoryNetwork) -> None:
         storage = FakeStorageProvider()
-        silo = make_silo(storage)
+        silo = make_silo(network, storage)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(CounterGrain, "c1")
@@ -168,8 +170,8 @@ class TestIncrement:
 
 
 class TestSetValue:
-    async def test_set_value(self) -> None:
-        silo = make_silo()
+    async def test_set_value(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(CounterGrain, "c1")
@@ -178,9 +180,9 @@ class TestSetValue:
 
         await silo.stop()
 
-    async def test_set_value_persists(self) -> None:
+    async def test_set_value_persists(self, network: InMemoryNetwork) -> None:
         storage = FakeStorageProvider()
-        silo = make_silo(storage)
+        silo = make_silo(network, storage)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(CounterGrain, "c1")
@@ -193,8 +195,8 @@ class TestSetValue:
 
 
 class TestReset:
-    async def test_reset_to_zero(self) -> None:
-        silo = make_silo()
+    async def test_reset_to_zero(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(CounterGrain, "c1")
@@ -209,9 +211,9 @@ class TestReset:
 
 
 class TestStateSurvivesReactivation:
-    async def test_state_survives_deactivation(self) -> None:
+    async def test_state_survives_deactivation(self, network: InMemoryNetwork) -> None:
         storage = FakeStorageProvider()
-        silo = make_silo(storage)
+        silo = make_silo(network, storage)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(CounterGrain, "c1")
@@ -228,16 +230,16 @@ class TestStateSurvivesReactivation:
 
         await silo.stop()
 
-    async def test_state_survives_silo_restart(self) -> None:
+    async def test_state_survives_silo_restart(self, network: InMemoryNetwork) -> None:
         storage = FakeStorageProvider()
 
-        silo1 = make_silo(storage)
+        silo1 = make_silo(network, storage)
         await silo1.start_background()
         ref1 = silo1.grain_factory.get_grain(CounterGrain, "persist")
         await ref1.set_value(77)
         await silo1.stop()
 
-        silo2 = make_silo(storage)
+        silo2 = make_silo(network, storage)
         await silo2.start_background()
         ref2 = silo2.grain_factory.get_grain(CounterGrain, "persist")
         assert await ref2.get_value() == 77
@@ -245,8 +247,8 @@ class TestStateSurvivesReactivation:
 
 
 class TestMultipleCounterInstances:
-    async def test_independent_counters(self) -> None:
-        silo = make_silo()
+    async def test_independent_counters(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         c1 = silo.grain_factory.get_grain(CounterGrain, "counter-a")
@@ -264,8 +266,8 @@ class TestMultipleCounterInstances:
 
         await silo.stop()
 
-    async def test_concurrent_counters(self) -> None:
-        silo = make_silo()
+    async def test_concurrent_counters(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         refs = [silo.grain_factory.get_grain(CounterGrain, f"c{i}") for i in range(5)]
@@ -277,8 +279,8 @@ class TestMultipleCounterInstances:
 
 
 class TestSiloInfo:
-    async def test_get_silo_info_returns_dict(self) -> None:
-        silo = make_silo()
+    async def test_get_silo_info_returns_dict(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(CounterGrain, "c1")

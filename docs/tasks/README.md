@@ -135,7 +135,7 @@ One-time transformation of the existing codebase into the ideal Phase 1 state. E
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 01-21 | [Network Migration](task-01-21-network-migration.md) | [ ] | 01-15, 01-16 |
+| 01-21 | [Network Migration](task-01-21-network-migration.md) | [x] | 01-15, 01-16 |
 
 ## Phase 2 Dependency Graph
 

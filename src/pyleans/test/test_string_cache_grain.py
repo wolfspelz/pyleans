@@ -3,12 +3,14 @@
 import asyncio
 from typing import Any
 
-from conftest import FakeStorageProvider
 from pyleans.identity import GrainId, SiloStatus
+from pyleans.net import InMemoryNetwork
 from pyleans.providers.membership import MembershipProvider
 from pyleans.server.grains import StringCacheGrain, system_grains
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider
 from pyleans.server.silo import Silo
+
+from conftest import FakeStorageProvider
 
 # --- Fake membership ---
 
@@ -36,7 +38,7 @@ class FakeMembershipProvider(MembershipProvider):
 # --- Helpers ---
 
 
-def make_silo(storage: FakeStorageProvider | None = None) -> Silo:
+def make_silo(network: InMemoryNetwork, storage: FakeStorageProvider | None = None) -> Silo:
     s = storage or FakeStorageProvider()
     return Silo(
         grains=[*system_grains()],
@@ -44,6 +46,7 @@ def make_silo(storage: FakeStorageProvider | None = None) -> Silo:
         membership_provider=FakeMembershipProvider(),
         stream_providers={"default": InMemoryStreamProvider()},
         gateway_port=0,
+        network=network,
     )
 
 
@@ -61,8 +64,8 @@ class TestSystemGrains:
 
 
 class TestStringCacheSet:
-    async def test_set_and_get(self) -> None:
-        silo = make_silo()
+    async def test_set_and_get(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(StringCacheGrain, "k1")
@@ -71,8 +74,8 @@ class TestStringCacheSet:
 
         await silo.stop()
 
-    async def test_set_overwrites(self) -> None:
-        silo = make_silo()
+    async def test_set_overwrites(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(StringCacheGrain, "k1")
@@ -84,8 +87,8 @@ class TestStringCacheSet:
 
 
 class TestStringCacheGet:
-    async def test_get_default_empty_string(self) -> None:
-        silo = make_silo()
+    async def test_get_default_empty_string(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(StringCacheGrain, "new-key")
@@ -95,8 +98,8 @@ class TestStringCacheGet:
 
 
 class TestStringCacheDelete:
-    async def test_delete_clears_state(self) -> None:
-        silo = make_silo()
+    async def test_delete_clears_state(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(StringCacheGrain, "k1")
@@ -108,8 +111,8 @@ class TestStringCacheDelete:
 
 
 class TestStringCacheDeactivate:
-    async def test_deactivate_removes_from_memory(self) -> None:
-        silo = make_silo()
+    async def test_deactivate_removes_from_memory(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(StringCacheGrain, "k1")
@@ -125,9 +128,9 @@ class TestStringCacheDeactivate:
 
         await silo.stop()
 
-    async def test_reactivate_from_persistence(self) -> None:
+    async def test_reactivate_from_persistence(self, network: InMemoryNetwork) -> None:
         storage = FakeStorageProvider()
-        silo = make_silo(storage)
+        silo = make_silo(network, storage)
         await silo.start_background()
 
         ref = silo.grain_factory.get_grain(StringCacheGrain, "k1")
@@ -143,23 +146,23 @@ class TestStringCacheDeactivate:
 
 
 class TestStringCachePersistence:
-    async def test_state_survives_silo_restart(self) -> None:
+    async def test_state_survives_silo_restart(self, network: InMemoryNetwork) -> None:
         storage = FakeStorageProvider()
 
-        silo1 = make_silo(storage)
+        silo1 = make_silo(network, storage)
         await silo1.start_background()
         ref = silo1.grain_factory.get_grain(StringCacheGrain, "survive")
         await ref.set("across-restart")
         await silo1.stop()
 
-        silo2 = make_silo(storage)
+        silo2 = make_silo(network, storage)
         await silo2.start_background()
         ref2 = silo2.grain_factory.get_grain(StringCacheGrain, "survive")
         assert await ref2.get() == "across-restart"
         await silo2.stop()
 
-    async def test_multiple_keys_independent(self) -> None:
-        silo = make_silo()
+    async def test_multiple_keys_independent(self, network: InMemoryNetwork) -> None:
+        silo = make_silo(network)
         await silo.start_background()
 
         a = silo.grain_factory.get_grain(StringCacheGrain, "a")

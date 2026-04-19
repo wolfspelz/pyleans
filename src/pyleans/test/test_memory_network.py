@@ -177,9 +177,11 @@ class TestSimulateReset:
             await server.wait_closed()
 
     async def test_simulate_reset_unblocks_pending_drain(self) -> None:
+        release = asyncio.Event()
+
         async def handler(_r: asyncio.StreamReader, _w: asyncio.StreamWriter) -> None:
             # Never consume from our reader; the client's drain() will block.
-            await asyncio.sleep(10)
+            await release.wait()
 
         net = InMemoryNetwork(high_water=64, low_water=16)
         server = await net.start_server(handler, "localhost", 0)
@@ -196,6 +198,7 @@ class TestSimulateReset:
             with pytest.raises(ConnectionResetError):
                 await asyncio.wait_for(drain_task, timeout=1.0)
         finally:
+            release.set()
             server.close()
             await server.wait_closed()
 
@@ -259,8 +262,10 @@ class TestDrainBackpressure:
             await server.wait_closed()
 
     async def test_drain_returns_immediately_below_high_water(self) -> None:
+        release = asyncio.Event()
+
         async def handler(_r: asyncio.StreamReader, _w: asyncio.StreamWriter) -> None:
-            await asyncio.sleep(10)
+            await release.wait()
 
         net = InMemoryNetwork(high_water=64 * 1024, low_water=16 * 1024)
         server = await net.start_server(handler, "localhost", 0)
@@ -270,6 +275,7 @@ class TestDrainBackpressure:
             writer.write(b"small")
             await asyncio.wait_for(writer.drain(), timeout=0.1)
         finally:
+            release.set()
             server.close()
             await server.wait_closed()
 

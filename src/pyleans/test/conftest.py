@@ -5,12 +5,10 @@ from __future__ import annotations
 import ast
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+import pytest
 from pyleans.providers.storage import StorageProvider
-
-if TYPE_CHECKING:
-    import pytest
 
 _FORBIDDEN_ASYNCIO_NET_NAMES = frozenset({"start_server", "open_connection"})
 
@@ -53,9 +51,7 @@ def pytest_collectstart(collector: pytest.Collector) -> None:
     production adapter end-to-end via ``AsyncioNetwork`` (and therefore
     does not trip the scanner because it doesn't call asyncio directly).
     """
-    import pytest as _pytest
-
-    if not isinstance(collector, _pytest.Module):
+    if not isinstance(collector, pytest.Module):
         return
     module_path = Path(str(collector.fspath))
     if not module_path.name.startswith("test_"):
@@ -63,7 +59,7 @@ def pytest_collectstart(collector: pytest.Collector) -> None:
     findings = scan_for_forbidden_asyncio_net_calls(module_path)
     if findings:
         joined = ", ".join(findings)
-        _pytest.fail(
+        pytest.fail(
             f"{module_path.name}: uses asyncio networking directly ({joined}). "
             "Tests must use pyleans.net.INetwork — typically InMemoryNetwork via the "
             "`network` fixture. See docs/adr/adr-network-port-for-testability.md.",
