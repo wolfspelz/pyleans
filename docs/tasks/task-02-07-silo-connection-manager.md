@@ -155,24 +155,75 @@ Eager connects mean cluster steady state has all mesh links open, so the first c
 
 ### Acceptance criteria
 
-- [ ] `connect(s)` returns a connection after a successful handshake
-- [ ] `connect(s)` called concurrently from 10 tasks results in exactly one `open_connection` call
-- [ ] `accept_inbound` validates handshake and registers the connection
-- [ ] Simultaneous dial from both sides produces exactly one live connection -- the one initiated by the smaller silo_id
-- [ ] `connect(s)` with mismatched cluster_id raises `HandshakeError` and is NOT retried
-- [ ] Connection loss triggers `on_lost` callback and schedules a reconnect
-- [ ] Reconnect loop stops when the silo leaves `active_silos`
-- [ ] Reconnect delays follow exponential backoff with jitter (test by instrumenting `asyncio.sleep`)
-- [ ] `update_active_silos` opens new connections and closes removed ones
-- [ ] `stop()` closes all connections and cancels all reconnect tasks
-- [ ] A callback that raises does NOT disrupt the manager
-- [ ] Unit tests cover: handshake failure paths (magic, version, cluster, silo), dedup race, graceful shutdown mid-reconnect, callback exception isolation
+- [x] `connect(s)` returns a connection after a successful handshake
+- [x] `connect(s)` called concurrently from 10 tasks results in exactly one `open_connection` call
+- [x] `accept_inbound` validates handshake and registers the connection
+- [x] Simultaneous dial from both sides produces exactly one live connection -- the one initiated by the smaller silo_id
+- [x] `connect(s)` with mismatched cluster_id raises `HandshakeError` and is NOT retried
+- [x] Connection loss triggers `on_lost` callback and schedules a reconnect
+- [x] Reconnect loop stops when the silo leaves `active_silos`
+- [x] Reconnect delays follow exponential backoff with jitter (test by instrumenting `asyncio.sleep`)
+- [x] `update_active_silos` opens new connections and closes removed ones
+- [x] `stop()` closes all connections and cancels all reconnect tasks
+- [x] A callback that raises does NOT disrupt the manager
+- [x] Unit tests cover: handshake failure paths (magic, version, cluster, silo), dedup race, graceful shutdown mid-reconnect, callback exception isolation
 
 ## Findings of code review
-_To be filled when task is complete._
+
+- **[resolved] Re-raise of `asyncio.CancelledError` in `_monitor_connection` was redundant under Python 3.12** (pylint `W0706`); removed. The `await conn.wait_closed()` is the only statement that can raise, and cancellation propagates naturally without the handler.
+- **[resolved] `TransportOptions` lacked `shutdown_timeout`** (named by the task spec for manager `stop()`). Added with default 10 s alongside the other connection-layer knobs from task-02-06.
+- **[resolved] `asyncio.TimeoutError` aliases** replaced with builtin `TimeoutError` per ruff `UP041` (Python 3.11+ aliases `asyncio.TimeoutError = TimeoutError`, so using the stdlib name is canonical).
+- **[resolved] `stop()` mixed `Task[None]` and `Task[SiloConnection]` in one loop**, tripping mypy's invariance check. Unified via `list[asyncio.Task[object]]` — the tasks are only cancelled and awaited, the return type is never inspected.
+- **[noted] `SiloAddress.from_silo_id` does not handle IPv6 literals** (colon-bearing host). IPv6 is explicitly out of PoC scope; documented in the method's docstring.
+- **[noted] `_install_connection` dedup uses `is_closed` as the liveness check**, not heartbeat RTT. A connection that's technically "running" but unresponsive would still win the race until the failure detector marks its peer suspect. This is by design: the manager is a pure connection-lifecycle layer; liveness decisions belong to task-02-11 (failure detector).
 
 ## Findings of security review
-_To be filled when task is complete._
+
+- **[reviewed, no change] Handshake is validated before any bytes of application traffic flow.** Inbound flow:
+  `read_handshake(timeout)` → `validate_peer_handshake(cluster_id)` → write our handshake → only then call `_install_connection`.
+  Outbound flow:
+  `open_connection(timeout=connect_timeout)` → write our handshake → `read_handshake(timeout=handshake_timeout)` → `validate_peer_handshake(expected_silo=dialled)` → install.
+  Peer is therefore never able to inject `TransportMessage` frames until it has proven protocol version, cluster id, and (on outbound) target silo id.
+- **[reviewed, no change] Handshake errors are treated as unrecoverable by the reconnect loop.** A `HandshakeError` (magic / version / cluster / silo mismatch, malformed / truncated payload) aborts the reconnect loop with an ERROR log rather than spinning forever: the task spec's "cluster-id mismatch is configuration, not transient" rule is honoured uniformly for *every* handshake failure mode.
+- **[reviewed, no change] Inbound handshake timeout + bounded payload limits** (task-02-05 `MAX_HANDSHAKE_STRING=256`, `handshake_timeout` default 5 s) cap the resources a hostile dialler can tie up. A silent peer cannot block an inbound slot indefinitely.
+- **[reviewed, no change] Callback sandboxing.** `_safely_invoke` wraps every `on_established` / `on_lost` callback in a broad `except Exception` with `logger.exception`. A raising callback produces a single log line and never propagates to the manager's event-loop tasks. Covered by `TestCallbacks::test_callback_exception_does_not_disrupt_manager`.
+- **[reviewed, no change] Dedup is deterministic and stateless.** The rule "keep the connection initiated by the smaller `silo_id`" is purely string-compared; both sides reach the same decision without coordination. No token or epoch is required, so there's no window in which a replayed inbound handshake could steal an established link -- the existing connection either wins by id (new drops) or loses by id (existing is closed gracefully, no frames have flowed on the new path yet).
+- **[reviewed, no change] Reconnect backoff uses `random.uniform` (non-cryptographic).** Appropriate: jitter's purpose is thundering-herd avoidance, not security; cryptographic randomness would add cost for no benefit.
+- **[reviewed, no change] Resource bounds.** The manager owns at most one `SiloConnection` per active silo, plus at most one reconnect/monitor task per silo. With `active_silos` bounded by the cluster size, the manager's footprint is O(N) silos with no unbounded growth paths.
+- **[reviewed, no change] Secret-logging rule (CLAUDE.md).** No log line emits handshake payload bytes, message headers, or bodies -- only silo identities, attempt counters, and exception strings.
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+
+- [src/pyleans/pyleans/transport/tcp/manager.py](../../src/pyleans/pyleans/transport/tcp/manager.py) -- `SiloConnectionManager`: per-peer `SiloConnection` ownership, outbound/inbound handshake, dedup, reconnect with exponential backoff + jitter, active-silo bookkeeping, graceful shutdown. Injects `sleep` for deterministic test timing.
+- [src/pyleans/test/test_transport_manager.py](../../src/pyleans/test/test_transport_manager.py) -- 16 AAA-labelled tests covering every acceptance bullet, wired entirely over `InMemoryNetwork`. Each endpoint fixture spins up a manager + simulated server that routes inbound connections to `manager.accept_inbound`.
+
+### Files modified
+
+- [src/pyleans/pyleans/transport/tcp/__init__.py](../../src/pyleans/pyleans/transport/tcp/__init__.py) -- re-exports `SiloConnectionManager`.
+- [src/pyleans/pyleans/transport/tcp/connection.py](../../src/pyleans/pyleans/transport/tcp/connection.py) -- `SiloConnection` gains `wait_closed() -> _CloseReason`, `close_reason` property, and a `_closed_event`. The manager uses these to monitor link-state changes without polling.
+- [src/pyleans/pyleans/identity.py](../../src/pyleans/pyleans/identity.py) -- `SiloAddress.from_silo_id(str)` classmethod parses the `host:port:epoch` wire form back into a `SiloAddress`; used by `accept_inbound` to derive the remote address from the peer's handshake.
+- [src/pyleans/pyleans/transport/options.py](../../src/pyleans/pyleans/transport/options.py) -- new `shutdown_timeout: float = 10.0` (default from the task spec), alongside the task-02-06 connection knobs.
+
+### Key implementation decisions
+
+- **Dedup is tie-broken on `initiator` silo, not on which connection object arrived first.** Storing `_initiators: dict[SiloAddress, SiloAddress]` alongside `_connections` makes the tie-break deterministic regardless of event-loop scheduling order. Same rule applied on both ends yields the same surviving connection without protocol-level coordination.
+- **Reconnect only fires on `"lost"` close_reason.** `_monitor_connection` awaits `conn.wait_closed()`; if the reason is `"normal"` (e.g. `manager.disconnect()` triggered it), no reconnect is scheduled. Reconnection is a response to transport failure, not to deliberate teardown.
+- **`sleep` is an injected callable** (`_SleepFn`, default `asyncio.sleep`). Tests replace it with an instrumented fake that records delays, producing deterministic verification of the exponential-backoff curve (`0.01, 0.02, 0.04, 0.08, 0.08` with `max_delay=0.08`, `jitter_fraction=0`).
+- **Eager connects for newly-active silos happen as fire-and-forget tasks** (`_eager_connect`) so `update_active_silos` returns promptly. A failed eager connect falls through to the reconnect loop for as long as the silo remains active.
+- **Handshake failures short-circuit the reconnect loop.** `HandshakeError` -> `logger.error` + return. Only transient `TransportConnectionError` / `OSError` increment the attempt counter.
+- **`_install_connection` is the single choke point for dedup.** Both the outbound connect path and the inbound accept path funnel through it, so the dedup rule is applied exactly once per potential duplicate regardless of who initiated which side.
+
+### Deviations from the original design
+
+- **No `shutdown_timeout` in TransportOptions originally** — the task spec referenced `options.shutdown_timeout` but the field didn't exist. Added rather than hardcoded, matching the task-spec intent.
+- **Monitor-task approach** instead of direct callback wiring from `SiloConnection`. The spec's prose described "on `on_connection_lost` (delivered from `SiloConnection` via callback)"; I implemented this as a per-connection monitor coroutine that awaits `conn.wait_closed()`. Functionally identical, simpler to reason about under cancellation and dedup.
+
+### Test coverage summary
+
+- 16 new tests in `test_transport_manager.py`. Each is AAA-labelled with exactly one Act.
+- Full suite: **622 passed** (up from 606 after task-02-06).
+- `ruff check` + `ruff format --check` clean.
+- `pylint src/pyleans/pyleans src/counter_app src/counter_client` rated **10.00/10**.
+- `mypy` errors unchanged at 24 (all in pre-existing, unrelated files).

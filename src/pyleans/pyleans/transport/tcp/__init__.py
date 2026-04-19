@@ -7,9 +7,11 @@ Task-02-07 adds per-peer pooling, task-02-08 assembles the full
 """
 
 from pyleans.transport.tcp.connection import SiloConnection
+from pyleans.transport.tcp.manager import SiloConnectionManager
 from pyleans.transport.tcp.pending import PendingRequests
 
 __all__ = [
     "PendingRequests",
     "SiloConnection",
+    "SiloConnectionManager",
 ]

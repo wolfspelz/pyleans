@@ -57,6 +57,22 @@ class SiloAddress:
         """URL/topic-safe encoding of the address (underscores, not colons)."""
         return f"{self.host}_{self.port}_{self.epoch}"
 
+    @classmethod
+    def from_silo_id(cls, silo_id: str) -> "SiloAddress":
+        """Inverse of :attr:`silo_id` — parse a ``host:port:epoch`` string.
+
+        Raises :class:`ValueError` on malformed input. IPv6 literals
+        (colon-bearing hosts) are not supported in the PoC.
+        """
+        parts = silo_id.rsplit(":", 2)
+        if len(parts) != 3:
+            raise ValueError(f"invalid silo id {silo_id!r}: expected host:port:epoch")
+        host, port_str, epoch_str = parts
+        try:
+            return cls(host=host, port=int(port_str), epoch=int(epoch_str))
+        except ValueError as exc:
+            raise ValueError(f"invalid silo id {silo_id!r}: {exc}") from exc
+
     def __lt__(self, other: "SiloAddress") -> bool:
         """Deterministic order used for connection-dedup tie-breaking."""
         return self.silo_id < other.silo_id

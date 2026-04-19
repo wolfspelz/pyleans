@@ -78,6 +78,8 @@ class SiloConnection:
         self._keepalive_task: asyncio.Task[None] | None = None
         self._handler_tasks: set[asyncio.Task[None]] = set()
         self._close_tasks: set[asyncio.Task[None]] = set()
+        self._closed_event = asyncio.Event()
+        self._close_reason: _CloseReason | None = None
 
     @property
     def remote_silo(self) -> SiloAddress:
@@ -88,8 +90,23 @@ class SiloConnection:
         return self._state == "closed"
 
     @property
+    def close_reason(self) -> _CloseReason | None:
+        """The reason passed to ``close()``. ``None`` until the close completes."""
+        return self._close_reason
+
+    @property
     def pending_count(self) -> int:
         return len(self._pending)
+
+    async def wait_closed(self) -> _CloseReason:
+        """Block until the connection is fully closed; return its close reason.
+
+        Returns immediately if already closed. Used by the connection
+        manager to trigger reconnection when a connection is lost.
+        """
+        await self._closed_event.wait()
+        assert self._close_reason is not None  # set atomically with the event
+        return self._close_reason
 
     async def start(self) -> None:
         """Launch the read-loop and keepalive tasks.
@@ -136,7 +153,9 @@ class SiloConnection:
         await self._close_writer()
         await self._await_read_task()
         await self._cancel_handler_tasks()
+        self._close_reason = reason
         self._state = "closed"
+        self._closed_event.set()
         logger.info("SiloConnection closed: remote=%s", self._remote_silo)
 
     async def send_request(

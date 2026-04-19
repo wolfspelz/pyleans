@@ -33,6 +33,7 @@ DEFAULT_HANDSHAKE_TIMEOUT = 5.0
 DEFAULT_CLOSE_DRAIN_TIMEOUT = 5.0
 DEFAULT_MAX_INBOUND_CONCURRENCY = 256
 DEFAULT_WRITE_BUFFER_HIGH_WATER = 1024 * 1024
+DEFAULT_SHUTDOWN_TIMEOUT = 10.0
 
 BackpressureMode = Literal["block", "raise"]
 
@@ -55,5 +56,6 @@ class TransportOptions:
     max_inbound_concurrency: int = DEFAULT_MAX_INBOUND_CONCURRENCY
     write_buffer_high_water: int = DEFAULT_WRITE_BUFFER_HIGH_WATER
     backpressure_mode: BackpressureMode = "block"
+    shutdown_timeout: float = DEFAULT_SHUTDOWN_TIMEOUT
     ssl_context: ssl.SSLContext | None = None
     network: INetwork = field(default_factory=AsyncioNetwork)
