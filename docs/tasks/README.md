@@ -199,7 +199,7 @@ One-time transformation of the existing codebase into the ideal Phase 1 state. E
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 02-04 | [Transport ABCs](task-02-04-transport-abcs.md) | [ ] | 02-01, 01-15 |
+| 02-04 | [Transport ABCs](task-02-04-transport-abcs.md) | [x] | 02-01, 01-15 |
 | 02-05 | [Wire Protocol](task-02-05-wire-protocol.md) | [ ] | 02-01, 02-04 |
 | 02-06 | [Silo Connection](task-02-06-silo-connection.md) | [ ] | 02-04, 02-05 |
 | 02-07 | [Silo Connection Manager](task-02-07-silo-connection-manager.md) | [ ] | 02-05, 02-06 |

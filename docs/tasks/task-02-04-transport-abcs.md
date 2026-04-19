@@ -222,18 +222,58 @@ This invariant is enforced by the adapter layer so the runtime never has to writ
 
 ### Acceptance criteria
 
-- [ ] All ABCs non-instantiable; abstract methods listed above
-- [ ] `TransportMessage` is frozen, hashable, round-trips field equality
-- [ ] `TransportOptions` defaults match the architecture doc §6.1
-- [ ] `TransportTimeoutError` is-a `TimeoutError`, `TransportConnectionError` is-a `ConnectionError`
-- [ ] `MessageType` values match the wire codepoints in [architecture/pyleans-transport.md §4.3](../architecture/pyleans-transport.md) so task-02-05 can reuse the enum directly
-- [ ] Unit tests: instantiation failures, callback registration signature checks, dataclass frozen-ness, error hierarchy isinstance checks
+- [x] All ABCs non-instantiable; abstract methods listed above
+- [x] `TransportMessage` is frozen, hashable, round-trips field equality
+- [x] `TransportOptions` defaults match the architecture doc §6.1
+- [x] `TransportTimeoutError` is-a `TimeoutError`, `TransportConnectionError` is-a `ConnectionError`
+- [x] `MessageType` values match the wire codepoints in [architecture/pyleans-transport.md §4.3](../architecture/pyleans-transport.md) so task-02-05 can reuse the enum directly
+- [x] Unit tests: instantiation failures, callback registration signature checks, dataclass frozen-ness, error hierarchy isinstance checks
 
 ## Findings of code review
-_To be filled when task is complete._
+
+- **Clean code / SOLID**: each file has exactly one responsibility — messages, errors, options, ABCs. ABCs are thin (all methods abstract); no default implementations leak into the port.
+- **Type hints**: fully typed; callback aliases (`MessageHandler`, `ConnectionCallback`, `DisconnectionCallback`) carry `Awaitable` return types so any non-coroutine implementation fails mypy at the consumer.
+- **Hexagonal architecture**: the package ships *only* ports. The concrete TCP adapter (02-06..02-08) imports this; the port does not depend on any adapter. `TransportOptions` takes an `INetwork` — the parallel port from Phase 1 — so the whole mesh stays testable without OS sockets.
+- **Naming**: `IClusterTransport`, `ITransportFactory` use the Phase 2 port-naming convention; `MessageType`, `MessageDirection` are PascalCase IntEnums; constants (`DEFAULT_*`) in UPPER_SNAKE.
+- **Tests**: AAA labels; exactly one Act per test; covers frozen-ness, equality, hashability, int enum wire values, each error hierarchy relation, `TimeoutError` / `ConnectionError` interoperability via `pytest.raises`, ABC instantiation refusal, abstract method set, factory abstract method, callback parameter signatures.
+- **No dead code, no unused imports.** No logging is emitted from the port itself — adapters log at their own boundaries.
+
+No issues raised.
 
 ## Findings of security review
-_To be filled when task is complete._
+
+- **Input validation at the boundary**: the port does not accept untrusted input; adapters validate framing (task-02-05) and handshake (task-02-08). `TransportOptions` fields are plain numeric / `ssl.SSLContext` values — adapters enforce ranges where required.
+- **Unbounded resource consumption**: `max_message_size` (16 MB) and `max_in_flight_requests` (1000) cap memory per connection; the default is an explicit cap, not a silently unlimited value.
+- **TLS hook**: `ssl_context` is an optional `ssl.SSLContext` — adapters that support TLS must consume it. Port definition alone does not weaken security posture.
+- **No file I/O, no subprocess, no network**; the port is a pure contract module.
+
+No vulnerabilities found.
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created / modified
+
+- [src/pyleans/pyleans/transport/__init__.py](../../src/pyleans/pyleans/transport/__init__.py) — re-exports the package surface.
+- [src/pyleans/pyleans/transport/messages.py](../../src/pyleans/pyleans/transport/messages.py) — `MessageType`, `MessageDirection`, frozen `TransportMessage`.
+- [src/pyleans/pyleans/transport/errors.py](../../src/pyleans/pyleans/transport/errors.py) — `TransportError` and six subclasses with stdlib-base mixins for `TimeoutError` / `ConnectionError`.
+- [src/pyleans/pyleans/transport/options.py](../../src/pyleans/pyleans/transport/options.py) — `TransportOptions` dataclass defaulting to `AsyncioNetwork`.
+- [src/pyleans/pyleans/transport/cluster.py](../../src/pyleans/pyleans/transport/cluster.py) — `IClusterTransport`, `ITransportFactory`, callback aliases with contract docs.
+- [src/pyleans/test/test_transport_ports.py](../../src/pyleans/test/test_transport_ports.py) — 20 tests covering the full port surface.
+
+### Key decisions
+
+- **One file per concern.** The spec listed five files; I kept that split. It makes the port easy to read and gives each concern a clean import path (`pyleans.transport.errors` vs `pyleans.transport.cluster` vs …).
+- **`MessageType` IntEnum values chosen to match the wire codec.** The 02-05 wire-protocol task will read `message_type: int` directly off the wire and cast to `MessageType`, so the enum value is the source of truth. No separate codec mapping table.
+- **Dual-parent error classes (`TransportTimeoutError(TransportError, TimeoutError)`).** The grain runtime already writes `except TimeoutError:` / `except ConnectionError:` handlers; importing `TransportError` in the runtime would couple it to the transport adapter. The dual-parent approach lets callers stay on stdlib types while keeping adapter-specific context available.
+- **`TransportOptions` is mutable (`@dataclass`, not frozen).** The silo builder may want to adjust options after construction (e.g. in integration tests) without reconstructing the whole object. Frozen buys nothing here; the adapter copies every field it needs at `start()` time.
+- **`default_factory=AsyncioNetwork`** for the `network` field means production code gets real sockets with no extra wiring, while tests opt in to `InMemoryNetwork` by naming the argument.
+
+### Deviations
+
+None. The port surface matches the task spec exactly.
+
+### Test coverage summary
+
+20 tests covering: `MessageType` wire-codepoint values; `MessageDirection` enum identities; `TransportMessage` frozen semantics, equality, hashability; `TransportOptions` defaults, default-factory network type, in-memory-network override; `TransportError` hierarchy subclass relationships; stdlib `TimeoutError` / `ConnectionError` interoperability via `pytest.raises`; `IClusterTransport` ABC refusal to instantiate and the complete set of abstract methods; `ITransportFactory` ABC refusal and abstract `create_cluster_transport`; callback-parameter signature checks on both callback registration methods.
+
+Full suite: **515 tests** pass (Phase 1 + 02-01..02-04); `ruff check`, `ruff format --check`, `pylint` 10.00/10, `mypy` strict all clean.
