@@ -17,13 +17,27 @@ from pyleans.cluster.identity import (
     hash_silo_virtual_node,
     stable_hash,
 )
+from pyleans.cluster.placement import (
+    NoSilosAvailableError,
+    PlacementStrategy,
+    PreferLocalPlacement,
+    RandomPlacement,
+    get_placement_strategy,
+    placement,
+)
 
 __all__ = [
     "VIRTUAL_NODES_PER_SILO",
     "ClusterId",
     "ConsistentHashRing",
+    "NoSilosAvailableError",
+    "PlacementStrategy",
+    "PreferLocalPlacement",
+    "RandomPlacement",
     "RingPosition",
+    "get_placement_strategy",
     "hash_grain_id",
     "hash_silo_virtual_node",
+    "placement",
     "stable_hash",
 ]

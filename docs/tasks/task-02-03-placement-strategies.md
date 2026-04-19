@@ -87,21 +87,58 @@ The directory (task-02-13) catches this and surfaces it to the caller as a `Clus
 
 ### Acceptance criteria
 
-- [ ] `PlacementStrategy` is an ABC; instantiating it raises `TypeError`
-- [ ] `RandomPlacement.pick_silo(g, caller, [s1,s2,s3])` returns one of the three silos
-- [ ] `RandomPlacement` returns the same silo on first call for identical inputs (deterministic first-attempt)
-- [ ] `PreferLocalPlacement` returns `caller` when `caller in active_silos`
-- [ ] `PreferLocalPlacement` falls back to random when `caller is None` or `caller not in active_silos`
-- [ ] Empty `active_silos` raises `NoSilosAvailableError`
-- [ ] `@placement(RandomPlacement)` attaches `_placement_strategy` to the grain class
-- [ ] Grain without `@placement` defaults to `RandomPlacement`
-- [ ] Unit tests cover happy path, empty list, caller-not-in-list, determinism, decorator behavior
+- [x] `PlacementStrategy` is an ABC; instantiating it raises `TypeError`
+- [x] `RandomPlacement.pick_silo(g, caller, [s1,s2,s3])` returns one of the three silos
+- [x] `RandomPlacement` returns the same silo on first call for identical inputs (deterministic first-attempt)
+- [x] `PreferLocalPlacement` returns `caller` when `caller in active_silos`
+- [x] `PreferLocalPlacement` falls back to random when `caller is None` or `caller not in active_silos`
+- [x] Empty `active_silos` raises `NoSilosAvailableError`
+- [x] `@placement(RandomPlacement)` attaches `_placement_strategy` to the grain class
+- [x] Grain without `@placement` defaults to `RandomPlacement`
+- [x] Unit tests cover happy path, empty list, caller-not-in-list, determinism, decorator behavior
 
 ## Findings of code review
-_To be filled when task is complete._
+
+- **Clean code / SOLID / DRY / YAGNI / KISS**: `PlacementStrategy` is a single-method ABC; `RandomPlacement` and `PreferLocalPlacement` each have one responsibility; the decorator is a five-line function; `_require_silos` centralises the empty-list check.
+- **Type hints**: fully typed; `placement()` is generic over `TGrain` to preserve the decorated class's type; mypy strict clean.
+- **Hexagonal architecture**: module lives in `pyleans.cluster` alongside the ring — no networking, no I/O, no directory coupling. Downstream directory (task-02-13) injects the strategy.
+- **Naming**: `PlacementStrategy`, `RandomPlacement`, `PreferLocalPlacement` PascalCase; `pick_silo`, `pick_silo_retry`, `get_placement_strategy` snake_case. `DEFAULT_PLACEMENT_ATTR` constant isolates the grain-class attribute name so test and runtime code share the same identifier.
+- **Tests**: AAA labels, one Act per test, descriptive names; covers ABC instantiation, happy paths, determinism (including order-invariance of the silo list), retry divergence from the first-attempt seed, empty-list error, all three fallback branches of `PreferLocalPlacement`, decorator happy path / rejection of non-strategy types / rejection of instances, `get_placement_strategy` default and decorated paths, fresh-instance semantics.
+- **Logging**: DEBUG level for per-pick events (picks fire per grain activation, well under 1/sec/grain but potentially high aggregate volume — DEBUG is correct).
+- **No dead code or unused imports.**
+
+No issues raised.
 
 ## Findings of security review
-_To be filled when task is complete._
+
+- **Input validation at the boundary**: empty `active_silos` is rejected; `placement()` validates that its argument is a `PlacementStrategy` subclass (not an instance, not an unrelated class).
+- **Unbounded resource consumption**: strategy instances hold a single `random.Random` (retry RNG); no growing state.
+- **Deterministic RNG**: first-attempt seed is derived from `stable_hash(grain_id)` — no HashDoS exposure because the seed input is internal `GrainId` state, not untrusted input.
+- **No file, network, or subprocess I/O**; no secrets logged.
+
+No vulnerabilities found.
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created / modified
+
+- [src/pyleans/pyleans/cluster/placement.py](../../src/pyleans/pyleans/cluster/placement.py) — new — `PlacementStrategy` ABC, `RandomPlacement`, `PreferLocalPlacement`, `NoSilosAvailableError`, `placement` decorator, `get_placement_strategy` lookup.
+- [src/pyleans/pyleans/cluster/__init__.py](../../src/pyleans/pyleans/cluster/__init__.py) — extended — re-exports placement symbols alongside identity and ring.
+- [src/pyleans/test/test_cluster_placement.py](../../src/pyleans/test/test_cluster_placement.py) — new — 20 tests.
+
+### Key decisions
+
+- **Deterministic first-attempt, unseeded retry.** First-attempt pick derives its RNG seed from `hash_grain_id(grain_id)` so racing clients converge on the same silo and de-duplicate at the directory owner. Retries use a non-seeded `random.Random` instance — not the global `random` module — so the production loop and the test harness can both run without global RNG side effects.
+- **Sort before seeded choice.** `RandomPlacement._first_attempt_pick` sorts `active_silos` by `silo_id` before calling `seeded.choice`. Without the sort, two callers with the same grain id but different silo-list ordering would see different picks. With the sort, determinism depends only on the set of active silos.
+- **Decorator attaches the strategy *class*, not an instance.** Grain classes are loaded once at import time; picking a strategy at runtime preserves flexibility (e.g. strategies that read config on construction) without coupling import-time state to runtime configuration.
+- **`NoSilosAvailableError` derives from `RuntimeError`, not `PyleansError`.** The task spec prescribes this; the distinction exists because no-silos is a cluster-readiness problem surfaced separately from directory / transport errors.
+
+### Deviations
+
+None. Task spec acceptance criteria are all met; a `pick_silo_retry` helper was added on `RandomPlacement` so callers that need non-seeded picks do not have to instantiate a second strategy or reach into global RNG state.
+
+### Test coverage summary
+
+20 tests: ABC refusal to instantiate; happy path for random and prefer-local; deterministic first-attempt pick across equal, order-varied, and fresh strategy instances; distribution across 50 grain ids; retry divergence from first-attempt pick; empty-silo-list raises in both strategies; prefer-local falls back when caller is `None` and when caller is stale; decorator attaches the class / returns the same class / rejects non-strategy types / rejects instances; `get_placement_strategy` returns decorated class instance, falls back to random, returns a fresh instance each call.
+
+Full suite: **495 tests** pass; `ruff check`, `ruff format --check`, `pylint` 10.00/10, `mypy` strict all clean.
