@@ -10,13 +10,22 @@ from pyleans.net import INetwork
 DEFAULT_GATEWAY = "localhost:30000"
 
 
+def _resolve_gateways(args: argparse.Namespace) -> list[str]:
+    """Accept either a single ``--gateway`` or a repeated list of them."""
+    raw = getattr(args, "gateway", DEFAULT_GATEWAY)
+    if isinstance(raw, list):
+        return list(raw)
+    return [raw]
+
+
 async def run(args: argparse.Namespace, *, network: INetwork | None = None) -> None:
     """Connect to the silo, execute the command, and print the result."""
-    client = ClusterClient(gateways=[args.gateway], network=network)
+    gateways = _resolve_gateways(args)
+    client = ClusterClient(gateways=gateways, network=network)
     try:
         await client.connect()
     except ConnectionError as e:
-        print(f"Error: could not connect to silo at {args.gateway}: {e}", file=sys.stderr)
+        print(f"Error: could not connect to any gateway {gateways}: {e}", file=sys.stderr)
         sys.exit(1)
 
     try:
@@ -64,10 +73,16 @@ def main() -> None:
     )
     parser.add_argument(
         "--gateway",
-        default=DEFAULT_GATEWAY,
-        help=f"Gateway address host:port (default: {DEFAULT_GATEWAY})",
+        action="append",
+        help=(
+            "Gateway address host:port. May be repeated; the client "
+            "falls back to the next address on connection error. "
+            f"(default: {DEFAULT_GATEWAY})"
+        ),
     )
     args = parser.parse_args()
+    if not args.gateway:
+        args.gateway = [DEFAULT_GATEWAY]
     asyncio.run(run(args))
 
 
