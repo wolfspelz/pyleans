@@ -31,12 +31,15 @@ from pyleans.cluster.directory_messages import (
     DIRECTORY_DEACTIVATE_HEADER,
     DIRECTORY_HANDOFF_HEADER,
     DIRECTORY_LOOKUP_HEADER,
+    DIRECTORY_REBUILD_QUERY_HEADER,
     DIRECTORY_REGISTER_HEADER,
     DIRECTORY_RESOLVE_HEADER,
     DIRECTORY_UNREGISTER_HEADER,
+    Arc,
     DeactivateRequest,
     HandoffRequest,
     LookupRequest,
+    RebuildQueryResponse,
     RegisterRequest,
     ResolveRequest,
     UnregisterRequest,
@@ -45,6 +48,7 @@ from pyleans.cluster.directory_messages import (
     decode_handoff,
     decode_lookup,
     decode_none,
+    decode_rebuild_query,
     decode_register,
     decode_resolve,
     decode_unregister,
@@ -53,11 +57,16 @@ from pyleans.cluster.directory_messages import (
     encode_handoff,
     encode_lookup,
     encode_none,
+    encode_rebuild_response,
     encode_register,
     encode_resolve,
     encode_unregister,
     is_directory_header,
     placement_class_name,
+)
+from pyleans.cluster.directory_rebuild import (
+    DirectoryRebuildCoordinator,
+    compute_new_arcs,
 )
 from pyleans.cluster.hash_ring import ConsistentHashRing
 from pyleans.cluster.identity import hash_grain_id
@@ -87,6 +96,15 @@ The agent notifies the runtime so it can deactivate the losing
 activation; the directory itself cannot reach into the runtime.
 """
 
+LocalActivationsProvider = Callable[[], Awaitable[list[DirectoryEntry]]]
+"""Returns this silo's live activations as :class:`DirectoryEntry`s.
+
+Used by :meth:`DistributedGrainDirectory.handle_rebuild_query` to
+answer peers during the post-failure rebuild protocol. The silo
+runtime (task 02-17) supplies the provider; tests can supply a
+static list.
+"""
+
 
 class ClusterNotReadyError(PyleansError):
     """The hash ring is empty — no silo can own any grain."""
@@ -101,7 +119,7 @@ class DistributedGrainDirectory(IGrainDirectory):
     transport dispatcher.
     """
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         local_silo: SiloAddress,
         transport: IClusterTransport,
@@ -109,6 +127,8 @@ class DistributedGrainDirectory(IGrainDirectory):
         *,
         active_silos: list[SiloAddress] | None = None,
         rpc_timeout: float = _RPC_TIMEOUT,
+        rebuild_grace_period: float = 2.0,
+        local_activations_provider: LocalActivationsProvider | None = None,
     ) -> None:
         self._local = local_silo
         self._transport = transport
@@ -119,6 +139,15 @@ class DistributedGrainDirectory(IGrainDirectory):
         self._epoch = 0
         self._lock = asyncio.Lock()
         self._deactivate_notifier: DeactivateNotifier | None = None
+        self._local_activations_provider = local_activations_provider
+        self._rebuild = DirectoryRebuildCoordinator(
+            local_silo=local_silo,
+            transport=transport,
+            apply_entries=self._apply_rebuild_entries,
+            deactivate_duplicate=self._send_deactivate,
+            grace_period=rebuild_grace_period,
+            rpc_timeout=rpc_timeout,
+        )
 
     @property
     def local_silo(self) -> SiloAddress:
@@ -137,7 +166,7 @@ class DistributedGrainDirectory(IGrainDirectory):
         self._deactivate_notifier = notifier
 
     async def on_membership_changed(self, active: list[SiloAddress]) -> None:
-        """Rebuild the ring and stream handoffs for entries that moved off-silo."""
+        """Rebuild the ring, stream handoffs, and schedule a directory rebuild."""
         async with self._lock:
             self._active_silos = list(active)
             old_ring = self._ring
@@ -152,9 +181,17 @@ class DistributedGrainDirectory(IGrainDirectory):
                     stale_ids.append(grain_id)
             for gid in stale_ids:
                 self._owned.pop(gid, None)
-            del old_ring
+            new_arcs = compute_new_arcs(old_ring, new_ring, self._local)
+            existing_snapshot = dict(self._owned)
         for new_owner, entry in handoffs:
             await self._send_handoff(new_owner, entry)
+        peers = [s for s in active if s != self._local]
+        if new_arcs and peers:
+            await self._rebuild.schedule_rebuild(
+                new_arcs,
+                peers,
+                existing_entries=existing_snapshot,
+            )
 
     async def register(self, grain_id: GrainId, silo: SiloAddress) -> DirectoryEntry:
         owner = self._owner_of(grain_id)
@@ -318,6 +355,11 @@ class DistributedGrainDirectory(IGrainDirectory):
     async def _notify_deactivate(
         self, loser_silo: SiloAddress, grain_id: GrainId, activation_epoch: int
     ) -> None:
+        await self._send_deactivate(loser_silo, grain_id, activation_epoch)
+
+    async def _send_deactivate(
+        self, loser_silo: SiloAddress, grain_id: GrainId, activation_epoch: int
+    ) -> None:
         body = encode_deactivate(
             DeactivateRequest(grain_id=grain_id, activation_epoch=activation_epoch)
         )
@@ -330,6 +372,27 @@ class DistributedGrainDirectory(IGrainDirectory):
                 grain_id,
                 exc,
             )
+
+    async def _apply_rebuild_entries(self, merged: dict[GrainId, DirectoryEntry]) -> None:
+        async with self._lock:
+            for gid, entry in merged.items():
+                self._owned[gid] = entry
+                self._epoch = max(self._epoch, entry.activation_epoch)
+
+    async def _answer_rebuild_query(self, arcs: list[Arc]) -> list[DirectoryEntry]:
+        if self._local_activations_provider is None:
+            logger.debug(
+                "rebuild query received but no activations provider installed on %s",
+                self._local.silo_id,
+            )
+            return []
+        local = await self._local_activations_provider()
+        matching: list[DirectoryEntry] = []
+        for entry in local:
+            h = hash_grain_id(entry.grain_id)
+            if any(arc.contains(h) for arc in arcs):
+                matching.append(entry)
+        return matching
 
     # ---- Inbound request handling -------------------------------------------
 
@@ -373,6 +436,10 @@ class DistributedGrainDirectory(IGrainDirectory):
                 placement = placement_cls()
                 entry = await self._resolve_or_activate_local(rreq.grain_id, placement, rreq.caller)
                 body = encode_entry(entry)
+            elif header == DIRECTORY_REBUILD_QUERY_HEADER:
+                rbq = decode_rebuild_query(msg.body)
+                entries = await self._answer_rebuild_query(rbq.arcs)
+                body = encode_rebuild_response(RebuildQueryResponse(entries=entries))
             else:
                 return None
         except ValueError as exc:

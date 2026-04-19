@@ -30,6 +30,7 @@ DIRECTORY_UNREGISTER_HEADER: Final[bytes] = DIRECTORY_HEADER_PREFIX + b"unregist
 DIRECTORY_RESOLVE_HEADER: Final[bytes] = DIRECTORY_HEADER_PREFIX + b"resolve"
 DIRECTORY_HANDOFF_HEADER: Final[bytes] = DIRECTORY_HEADER_PREFIX + b"handoff"
 DIRECTORY_DEACTIVATE_HEADER: Final[bytes] = DIRECTORY_HEADER_PREFIX + b"deactivate"
+DIRECTORY_REBUILD_QUERY_HEADER: Final[bytes] = DIRECTORY_HEADER_PREFIX + b"rebuild-query"
 
 
 def is_directory_header(header: bytes) -> bool:
@@ -69,6 +70,29 @@ class HandoffRequest:
 class DeactivateRequest:
     grain_id: GrainId
     activation_epoch: int
+
+
+@dataclass(frozen=True)
+class Arc:
+    """Closed-open arc on the 64-bit hash ring; wraps when ``start > end``."""
+
+    start: int
+    end: int
+
+    def contains(self, hash_position: int) -> bool:
+        if self.start <= self.end:
+            return self.start < hash_position <= self.end
+        return hash_position > self.start or hash_position <= self.end
+
+
+@dataclass(frozen=True)
+class RebuildQueryRequest:
+    arcs: list[Arc]
+
+
+@dataclass(frozen=True)
+class RebuildQueryResponse:
+    entries: list[DirectoryEntry]
 
 
 # ---- Codec helpers -----------------------------------------------------------
@@ -233,6 +257,37 @@ def decode_deactivate(data: bytes) -> DeactivateRequest:
 
 def placement_class_name(strategy: PlacementStrategy) -> str:
     return type(strategy).__name__
+
+
+def encode_rebuild_query(req: RebuildQueryRequest) -> bytes:
+    return _dump(
+        {
+            "arcs": [{"start": a.start, "end": a.end} for a in req.arcs],
+        }
+    )
+
+
+def decode_rebuild_query(data: bytes) -> RebuildQueryRequest:
+    obj = _load(data)
+    raw_arcs = obj.get("arcs", [])
+    if not isinstance(raw_arcs, list):
+        raise ValueError("arcs must be a list")
+    arcs = [Arc(start=int(a["start"]), end=int(a["end"])) for a in raw_arcs if isinstance(a, dict)]
+    return RebuildQueryRequest(arcs=arcs)
+
+
+def encode_rebuild_response(resp: RebuildQueryResponse) -> bytes:
+    return _dump(
+        {"entries": [_entry_to_dict(e) for e in resp.entries]},
+    )
+
+
+def decode_rebuild_response(data: bytes) -> RebuildQueryResponse:
+    obj = _load(data)
+    raw = obj.get("entries", [])
+    if not isinstance(raw, list):
+        raise ValueError("entries must be a list")
+    return RebuildQueryResponse(entries=[_entry_from_dict(e) for e in raw])
 
 
 def _dump(obj: dict[str, Any]) -> bytes:
