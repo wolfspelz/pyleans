@@ -70,6 +70,20 @@ class StorageInconsistencyError(StorageError):
         super().__init__(f"ETag mismatch: expected {expected_etag!r}, got {actual_etag!r}")
 
 
+class StorageUnavailableError(StorageError):
+    """Storage backend is unreachable.
+
+    The grain runtime treats this as an infrastructure fault (log and
+    continue with cached state if possible); distinct from
+    :class:`StorageInconsistencyError` which is a correctness concern
+    the grain author may need to handle.
+    """
+
+
+class StorageSerializationError(StorageError):
+    """State could not be serialised / deserialised to the storage backend."""
+
+
 class MembershipError(PyleansError):
     """Error in the membership provider."""
 
