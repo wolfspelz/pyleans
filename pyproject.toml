@@ -21,6 +21,12 @@ dev = [
     "pylint>=3.3",
     "types-PyYAML>=6.0",
 ]
+postgresql = [
+    "asyncpg>=0.29",
+]
+test-postgresql = [
+    "pytest-postgresql>=6.0",
+]
 
 [build-system]
 requires = ["hatchling"]

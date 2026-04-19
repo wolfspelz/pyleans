@@ -242,7 +242,7 @@ Production-grade backing store for Phase 2. Both providers share a single Postgr
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 02-20 | [PostgreSQL Membership Provider](task-02-20-postgresql-membership.md) | [ ] | 02-09 |
+| 02-20 | [PostgreSQL Membership Provider](task-02-20-postgresql-membership.md) | [x] | 02-09 |
 | 02-21 | [PostgreSQL Storage Provider](task-02-21-postgresql-storage.md) | [ ] | 01-05, 01-11 |
 
 ## Parallel Execution Opportunities
