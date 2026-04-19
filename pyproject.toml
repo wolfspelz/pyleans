@@ -38,6 +38,9 @@ strict = true
 python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
+files = ["src/pyleans/pyleans", "src/counter_app", "src/counter_client"]
+explicit_package_bases = true
+mypy_path = "src/pyleans"
 
 [tool.ruff]
 target-version = "py312"
