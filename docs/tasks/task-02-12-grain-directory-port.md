@@ -7,12 +7,15 @@
 - [task-01-08-grain-runtime.md](task-01-08-grain-runtime.md)
 
 ## References
-- [adr-grain-directory](../adr/adr-grain-directory.md)
+- [adr-single-activation-cluster](../adr/adr-single-activation-cluster.md) -- `IGrainDirectory` is one of the three subsystems (with membership and cluster transport) that jointly enforce the single-activation contract. This task introduces the port; [task-02-13](task-02-13-distributed-grain-directory.md) delivers the enforcement implementation.
+- [adr-grain-directory](../adr/adr-grain-directory.md) -- consistency model and hash-ring choice.
 - [orleans-cluster.md](../orleans-architecture/orleans-cluster.md) -- §6.6 pluggable directory
 
 ## Description
 
 Before building the distributed grain directory, extract the existing in-memory directory behavior (currently a `dict[GrainId, GrainActivation]` inside `GrainRuntime`) behind an abstract `IGrainDirectory` port. This is a refactor, not a feature addition: Phase 1 behavior must remain identical after this task.
+
+Landing the port now (before the distributed implementation) is deliberate: the port is the seam where the single-activation contract from [adr-single-activation-cluster](../adr/adr-single-activation-cluster.md) becomes testable. Every directory adapter — `LocalGrainDirectory` here, `DistributedGrainDirectory` in [task-02-13](task-02-13-distributed-grain-directory.md), future adapters — must satisfy the same `register`/`resolve_or_activate` contract; contract tests written against this ABC are reusable for all of them.
 
 Two wins from landing this first:
 1. [Task-31](task-02-13-distributed-grain-directory.md) can then drop in a `DistributedGrainDirectory` implementation without touching runtime call paths.

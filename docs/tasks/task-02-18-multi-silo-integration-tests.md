@@ -8,6 +8,8 @@
 - [task-02-17-silo-lifecycle-stages.md](task-02-17-silo-lifecycle-stages.md)
 
 ## References
+- [adr-single-activation-cluster](../adr/adr-single-activation-cluster.md) -- this task is the end-to-end verification that the single-activation contract is honoured by the assembled cluster. At least one scenario must assert `len(silo_a.runtime.activations) + len(silo_b.runtime.activations) == 1` for a shared `GrainId`.
+- [adr-network-port-for-testability](../adr/adr-network-port-for-testability.md) -- integration tests run over `InMemoryNetwork` so no OS ports are bound.
 - [orleans-cluster.md](../orleans-architecture/orleans-cluster.md)
 - [plan.md](../plan.md) -- Phase 2 milestone ("Two silo processes on localhost, a grain call from silo A executes on silo B")
 
@@ -70,7 +72,7 @@ Each scenario below becomes a pytest marked `@pytest.mark.integration`.
 **test_cluster_basics.py**
 
 1. `test_two_silos_form_cluster` -- start s1, then s2; both end up with `active == {s1, s2}` within 5 s.
-2. `test_grain_call_routes_to_owner` -- 2 silos, grain activates on whichever silo the directory picks; calling from the other silo returns the same value regardless of which silo holds the activation.
+2. `test_grain_call_routes_to_owner` -- 2 silos, grain activates on whichever silo the directory picks; calling from the other silo returns the same value regardless of which silo holds the activation. **Asserts `len(silo_a.runtime.activations) + len(silo_b.runtime.activations) == 1` for the shared `GrainId`** — the direct single-activation-invariant check mandated by [adr-single-activation-cluster](../adr/adr-single-activation-cluster.md).
 3. `test_grain_state_persisted_across_silos` -- grain activates on A, writes state, deactivates; next call from B re-activates on the placement-chosen silo with state re-loaded.
 4. `test_directory_cache_hit` -- 100 calls to same grain, only the first miss hits the owning silo for a directory lookup.
 

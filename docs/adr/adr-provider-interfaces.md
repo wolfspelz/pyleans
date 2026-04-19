@@ -83,5 +83,6 @@ class StreamProvider(ABC):
 
 ## Related
 
+- [adr-single-activation-cluster](adr-single-activation-cluster.md) — the membership port defined here is one of the three subsystems (with `IGrainDirectory` and `IClusterTransport`) that jointly enforce single activation.
 - [adr-serialization](adr-serialization.md) — providers use the `Serializer` port.
 - [adr-dev-mode](adr-dev-mode.md) — in-memory defaults.

@@ -24,10 +24,12 @@ The second is significantly more complex. We need a placement model that scales 
 ## Consequences
 
 - Phase 1 code is dramatically simpler — no hashing, no partition ownership, no cache invalidation.
-- During membership changes in Phase 2, briefly inconsistent views are possible (same grain activated on two silos). Accepted for PoC; documented as a known limitation.
+- **The directory is the enforcement point for the single-activation contract** ([adr-single-activation-cluster](adr-single-activation-cluster.md)): `resolve_or_activate(grain_id)` is the single method that binds a `GrainId` to exactly one owner silo across the cluster. Without the directory, the contract cannot be honoured; substituting a different mechanism (per-silo activation with etag-CAS, side-channel files, etc.) was evaluated and rejected there.
+- During membership changes in Phase 2, briefly inconsistent views are possible (same grain activated on two silos). Accepted for PoC; documented as a known limitation. Directory recovery (Phase 2 task 02-15) converges the cluster back to exactly one activation after the transient.
 - Moving to strong consistency later is a significant change but does not affect grain-author APIs.
 
 ## Related
 
+- [adr-single-activation-cluster](adr-single-activation-cluster.md) — the single-activation contract this directory enforces.
 - [adr-dev-mode](adr-dev-mode.md)
 - [adr-provider-interfaces](adr-provider-interfaces.md) — membership provider is the input to the directory.

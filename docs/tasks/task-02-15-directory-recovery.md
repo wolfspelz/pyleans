@@ -8,6 +8,8 @@
 - [task-02-13-distributed-grain-directory.md](task-02-13-distributed-grain-directory.md)
 
 ## References
+- [adr-single-activation-cluster](../adr/adr-single-activation-cluster.md) -- the single-activation contract must hold across membership changes, not just under steady state. This task is the protocol that restores the invariant after a silo crash.
+- [adr-grain-directory](../adr/adr-grain-directory.md) -- eventually consistent model; this task converges the cluster back to a single owner after the transient inconsistency window.
 - [orleans-cluster.md](../orleans-architecture/orleans-cluster.md) -- §6.4 recovery after crashes (even though that describes the 9.0+ strongly-consistent directory, the recovery protocol is conceptually identical)
 - [plan.md](../plan.md) -- Phase 2 item 7 (crash recovery)
 
@@ -15,7 +17,7 @@
 
 When silo `X` dies, it takes its partition of the directory with it. The ring rebuilds (remaining silos see a smaller active set), and the arcs previously owned by `X` are reassigned to the next clockwise successors. Those new owners start with **empty** partitions -- they have no idea which grains the cluster thought `X` was hosting.
 
-If we do nothing, grain calls to those grains silently pile up as cache misses that resolve to "not registered -> activate fresh" -- any grain that was active on a silo different from `X` (the common case: `X` was the directory owner, not the host) ends up with a duplicate activation on top of the existing one.
+If we do nothing, grain calls to those grains silently pile up as cache misses that resolve to "not registered -> activate fresh" -- any grain that was active on a silo different from `X` (the common case: `X` was the directory owner, not the host) ends up with a duplicate activation on top of the existing one. **That outcome violates the single-activation contract from [adr-single-activation-cluster](../adr/adr-single-activation-cluster.md)**, so the rebuild protocol here is not optional — it is what preserves the invariant across membership changes.
 
 The recovery protocol: new partition owners **broadcast a rebuild query** to all remaining silos, asking "which of your local activations' directory entries hashed into an arc I now own?" Silos reply with their local activation set; the new owner populates its partition.
 

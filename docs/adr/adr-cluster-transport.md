@@ -54,6 +54,7 @@ Option A. The transport layer is pluggable behind `IClusterTransport` and `IGate
 
 ## Related
 
+- [adr-single-activation-cluster](adr-single-activation-cluster.md) — `IClusterTransport` is one of the three subsystems (with membership and `IGrainDirectory`) that jointly enforce single activation; this ADR defines the port that carries directory RPCs and remote grain invocations.
 - [pyleans-transport.md](../architecture/pyleans-transport.md) — full design and protocol comparison
 - [adr-provider-interfaces](adr-provider-interfaces.md) — the other pluggable ports (storage, membership, streaming)
 - [adr-dev-mode](adr-dev-mode.md) — Phase 1 ships without any transport

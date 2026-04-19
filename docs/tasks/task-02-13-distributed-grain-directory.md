@@ -10,6 +10,7 @@
 - [task-02-12-grain-directory-port.md](task-02-12-grain-directory-port.md)
 
 ## References
+- [adr-single-activation-cluster](../adr/adr-single-activation-cluster.md) -- this task is the **primary enforcement point** for the single-activation contract. Without it, two silos can independently activate the same `GrainId`; with it, the cluster guarantees at most one activation across all silos under steady-state membership.
 - [adr-grain-directory](../adr/adr-grain-directory.md) -- eventually consistent (pre-Orleans 9.0)
 - [architecture/consistent-hash-ring.md](../architecture/consistent-hash-ring.md)
 - [orleans-cluster.md](../orleans-architecture/orleans-cluster.md) -- §6.1 purpose, §6.2 architecture, §6.3 location flow, §6.5 pre-9.0 directory
@@ -21,6 +22,8 @@ Replace `LocalGrainDirectory` with a directory that is partitioned across all ac
 This is the smallest distributed directory that upholds the single-activation guarantee under steady-state membership. Membership changes introduce a brief inconsistency window (two silos disagreeing on who the owner is); the crash-recovery protocol in [task-02-15](task-02-15-directory-recovery.md) resolves it.
 
 The directory is explicitly **eventually consistent** per ADR. Strong consistency (Orleans 9.0+) is deferred to post-PoC.
+
+**Storage provider stays oblivious.** The directory is what guarantees only one silo writes storage for a given `GrainId` at a time; the storage provider does not need cluster awareness or owner-silo checks. This is why we can reuse the Phase 1 `FileStorageProvider` and `PostgreSQL` storage unchanged across Phase 2 — their contract is per-call etag-CAS, not cluster-wide exclusion.
 
 ### Files to create
 
@@ -148,6 +151,7 @@ When a grain is deactivated on silo `S`, `S` must:
 
 - [ ] Three-silo test: `register(g, s1)` from s1 stores entry on owner (whoever that turns out to be); lookup from s2 and s3 returns the same entry
 - [ ] `resolve_or_activate(g, placement, caller)` returns the entry; subsequent calls from any silo return the same entry
+- [ ] **Single-activation under contention**: two concurrent `resolve_or_activate(grain_id)` calls from different silos return the same `DirectoryEntry`; only one silo ends up owning the activation. Assertion: across the cluster, exactly one silo holds the activation for that `GrainId` ([adr-single-activation-cluster](../adr/adr-single-activation-cluster.md)).
 - [ ] Concurrent `resolve_or_activate` for same `g` from 10 silos produces 1 entry (no duplicate activations)
 - [ ] Ownership transfer on membership change: owner `X` hands off to new owner `Y`; old entry on `X` is discarded after grace period
 - [ ] Split-view race test: two silos briefly disagree on owner, create entries, reconcile to lower-epoch winner; loser silo receives a "deactivate" signal

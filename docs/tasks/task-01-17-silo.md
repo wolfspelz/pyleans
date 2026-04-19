@@ -319,6 +319,31 @@ When no providers are specified, use sensible defaults:
 
 The GatewayListener is constructed with `network=self._network`, so test suites that construct the Silo with `network=InMemoryNetwork()` never bind a real port.
 
+### Phase 2 extension point (forward reference)
+
+Phase 1's `Silo` is a single-silo, in-process runtime per
+[adr-dev-mode](../adr/adr-dev-mode.md). The single-activation contract from
+[adr-single-activation-cluster](../adr/adr-single-activation-cluster.md) is
+trivially satisfied because there is only one silo. Phase 2 preserves the
+contract across multiple silos by wiring the cluster subsystem into the same
+`Silo` class:
+
+- Cluster transport ([task-02-08-tcp-cluster-transport.md](task-02-08-tcp-cluster-transport.md))
+  — constructed and started after the membership registration stage.
+- Distributed grain directory
+  ([task-02-13-distributed-grain-directory.md](task-02-13-distributed-grain-directory.md))
+  and directory cache ([task-02-14-directory-cache.md](task-02-14-directory-cache.md))
+  — passed to `GrainRuntime` so the routing hook from
+  [task-02-16-remote-grain-invoke.md](task-02-16-remote-grain-invoke.md) is active.
+- Lifecycle stages ([task-02-17-silo-lifecycle-stages.md](task-02-17-silo-lifecycle-stages.md))
+  — replace today's ad-hoc start/stop with explicit ordered stages so calls
+  are not accepted before the cluster join and directory priming complete.
+
+Phase 1 does not anticipate the full shape of these parameters; Phase 2 will
+extend the constructor signature as needed. What Phase 1 commits to is:
+`Silo`'s public surface (`grain_factory`, `runtime`, `start`, `stop`,
+`start_background`) is stable, and Phase 2 is additive with respect to it.
+
 ### Lifecycle
 
 ```
@@ -395,6 +420,17 @@ No issues found. Review checked:
 ### Deviations from original design
 - Removed `container` parameter from constructor. The DI container (the DI container) is available as a separate utility for users who want it, but Silo handles wiring directly for simplicity.
 - Added `start_background()` method not in original spec — needed for practical embedding and testing.
+
+### Phase 2 forward reference
+Phase 2 will extend `Silo` to wire the cluster subsystem (cluster transport,
+grain directory, directory cache, lifecycle stages) per
+[adr-single-activation-cluster](../adr/adr-single-activation-cluster.md). The
+routing hook added to `GrainRuntime.invoke()` by
+[task-02-16-remote-grain-invoke.md](task-02-16-remote-grain-invoke.md) is the
+only place Phase 1 semantics can change; the gateway listener is already
+silo-transparent because it dispatches every request to `runtime.invoke()`, so
+no gateway change is required. The stable Phase 1 public surface
+(`grain_factory`, `runtime`, `start`, `stop`, `start_background`) is preserved.
 
 ### Test coverage summary
 - 25 tests covering: start/stop lifecycle, blocking start, double-stop safety, properties, grain registration, stateless and stateful grain calls, lifecycle hooks, multiple independent grains, membership registration/unregistration, shutdown status transition, heartbeat periodic execution, heartbeat cancellation, graceful shutdown with grain deactivation, state persistence through stop, full integration restart test, concurrent grain calls, default providers, custom providers, package imports.

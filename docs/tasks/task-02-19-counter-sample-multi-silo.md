@@ -11,6 +11,7 @@
 - [task-02-18-multi-silo-integration-tests.md](task-02-18-multi-silo-integration-tests.md)
 
 ## References
+- [adr-single-activation-cluster](../adr/adr-single-activation-cluster.md) -- this sample is the human-facing demonstration of the single-activation invariant: two silos share one counter, each `inc` increments the same state regardless of which gateway the client hits.
 - [adr-dev-mode](../adr/adr-dev-mode.md)
 - [plan.md](../plan.md) -- Phase 2 milestone
 

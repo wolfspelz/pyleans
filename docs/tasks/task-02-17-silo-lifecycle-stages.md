@@ -11,6 +11,7 @@
 - [task-02-14-directory-cache.md](task-02-14-directory-cache.md)
 
 ## References
+- [adr-single-activation-cluster](../adr/adr-single-activation-cluster.md) -- ordered stages are what make "no client calls accepted before cluster join + directory prime" enforceable; without them, a silo could answer gateway requests and activate grains before it had agreed with the cluster that it owns its share of the ring.
 - [adr-graceful-shutdown](../adr/adr-graceful-shutdown.md)
 - [orleans-cluster.md](../orleans-architecture/orleans-cluster.md) -- §8 silo lifecycle (stages table, connectivity validation, IAmAlive staleness skip)
 - [plan.md](../plan.md) -- Phase 2 item 9
@@ -140,6 +141,8 @@ The Phase 1 signal-handler mechanism ([silo.py:269-287](../../src/pyleans/pylean
 - [ ] Phase 1 `Silo` still passes its existing tests after the refactor
 - [ ] Integration test: 2-silo cluster, first silo starts, second silo starts and joins via connectivity validation
 - [ ] Integration test: simulated asymmetric partition -- second silo aborts startup with a clear error
+- [ ] **Call-before-ACTIVE is rejected**: a gateway request arriving at a silo before it reaches the `ACTIVE` stage is rejected cleanly (error code or connection refusal); no grain is activated before cluster join and directory cache priming complete. Upholds [adr-single-activation-cluster](../adr/adr-single-activation-cluster.md) — a silo must not claim ownership of any grain before the cluster has agreed it is Active.
+- [ ] **Graceful-leave cleanup**: on shutdown, the silo unregisters its directory entries (via `IGrainDirectory.unregister`) before transport/cluster stages tear down, so surviving silos do not have to rebuild ownership from scratch for grains this silo hosted.
 
 ## Findings of code review
 _To be filled when task is complete._

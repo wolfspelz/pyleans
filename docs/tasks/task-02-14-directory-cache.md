@@ -7,6 +7,8 @@
 - [task-02-13-distributed-grain-directory.md](task-02-13-distributed-grain-directory.md)
 
 ## References
+- [adr-single-activation-cluster](../adr/adr-single-activation-cluster.md) -- the cache is a performance optimisation *on top of* the directory; it must never be load-bearing for correctness. This task documents and tests that property.
+- [adr-grain-directory](../adr/adr-grain-directory.md) -- the authority the cache fronts.
 - [orleans-cluster.md](../orleans-architecture/orleans-cluster.md) -- §6.2 "Local caching... most grain calls resolve locally without a remote directory read"
 - [plan.md](../plan.md) -- Phase 2 item 6
 
@@ -14,7 +16,7 @@
 
 Without a cache, every grain call on a non-owner silo incurs a directory RPC round-trip. Orleans' answer is a per-silo cache of recent lookups, invalidated on membership change. Any cache hit means the cost of "where does this grain live?" drops from milliseconds to microseconds; cache misses fall back through to [task-02-13](task-02-13-distributed-grain-directory.md).
 
-The cache is optional from a correctness standpoint -- never relying on the cache is always correct. That property is what we test: the cache must be safely discardable.
+The cache is optional from a correctness standpoint -- never relying on the cache is always correct. That property is what we test: the cache must be safely discardable. Single-activation is enforced by the [distributed directory](task-02-13-distributed-grain-directory.md); the cache can only return stale entries, never wrong ones, because a stale entry points to a silo that either still owns the grain (correct) or rejects the call with `NotOwner` / `TransportConnectionError` (triggering invalidation + refetch).
 
 ### Files to create
 

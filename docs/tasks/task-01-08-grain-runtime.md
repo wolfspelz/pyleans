@@ -139,6 +139,26 @@ On deactivation:
 A periodic asyncio task scans all activations every 60 seconds.
 If `time.monotonic() - activation.last_activity > idle_timeout`, deactivate.
 
+### Phase 2 extension point (forward reference)
+
+Phase 1 trivially satisfies the single-activation contract from
+[adr-single-activation-cluster](../adr/adr-single-activation-cluster.md) because
+there is only one silo. Phase 2 preserves the same contract across multiple silos
+by introducing two optional collaborators on `GrainRuntime`:
+
+- `directory: IGrainDirectory | None` — the distributed grain directory
+  ([task-02-13-distributed-grain-directory.md](task-02-13-distributed-grain-directory.md)).
+- `cluster_transport: IClusterTransport | None` — the silo-to-silo mesh
+  ([task-02-08-tcp-cluster-transport.md](task-02-08-tcp-cluster-transport.md)).
+
+Both default to `None` in Phase 1. Phase 2 adds a **single routing hook inside
+`GrainRuntime.invoke()`** — between args normalization and local activation
+lookup — that consults the directory and, if the grain's owner is remote,
+forwards the call over `cluster_transport` instead of activating locally. See
+[task-02-16-remote-grain-invoke.md](task-02-16-remote-grain-invoke.md) for the
+full hook specification. Phase 1 semantics are unchanged when both parameters
+are `None`.
+
 ### Acceptance criteria
 
 - [x] Grain activated on first call, instance created correctly
@@ -174,6 +194,16 @@ _To be filled when task is complete._
 
 ### Deviations
 - None.
+
+### Phase 2 forward reference
+Phase 2 will add optional `directory: IGrainDirectory | None` and
+`cluster_transport: IClusterTransport | None` constructor parameters and a
+single routing hook inside `invoke()` (see
+[adr-single-activation-cluster](../adr/adr-single-activation-cluster.md) and
+[task-02-16-remote-grain-invoke.md](task-02-16-remote-grain-invoke.md)).
+Phase 1 semantics are preserved: when both parameters are `None`, `invoke()`
+behaves exactly as specified here. The hook is additive — no Phase 1 test or
+behaviour changes.
 
 ### Test coverage
 - 20 tests: activation (first call, reuse, unknown type/method), state management (load from storage, defaults, save, clear), lifecycle hooks (on_activate/on_deactivate), turn-based execution (sequential same grain, concurrent different grains), error propagation, idle collection, start/stop.

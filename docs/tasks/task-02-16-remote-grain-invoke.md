@@ -9,6 +9,8 @@
 - [task-02-14-directory-cache.md](task-02-14-directory-cache.md)
 
 ## References
+- [adr-single-activation-cluster](../adr/adr-single-activation-cluster.md) -- this task installs the **one routing hook** inside `GrainRuntime.invoke()` through which the single-activation contract becomes observable to every grain caller (gateway, grain-to-grain, in-process). Silo transparency is a structural consequence of placing the hook here.
+- [adr-cluster-access-boundary](../adr/adr-cluster-access-boundary.md) -- gateway is the sole external entry; it already dispatches every request through `runtime.invoke()`, so the hook from this task makes *every* gateway silo-transparent with no gateway-side change.
 - [orleans-networking.md](../orleans-architecture/orleans-networking.md) -- §4 RPC, §5 message format, §9 correlation, §10 one-way
 - [adr-concurrency-model](../adr/adr-concurrency-model.md)
 
@@ -17,6 +19,10 @@
 Up to this point every grain call in Phase 1 has been local: `GrainRuntime.invoke(grain_id, method, args, kwargs)` enqueues a message into the grain's inbox and awaits the future. Phase 2 extends this so the same API transparently routes over the network when the directory says the grain lives on another silo.
 
 The guarantee we deliver: **from grain code, a call to another grain reference looks identical whether the target is local or remote**. Same method signature, same exception propagation, same cancellation behavior. That property is the whole point of the Virtual Actor abstraction.
+
+**Gateway transparency comes for free.** The Phase 1 gateway listener's `_dispatch` already hands every inbound request to `runtime.invoke()`. Adding the directory-lookup + remote-forwarding hook *inside* `invoke()` means client calls through silo A's gateway for a grain owned by silo B are forwarded automatically, with no gateway-side code change. No separate "gateway routing" task is needed — this is the load-bearing reason [adr-single-activation-cluster](../adr/adr-single-activation-cluster.md) places the hook in the runtime rather than the gateway.
+
+**Storage stays cluster-oblivious.** Because only the owner silo runs `_invoke_local`, only the owner writes to storage for a given `GrainId`. The storage provider (file, PostgreSQL, …) needs no cluster-membership awareness; per-call etag-CAS is sufficient.
 
 ### Files to create/modify
 
@@ -151,6 +157,7 @@ Deferred. Phase 2 does NOT propagate Python's cancel-scope across silos. If the 
 ### Acceptance criteria
 
 - [ ] Grain call targeting a grain on another silo executes on that silo and returns the result
+- [ ] **Gateway silo transparency**: a client call through *any* silo's gateway for a remote grain is forwarded transparently; activation count for that `GrainId` across the cluster is exactly 1 ([adr-single-activation-cluster](../adr/adr-single-activation-cluster.md)).
 - [ ] Application exception propagates as `RemoteGrainException` with preserved type name and message
 - [ ] `TransportConnectionError` triggers one cache invalidation + retry; the grain call succeeds if the retry finds a valid owner
 - [ ] `TransportTimeoutError` propagates as `TimeoutError` (no retry)

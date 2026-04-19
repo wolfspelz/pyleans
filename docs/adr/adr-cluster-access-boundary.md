@@ -65,6 +65,7 @@ Concretely:
 
 ## Related
 
+- [adr-single-activation-cluster](adr-single-activation-cluster.md) — silo transparency (client hits *any* gateway, cluster routes to owner) is a structural consequence of the single-activation contract. This ADR pins the external boundary where that transparency is delivered.
 - [adr-cluster-transport](adr-cluster-transport.md) — pluggable transport ports. This ADR constrains what `IGatewayTransport` exposes semantically; it does not constrain framing.
 - [adr-library-vs-cli](adr-library-vs-cli.md) — pyleans is a library.
 - [adr-package-split](adr-package-split.md) — `pyleans.server` (silo) vs `pyleans.client` (lightweight cluster client).

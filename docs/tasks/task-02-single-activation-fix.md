@@ -269,8 +269,51 @@ _N/A — this is a meta-task; per-task reviews land in each individual task file
 
 ## Summary of implementation
 
-_To be filled in three stages:_
+### Phase A — complete
 
-- _After Phase A: record which ADRs/tasks were edited, with commit SHAs. State "Ideal task list frozen as of commit `<SHA>`."_
-- _After Phase B: list the 21+ commits (or commit range) for each task. Cross-reference each task's own Summary._
-- _After Phase C: record verification results — automated suite pass, manual smoke test output, ADR compliance pass. Declare this task complete._
+**A.1 — ADR audit.** Added `adr-single-activation-cluster` cross-references to five ADRs, and extended two of them with the contract's implications:
+
+- [adr-grain-directory](../adr/adr-grain-directory.md) — Related link added; Consequences extended to name the directory as the single-activation enforcement point and note that directory recovery converges the cluster back to one activation after transient membership-change inconsistency.
+- [adr-cluster-transport](../adr/adr-cluster-transport.md) — Related link added (framed as one of the three subsystems that jointly enforce single activation).
+- [adr-cluster-access-boundary](../adr/adr-cluster-access-boundary.md) — Related link added (silo transparency as a structural consequence of the contract).
+- [adr-provider-interfaces](../adr/adr-provider-interfaces.md) — Related link added (membership is one of the three enforcement subsystems).
+- [adr-dev-mode](../adr/adr-dev-mode.md) — Related link added; Consequences extended to state explicitly that single-silo is a *scope* decision, not a correctness exemption.
+
+No ADR contained a contradiction to remove (grepped for "per-silo activation", "side-channel file", "client-side routing", "central directory", "leader silo" — all hits were inside `adr-single-activation-cluster` itself, describing and rejecting the alternatives).
+
+**A.2 — Phase 1 task spec audit.** Added forward-reference sections to two task specs:
+
+- [task-01-08-grain-runtime.md](task-01-08-grain-runtime.md) — new "Phase 2 extension point (forward reference)" describing the optional `directory: IGrainDirectory | None` and `cluster_transport: IClusterTransport | None` constructor parameters and the single routing hook in `invoke()`; Summary gained a matching forward-reference note. Phase 1 acceptance criteria were not modified.
+- [task-01-17-silo.md](task-01-17-silo.md) — new "Phase 2 extension point (forward reference)" describing where the cluster subsystem (transport, directory, cache, lifecycle stages) wires into the Silo; Summary gained a matching forward-reference note. Phase 1 acceptance criteria were not modified.
+
+**A.3 — Phase 2 task spec audit.** Edits to the seven load-bearing Phase 2 task specs (plus the multi-silo sample):
+
+- [task-02-12-grain-directory-port.md](task-02-12-grain-directory-port.md) — Reference to single-activation ADR added; Description expanded to frame the port as the seam where the contract becomes testable.
+- [task-02-13-distributed-grain-directory.md](task-02-13-distributed-grain-directory.md) — Reference added; Description gained a "storage stays cluster-oblivious" note; new acceptance criterion for *single-activation-under-contention* (two concurrent `resolve_or_activate` from different silos return the same entry; cluster-wide activation count = 1).
+- [task-02-14-directory-cache.md](task-02-14-directory-cache.md) — Reference added; Description expanded to document that the cache is never load-bearing for correctness — it may only return stale entries, never wrong ones, because the authoritative directory rejects/invalidates stale callers.
+- [task-02-15-directory-recovery.md](task-02-15-directory-recovery.md) — Reference added; Description reframed — rebuild is not optional; it is the protocol that restores single activation after the transient membership-change inconsistency window.
+- [task-02-16-remote-grain-invoke.md](task-02-16-remote-grain-invoke.md) — References to single-activation ADR *and* `adr-cluster-access-boundary` added; Description gained the "gateway transparency comes for free" finding from A.4 (no gateway-side code change needed — the Phase 1 gateway listener already dispatches through `runtime.invoke()`); new acceptance criterion: "a client call through *any* silo's gateway for a remote grain is forwarded transparently; activation count for that `GrainId` across the cluster is exactly 1."
+- [task-02-17-silo-lifecycle-stages.md](task-02-17-silo-lifecycle-stages.md) — Reference added; two new acceptance criteria: "call-before-ACTIVE is rejected" (the silo does not accept calls before cluster-join + directory-prime complete) and "graceful-leave cleanup" (shutdown unregisters directory entries before transport/cluster stages tear down).
+- [task-02-18-multi-silo-integration-tests.md](task-02-18-multi-silo-integration-tests.md) — References to single-activation and `adr-network-port-for-testability` added; scenario 2 (`test_grain_call_routes_to_owner`) gained the explicit assertion `len(silo_a.runtime.activations) + len(silo_b.runtime.activations) == 1` for the shared `GrainId`.
+- [task-02-19-counter-sample-multi-silo.md](task-02-19-counter-sample-multi-silo.md) — Reference added (the sample is the human-facing demonstration of the invariant).
+
+No Phase 2 task was found to describe a shortcut (file-based directory substitute, per-silo activation with storage-only serialisation, client-side hash ring). Dependencies in every `task-02-*.md` spec match the [README §Phase 2 dependency graph](README.md#phase-2-dependency-graph) at the time of this commit.
+
+**A.4 — Gap analysis.** Five concerns investigated; conclusion: **no new Phase 2 task is needed**.
+
+- **Gateway forwarding.** The Phase 1 gateway listener's `_dispatch` already hands every request to `runtime.invoke()`. Placing the directory-lookup + remote-forwarding hook *inside* `invoke()` makes the gateway silo-transparent with zero gateway-side change. Finding captured in `task-02-16-remote-grain-invoke.md` Description.
+- **Client changes.** `ClusterClient` remains thin per [adr-single-activation-cluster](../adr/adr-single-activation-cluster.md) and [adr-cluster-access-boundary](../adr/adr-cluster-access-boundary.md). No Phase 2 task assumes otherwise.
+- **Multi-gateway discovery.** A client knowing about more than one gateway is a fault-tolerance / load-balancing concern, not a correctness-of-single-activation concern. Out of scope for this plan. Flagged as a post-PoC follow-up; not listed as a gap here.
+- **Storage provider contract.** The directory guarantees that only the owning silo's runtime writes to storage for a given grain. Storage providers (file, PostgreSQL, future adapters) need no cluster-membership awareness. Findings captured in `task-02-13-distributed-grain-directory.md` and `task-02-16-remote-grain-invoke.md` Descriptions.
+- **Missing Phase 2 task?**
+  - *Graceful cluster-leave (directory re-ownership on shutdown)* — covered by `task-02-17` stage `RUNTIME_GRAIN_SERVICES` ("deactivate every local grain… unregister from directory") plus the new explicit acceptance criterion added in A.3.
+  - *Directory entry TTL / stale liveness* — covered by `task-02-11` (failure detector marks the silo Dead), `task-02-14` (cache TTL + per-call invalidation on `TransportConnectionError`), and `task-02-15` (rebuild on membership change).
+  - *Zombie activations after ownership change (split-view)* — covered by `task-02-15` ("What about duplicate activations already created during the outage?" — lower-epoch winner + `DEACTIVATE_DUPLICATE` to the loser).
+
+**A.5 — Ideal task list frozen.** The [README.md §Phase 2 task list](README.md#phase-2-tasks) is the ideal task list as of the `Phase 2 spec alignment with single-activation ADR` commit (the commit that introduces this Summary). Phase B executes tasks 02-01 through 02-21 verbatim from that list; no tasks are added, removed, or renumbered.
+
+### Phase B — pending
+_To be filled task-by-task as 02-01..02-21 commits land. List the 21 commits (or commit range) for each task and cross-reference each task's own Summary._
+
+### Phase C — pending
+_To be filled after Phase B: record verification results — automated suite pass, manual smoke test output, ADR compliance pass. Declare this task complete._
