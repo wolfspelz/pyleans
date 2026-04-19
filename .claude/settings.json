@@ -34,7 +34,6 @@
       "Bash(.venv/bin/pytest *)",
       "Bash(.venv/bin/pytest)",
       "Bash(.venv/bin/python -m pytest *)",
-      "Bash(MYPYPATH=* .venv/bin/python -m mypy *)",
       "Bash(.venv/bin/python -m src.counter_app)",
       "Bash(.venv/bin/python -m src.counter_app *)",
       "Bash(.venv/bin/python -m src.counter_client *)",

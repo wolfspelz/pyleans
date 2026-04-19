@@ -230,10 +230,14 @@ class TestGrainCalls:
 
 class TestMembershipIntegration:
     async def test_silo_registers_on_start(self, network: InMemoryNetwork) -> None:
+        # Arrange
         membership = FakeMembershipProvider()
         silo = make_silo(network, membership=membership)
+
+        # Act
         await silo.start_background()
 
+        # Assert
         snapshot = await membership.read_all()
         assert len(snapshot.silos) == 1
         assert snapshot.silos[0].status == SiloStatus.ACTIVE
@@ -241,21 +245,24 @@ class TestMembershipIntegration:
         await silo.stop()
 
     async def test_silo_unregisters_on_stop(self, network: InMemoryNetwork) -> None:
+        # Arrange
         membership = FakeMembershipProvider()
         silo = make_silo(network, membership=membership)
         await silo.start_background()
-        assert len((await membership.read_all()).silos) == 1
 
+        # Act
         await silo.stop()
+
+        # Assert
         assert (await membership.read_all()).silos == []
 
     async def test_silo_status_shutting_down_before_unregister(
         self, network: InMemoryNetwork
     ) -> None:
+        # Arrange
         membership = FakeMembershipProvider()
         silo = make_silo(network, membership=membership)
         await silo.start_background()
-
         statuses: list[SiloStatus] = []
         original_try_update = membership.try_update_silo
 
@@ -265,7 +272,10 @@ class TestMembershipIntegration:
 
         membership.try_update_silo = track_status  # type: ignore[assignment]
 
+        # Act
         await silo.stop()
+
+        # Assert
         assert SiloStatus.SHUTTING_DOWN in statuses
 
 

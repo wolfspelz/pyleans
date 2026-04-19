@@ -198,7 +198,12 @@ Fix all vulnerabilities found. Add tests for any security fix.
 ## Commit and PR Rules
 
 - Every commit must leave the project in a working state (tests pass, type checks pass).
-- Commit messages describe the "why", not the "what".
-- **Keep commit messages concise: usually one line per distinct change.** A single-line subject is ideal; add a brief body only when the "why" is non-obvious. No bullet lists of file names, no restating the diff.
+- **Commit messages are reviewed at the git-commit permission prompt — they are the primary artefact the human uses to see what happened.** Write them for that reader, not for future archaeology.
+- Commit message format is strict:
+  - Subject line: imperative mood, ≤72 characters, describes the headline change.
+  - Body is mandatory and is a flat bullet-point list — no headings, no sub-headings, no bold/italic styling, no grouping. One bullet per distinct change.
+  - Each bullet states what changed and why, in one line. The diff already shows line-level detail; the bullet summarises the meaning of that diff.
+  - Call out anything a reviewer would want to block on: removed legacy surface, renamed public symbols, changed on-wire / on-disk formats, new dependencies, new `type: ignore`s, touched public APIs, changed tests, changed rules in `.claude/`.
+  - Do not include: file-path dumps with no commentary, counts of tests passing, lint-score restatements ("pylint 10/10"), "Task XX-YY" prefixes in the body (they belong only in the subject), or generated-content-style blurbs.
 - Do not commit generated files, secrets, or IDE-specific configuration.
 - After completing each task: perform code review, security review, fix all issues from both reviews, verify all unit tests pass, then git commit the result.
