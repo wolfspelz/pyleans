@@ -80,9 +80,7 @@ def decode_request(data: bytes) -> GrainCallRequest:
     if version != GRAIN_CALL_SCHEMA_VERSION:
         raise ValueError(f"unsupported grain-call schema v{version!r}")
     try:
-        grain_id = GrainId(
-            grain_type=str(obj["grain_type"]), key=str(obj["grain_key"])
-        )
+        grain_id = GrainId(grain_type=str(obj["grain_type"]), key=str(obj["grain_key"]))
         method = str(obj["method"])
         raw_args = obj.get("args", [])
         raw_kwargs = obj.get("kwargs", {})
@@ -106,9 +104,7 @@ def decode_request(data: bytes) -> GrainCallRequest:
 
 
 def encode_success(result: Any) -> bytes:
-    return json.dumps(
-        {"ok": True, "result": result}, separators=(",", ":")
-    ).encode("utf-8")
+    return json.dumps({"ok": True, "result": result}, separators=(",", ":")).encode("utf-8")
 
 
 def encode_failure(
@@ -117,9 +113,7 @@ def encode_failure(
     remote_traceback: str | None = None,
 ) -> bytes:
     truncated_message = message[:_MAX_EXCEPTION_MESSAGE_LEN]
-    truncated_tb = (
-        remote_traceback[:_MAX_TRACEBACK_LEN] if remote_traceback is not None else None
-    )
+    truncated_tb = remote_traceback[:_MAX_TRACEBACK_LEN] if remote_traceback is not None else None
     return json.dumps(
         {
             "ok": False,
@@ -143,9 +137,7 @@ def decode_response(data: bytes) -> GrainCallSuccess | GrainCallFailure:
     return GrainCallFailure(
         exception_type=str(obj.get("exception_type", "Exception")),
         message=str(obj.get("message", "")),
-        remote_traceback=(
-            str(obj["traceback"]) if obj.get("traceback") is not None else None
-        ),
+        remote_traceback=(str(obj["traceback"]) if obj.get("traceback") is not None else None),
     )
 
 

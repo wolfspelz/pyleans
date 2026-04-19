@@ -138,9 +138,7 @@ class ReplyingTransport(IClusterTransport):
             raise TransportConnectionError(f"no canned reply for {target.silo_id}")
         return header, resp
 
-    async def send_one_way(
-        self, target: SiloAddress, header: bytes, body: bytes
-    ) -> None:
+    async def send_one_way(self, target: SiloAddress, header: bytes, body: bytes) -> None:
         del target, header, body
 
     async def send_ping(self, target: SiloAddress, timeout: float = 10.0) -> float:
@@ -236,8 +234,8 @@ class TestRemoteInvoke:
         directory = RoutingDirectory(local=local, owner_map={grain_id: remote1})
         cache = DirectoryCache(directory)
         transport = ReplyingTransport(local=local)
-        transport.raise_on[(remote1.silo_id, GRAIN_CALL_HEADER)] = (
-            TransportConnectionError("remote1 lost")
+        transport.raise_on[(remote1.silo_id, GRAIN_CALL_HEADER)] = TransportConnectionError(
+            "remote1 lost"
         )
         transport.responses[(remote2.silo_id, GRAIN_CALL_HEADER)] = encode_success(42)
         runtime = _make_runtime(directory=cache, transport=transport)
@@ -273,8 +271,8 @@ class TestRemoteInvoke:
         grain_id = GrainId("RemoteTestGrain", "r4")
         directory = RoutingDirectory(local=local, owner_map={grain_id: remote})
         transport = ReplyingTransport(local=local)
-        transport.raise_on[(remote.silo_id, GRAIN_CALL_HEADER)] = (
-            TransportTimeoutError("grain-call timed out")
+        transport.raise_on[(remote.silo_id, GRAIN_CALL_HEADER)] = TransportTimeoutError(
+            "grain-call timed out"
         )
         runtime = _make_runtime(directory=directory, transport=transport)
 

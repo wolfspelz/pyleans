@@ -172,9 +172,7 @@ class GrainRuntime:
             )
             if retry_entry.silo == self._local_silo:
                 return await self._invoke_local(grain_id, method_name, args, kwargs)
-            return await self._invoke_remote(
-                retry_entry.silo, grain_id, method_name, args, kwargs
-            )
+            return await self._invoke_remote(retry_entry.silo, grain_id, method_name, args, kwargs)
 
     async def _invoke_local(
         self,
@@ -284,9 +282,7 @@ class GrainRuntime:
         try:
             get_grain_class(req.grain_id.grain_type)
         except Exception as exc:  # pylint: disable=broad-except
-            logger.warning(
-                "Unknown grain type %r in inbound grain-call", req.grain_id.grain_type
-            )
+            logger.warning("Unknown grain type %r in inbound grain-call", req.grain_id.grain_type)
             exc_type, message, tb = format_exception_for_wire(exc)
             body = encode_failure(exc_type, message, tb)
             return TransportMessage(
@@ -296,9 +292,7 @@ class GrainRuntime:
                 body=body,
             )
         try:
-            result = await self._invoke_local(
-                req.grain_id, req.method, req.args, req.kwargs
-            )
+            result = await self._invoke_local(req.grain_id, req.method, req.args, req.kwargs)
             body = encode_success(result)
         except Exception as exc:  # pylint: disable=broad-except
             # Unwrap GrainMethodError wrapper so the original grain-author
