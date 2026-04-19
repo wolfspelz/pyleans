@@ -154,21 +154,111 @@ When the runtime deactivates a grain (idle timeout, `deactivate_on_idle`, or sil
 
 ### Acceptance criteria
 
-- [ ] `IGrainDirectory` ABC defined; abstract methods listed above
-- [ ] `LocalGrainDirectory` implements all five methods
-- [ ] `register` is idempotent: second call with same `grain_id` returns the first entry
-- [ ] `unregister(grain_id, other_silo)` is a no-op (no cross-silo eviction)
-- [ ] `resolve_or_activate` returns existing entry if registered, otherwise registers + returns
-- [ ] Runtime calls `resolve_or_activate` before activation; all Phase 1 tests still pass
-- [ ] Runtime calls `unregister` during deactivation (idle timeout + shutdown)
-- [ ] Silo default wires `LocalGrainDirectory(local_silo)` into the runtime when running single-silo
-- [ ] Unit tests cover register/lookup/unregister/resolve happy paths plus idempotency
+- [x] `IGrainDirectory` ABC defined; abstract methods listed above
+- [x] `LocalGrainDirectory` implements all four methods (`register`, `lookup`, `unregister`, `resolve_or_activate`)
+- [x] `register` is idempotent: second call with same `grain_id` returns the first entry
+- [x] `unregister(grain_id, other_silo)` is a no-op (no cross-silo eviction)
+- [x] `resolve_or_activate` returns existing entry if registered, otherwise registers + returns
+- [x] Runtime calls `resolve_or_activate` before activation; all Phase 1 tests still pass
+- [x] Runtime calls `unregister` during deactivation (idle timeout + shutdown)
+- [x] Silo default wires `LocalGrainDirectory(local_silo)` into the runtime when running single-silo
+- [x] Unit tests cover register/lookup/unregister/resolve happy paths plus idempotency
 
 ## Findings of code review
-_To be filled when task is complete._
+
+- [x] **Directory lock scope.** `LocalGrainDirectory` wraps `register`
+  and `unregister` with an `asyncio.Lock` so concurrent runtime
+  activations cannot race and produce two entries for the same
+  `GrainId`. `resolve_or_activate` dispatches into `register`, which
+  takes the same lock.
+- [x] **Placement-returns-non-local safety.** In the single-silo
+  setting the only candidate is the local silo. Rather than `assert`,
+  the code raises `RuntimeError` with a clear message if a strategy
+  violates the invariant — asserts are disabled under `python -O`.
+- [x] **Runtime seam raises instead of silently failing.** When
+  `entry.silo != local_silo`, `invoke()` raises
+  `NotImplementedError("Remote grain invocation ... is not wired until
+  task 02-16")`. That keeps dev mode deterministic and documents the
+  wiring point for 02-16 reviewers.
+- [x] **Unregister on deactivate.** Both the idle-collector path and
+  explicit `deactivate_grain` end with
+  `await self._directory.unregister(grain_id, self._local_silo)` so
+  the directory state tracks the activations dict one-for-one.
 
 ## Findings of security review
-_To be filled when task is complete._
+
+- [x] **Cross-silo eviction protection.** `unregister` only removes an
+  entry when the caller-supplied silo matches the recorded owner; a
+  hostile peer cannot forge an unregister to evict a grain from
+  another silo. Covered by `test_unregister_other_silo_is_noop`.
+- [x] **Input provenance.** The directory ABC operates on in-memory
+  `GrainId` / `SiloAddress` dataclasses — all callers are internal
+  runtime code; there is no network-sourced input path through this
+  module today. Task 02-13's distributed adapter will add the network
+  edge and its own boundary validation.
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+
+- `src/pyleans/pyleans/cluster/directory.py` — `IGrainDirectory` ABC
+  and `DirectoryEntry` value type. ABC holds the four primitives:
+  `register`, `lookup`, `unregister`, `resolve_or_activate`.
+- `src/pyleans/pyleans/server/local_directory.py` —
+  `LocalGrainDirectory(IGrainDirectory)`: single-silo in-memory
+  adapter using an `asyncio.Lock` for mutation safety and a
+  monotonic `_epoch` counter.
+- `src/pyleans/test/test_local_directory.py` — 14 unit tests: register
+  idempotency, lookup hits/misses, unregister owner-match /
+  cross-silo-noop / missing-noop, `resolve_or_activate` with both
+  `PreferLocalPlacement` and `RandomPlacement`, `DirectoryEntry`
+  field + frozenness.
+
+### Files modified
+
+- `src/pyleans/pyleans/server/runtime.py` — `GrainRuntime.__init__`
+  now accepts `directory`, `local_silo`, `placement_strategy` as
+  keyword-only parameters (all with sensible defaults so existing
+  callers remain valid). `invoke()` calls
+  `directory.resolve_or_activate(...)` before the activation lookup
+  and raises `NotImplementedError` if the directory routes the call
+  off-silo (dev-mode unreachable; wiring seam for 02-16).
+  `deactivate_grain()` now ends with a matching
+  `directory.unregister(grain_id, local_silo)` call.
+- `src/pyleans/pyleans/server/silo.py` — constructs
+  `LocalGrainDirectory(silo_address)` and injects it into the
+  runtime alongside the existing args.
+- `src/pyleans/pyleans/cluster/__init__.py` — re-exports
+  `IGrainDirectory` and `DirectoryEntry`.
+
+### Key implementation decisions
+
+- **Constructor injection with defaults.** Keeping the runtime's
+  directory optional (fallback to a local one built from the default
+  silo address) means Phase 1 tests that construct a runtime directly
+  stay untouched.
+- **`resolve_or_activate` consults placement even in local mode.**
+  This mirrors the distributed path exactly, so task 02-13's
+  implementation doesn't have to change the call shape — only the
+  directory's internal mechanics.
+- **Atomic `register` under a lock.** Two concurrent activations for
+  the same grain must receive the same entry; without the lock the
+  `dict.get`/`dict.__setitem__` pair could interleave and produce two
+  entries. The lock is per-directory and short-held.
+- **`unregister` is authority-checked.** Only the owner-silo can
+  evict its own entry. This is the semantics the distributed
+  directory will need to preserve under network eviction races.
+
+### Deviations from the original design
+
+- The task's `resolve_or_activate` sketch used a standalone
+  `assert chosen == self._local`. Replaced with a `RuntimeError`
+  raise so the invariant survives `python -O`.
+
+### Test coverage
+
+- 14 new directory tests (`test_local_directory.py`).
+- Full suite: 732 passing (up from 718 at task start; Phase 1
+  semantics unchanged).
+- `ruff check` clean; `ruff format` clean; `pylint` 10.00/10;
+  `mypy src/pyleans/pyleans` clean (no new errors anywhere).

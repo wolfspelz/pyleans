@@ -8,15 +8,18 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from pyleans.cluster.directory import IGrainDirectory
+from pyleans.cluster.placement import PlacementStrategy, PreferLocalPlacement
 from pyleans.errors import (
     GrainActivationError,
     GrainMethodError,
 )
 from pyleans.grain import get_grain_class, get_grain_methods
 from pyleans.grain_base import _current_grain_id
-from pyleans.identity import GrainId
+from pyleans.identity import GrainId, SiloAddress
 from pyleans.providers.storage import StorageProvider
 from pyleans.serialization import Serializer
+from pyleans.server.local_directory import LocalGrainDirectory
 
 logger = logging.getLogger(__name__)
 
@@ -53,15 +56,22 @@ class GrainActivation:
     etag: str | None = None
 
 
+_DEFAULT_LOCAL_SILO = SiloAddress(host="127.0.0.1", port=0, epoch=0)
+
+
 class GrainRuntime:
     """Core engine managing grain activations and turn-based execution."""
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         storage_providers: dict[str, StorageProvider],
         serializer: Serializer,
         grain_factory: Any = None,
         idle_timeout: float = _DEFAULT_IDLE_TIMEOUT,
+        *,
+        directory: IGrainDirectory | None = None,
+        local_silo: SiloAddress | None = None,
+        placement_strategy: PlacementStrategy | None = None,
     ) -> None:
         self._activations: dict[GrainId, GrainActivation] = {}
         self._storage_providers = storage_providers
@@ -69,6 +79,17 @@ class GrainRuntime:
         self._grain_factory = grain_factory
         self._idle_timeout = idle_timeout
         self._idle_collector_task: asyncio.Task[None] | None = None
+        self._local_silo = local_silo or _DEFAULT_LOCAL_SILO
+        self._placement: PlacementStrategy = placement_strategy or PreferLocalPlacement()
+        self._directory: IGrainDirectory = directory or LocalGrainDirectory(self._local_silo)
+
+    @property
+    def local_silo(self) -> SiloAddress:
+        return self._local_silo
+
+    @property
+    def directory(self) -> IGrainDirectory:
+        return self._directory
 
     @property
     def activations(self) -> dict[GrainId, GrainActivation]:
@@ -110,9 +131,19 @@ class GrainRuntime:
         grain_logger = logging.getLogger(f"pyleans.grain.{grain_id.grain_type}")
         grain_logger.debug("Invoking %s.%s on %s", grain_id.grain_type, method_name, grain_id.key)
 
+        entry = await self._directory.resolve_or_activate(
+            grain_id,
+            self._placement,
+            self._local_silo,
+        )
+        if entry.silo != self._local_silo:
+            raise NotImplementedError(
+                f"Remote grain invocation to {entry.silo.silo_id!r} is not wired until task 02-16",
+            )
         activation = self._activations.get(grain_id)
         if activation is None:
             activation = await self.activate_grain(grain_id)
+        del entry  # seam exercised, dev-mode routes locally
 
         grain_class = get_grain_class(grain_id.grain_type)
         methods = get_grain_methods(grain_class)
@@ -274,6 +305,7 @@ class GrainRuntime:
                 activation.worker_task.cancel()
 
         self._activations.pop(grain_id, None)
+        await self._directory.unregister(grain_id, self._local_silo)
         grain_logger.info("Grain deactivated: %s", grain_id)
 
     async def _grain_worker(self, activation: GrainActivation) -> None:

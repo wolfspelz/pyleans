@@ -20,6 +20,7 @@ from pyleans.providers.streaming import StreamProvider
 from pyleans.reference import GrainFactory
 from pyleans.serialization import JsonSerializer
 from pyleans.server.container import create_injector
+from pyleans.server.local_directory import LocalGrainDirectory
 from pyleans.server.providers.file_storage import FileStorageProvider
 from pyleans.server.providers.memory_stream import InMemoryStreamProvider, StreamManager
 from pyleans.server.providers.yaml_membership import YamlMembershipProvider
@@ -90,10 +91,13 @@ class Silo:
         first_stream = next(iter(self._stream_providers.values()), None)
         stream_manager = StreamManager(first_stream) if first_stream else None
 
+        self._grain_directory = LocalGrainDirectory(self._silo_address)
         self._runtime = GrainRuntime(
             storage_providers=self._storage_providers,
             serializer=self._serializer,
             idle_timeout=self._idle_timeout,
+            directory=self._grain_directory,
+            local_silo=self._silo_address,
         )
         self._grain_factory = GrainFactory(runtime=self._runtime)
         self._timer_registry = TimerRegistry(runtime=self._runtime)

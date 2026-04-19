@@ -6,6 +6,7 @@ consistent hash ring that partitions ownership of grains, and — in
 subsequent tasks — placement, transport, directory, and membership pieces.
 """
 
+from pyleans.cluster.directory import DirectoryEntry, IGrainDirectory
 from pyleans.cluster.failure_detector import (
     INDIRECT_PROBE_HEADER,
     INDIRECT_PROBE_RESP_FAIL,
@@ -50,8 +51,10 @@ __all__ = [
     "VIRTUAL_NODES_PER_SILO",
     "ClusterId",
     "ConsistentHashRing",
+    "DirectoryEntry",
     "FailureDetector",
     "FailureDetectorOptions",
+    "IGrainDirectory",
     "MembershipAgent",
     "NoSilosAvailableError",
     "PeerHealth",
