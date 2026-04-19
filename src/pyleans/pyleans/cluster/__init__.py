@@ -7,6 +7,7 @@ subsequent tasks — placement, transport, directory, and membership pieces.
 """
 
 from pyleans.cluster.directory import DirectoryEntry, IGrainDirectory
+from pyleans.cluster.directory_cache import DirectoryCache
 from pyleans.cluster.distributed_directory import (
     ClusterNotReadyError,
     DistributedGrainDirectory,
@@ -56,6 +57,7 @@ __all__ = [
     "ClusterId",
     "ClusterNotReadyError",
     "ConsistentHashRing",
+    "DirectoryCache",
     "DirectoryEntry",
     "DistributedGrainDirectory",
     "FailureDetector",

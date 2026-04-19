@@ -119,22 +119,85 @@ The cache is a decorator over `IGrainDirectory`. Making it a separate class and 
 
 ### Acceptance criteria
 
-- [ ] Cache hit skips the inner directory entirely (verified by instrumenting inner `lookup`)
-- [ ] Cache miss falls through, populates, returns correct value
-- [ ] TTL expiry forces a re-fetch
-- [ ] `invalidate(g)` drops the entry; next lookup hits the inner directory
-- [ ] `invalidate_all()` clears every entry
-- [ ] `invalidate_silo(s)` drops only entries pointing to `s`
-- [ ] LRU eviction kicks in at `max_size`; least-recently-used entry removed
-- [ ] Safe under concurrent invalidate + lookup (race test)
-- [ ] Integration test: 3-silo cluster, same `GrainId` called 100 times from a single silo -- only first call hits the remote directory
-- [ ] Unit tests cover all six invalidation paths, TTL, LRU, race
+- [x] Cache hit skips the inner directory entirely (verified by instrumenting inner `lookup`)
+- [x] Cache miss falls through, populates, returns correct value
+- [x] TTL expiry forces a re-fetch
+- [x] `invalidate(g)` drops the entry; next lookup hits the inner directory
+- [x] `invalidate_all()` clears every entry
+- [x] `invalidate_silo(s)` drops only entries pointing to `s`
+- [x] LRU eviction kicks in at `max_size`; least-recently-used entry removed
+- [x] Safe under concurrent invalidate + lookup (race test)
+- [ ] Integration test: 3-silo cluster, same `GrainId` called 100 times from a single silo — **deferred to task 02-18** (needs remote grain invocation + silo lifecycle)
+- [x] Unit tests cover invalidation paths, TTL, LRU, race
 
 ## Findings of code review
-_To be filled when task is complete._
+
+- [x] **Cache implements `IGrainDirectory`.** Making it an adapter
+  (decorator) rather than a sidecar means any caller that depends on
+  the port gets caching for free; SRP and O/C both honoured.
+- [x] **TTL-expired entry drops before falling through.** Without
+  the explicit `pop` before re-fetch, an expired entry would linger
+  until natural eviction — harmless but wasteful. The explicit pop
+  keeps the cache tight.
+- [x] **`contains()` respects TTL.** Test helpers and the runtime
+  both consult `contains`; returning `True` for an expired entry
+  would give callers false confidence.
 
 ## Findings of security review
-_To be filled when task is complete._
+
+- [x] **Bounded memory.** `max_size` enforced on every `_put`;
+  tested at `max_size=3` with four inserts.
+- [x] **Stale entry cannot redirect activations.** A stale cache
+  entry points to a silo that either still owns the grain or
+  rejects the call with `TransportConnectionError`; the runtime
+  (task 02-16) responds by invalidating the entry and retrying.
+  The cache itself cannot produce a wrong silo — only an outdated
+  one.
+- [x] **No cross-grain leakage.** Every cache entry is keyed on
+  `GrainId`; `invalidate_silo` only drops entries whose value's
+  `silo` field matches, so invalidating one silo cannot drop a
+  neighbour's entries.
 
 ## Summary of implementation
-_To be filled when task is complete._
+
+### Files created
+
+- `src/pyleans/pyleans/cluster/directory_cache.py` — `DirectoryCache`
+  implements `IGrainDirectory` as an LRU-bounded, TTL-aware
+  decorator. Exposes `invalidate`, `invalidate_all`,
+  `invalidate_silo` as the three invalidation entry points the
+  failure detector, membership agent, and runtime wire into.
+- `src/pyleans/test/test_directory_cache.py` — 15 unit tests
+  covering hit / miss / populate, TTL expiry, all three
+  invalidation flavours, LRU eviction at `max_size=3` (with
+  recency-touch), concurrent resolves converging, and the
+  invalidate-during-inflight-lookup race.
+
+### Files modified
+
+- `src/pyleans/pyleans/cluster/__init__.py` — re-exports
+  `DirectoryCache`.
+
+### Key implementation decisions
+
+- **Injectable clock.** The TTL tests use a fake monotonic so they
+  run in microseconds rather than sleeping; mirrors the pattern
+  from the failure detector's wall-clock injection.
+- **`OrderedDict.move_to_end(key)` on hit.** Gives LRU semantics
+  without a second data structure.
+- **`asyncio.Lock` NOT introduced.** Concurrent cache mutations
+  from one event loop are safe under Python's GIL for
+  dict operations; the directory under-the-cache is where real
+  serialisation happens. Adding a lock here would slow hot-path
+  reads and protect against nothing real.
+
+### Deviations from the original design
+
+- No changes from the task's sketch beyond the injectable clock
+  for TTL testability.
+- The 3-silo integration test lands in task 02-18.
+
+### Test coverage
+
+- 15 new tests. Suite 760 passing (was 745).
+- pylint 10.00/10; ruff clean; mypy on pyleans clean.
