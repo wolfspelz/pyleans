@@ -226,7 +226,7 @@ One-time transformation of the existing codebase into the ideal Phase 1 state. E
 
 | # | Task | Status | Dependencies |
 |---|---|---|---|
-| 02-16 | [Remote Grain Invocation](task-02-16-remote-grain-invoke.md) | [ ] | 02-08, 02-13, 02-14 |
+| 02-16 | [Remote Grain Invocation](task-02-16-remote-grain-invoke.md) | [x] | 02-08, 02-13, 02-14 |
 | 02-17 | [Silo Lifecycle Stages](task-02-17-silo-lifecycle-stages.md) | [ ] | 02-08, 02-09, 02-11, 02-13, 02-14 |
 
 ### Phase 2 Layer 6: Validation

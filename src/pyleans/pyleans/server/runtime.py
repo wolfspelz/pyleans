@@ -9,10 +9,12 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from pyleans.cluster.directory import IGrainDirectory
+from pyleans.cluster.directory_cache import DirectoryCache
 from pyleans.cluster.placement import PlacementStrategy, PreferLocalPlacement
 from pyleans.errors import (
     GrainActivationError,
     GrainMethodError,
+    RemoteGrainException,
 )
 from pyleans.grain import get_grain_class, get_grain_methods
 from pyleans.grain_base import _current_grain_id
@@ -20,6 +22,24 @@ from pyleans.identity import GrainId, SiloAddress
 from pyleans.providers.storage import StorageProvider
 from pyleans.serialization import Serializer
 from pyleans.server.local_directory import LocalGrainDirectory
+from pyleans.server.remote_invoke import (
+    GRAIN_CALL_HEADER,
+    GrainCallFailure,
+    GrainCallRequest,
+    GrainCallSuccess,
+    decode_request,
+    decode_response,
+    encode_failure,
+    encode_request,
+    encode_success,
+    format_exception_for_wire,
+)
+from pyleans.transport.cluster import IClusterTransport
+from pyleans.transport.errors import (
+    TransportConnectionError,
+    TransportTimeoutError,
+)
+from pyleans.transport.messages import MessageType, TransportMessage
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +92,8 @@ class GrainRuntime:
         directory: IGrainDirectory | None = None,
         local_silo: SiloAddress | None = None,
         placement_strategy: PlacementStrategy | None = None,
+        transport: IClusterTransport | None = None,
+        remote_call_timeout: float = 30.0,
     ) -> None:
         self._activations: dict[GrainId, GrainActivation] = {}
         self._storage_providers = storage_providers
@@ -82,6 +104,9 @@ class GrainRuntime:
         self._local_silo = local_silo or _DEFAULT_LOCAL_SILO
         self._placement: PlacementStrategy = placement_strategy or PreferLocalPlacement()
         self._directory: IGrainDirectory = directory or LocalGrainDirectory(self._local_silo)
+        self._transport = transport
+        self._remote_call_timeout = remote_call_timeout
+        self._next_call_id_value = 0
 
     @property
     def local_silo(self) -> SiloAddress:
@@ -136,20 +161,35 @@ class GrainRuntime:
             self._placement,
             self._local_silo,
         )
-        if entry.silo != self._local_silo:
-            raise NotImplementedError(
-                f"Remote grain invocation to {entry.silo.silo_id!r} is not wired until task 02-16",
+        if entry.silo == self._local_silo:
+            return await self._invoke_local(grain_id, method_name, args, kwargs)
+        try:
+            return await self._invoke_remote(entry.silo, grain_id, method_name, args, kwargs)
+        except TransportConnectionError:
+            self._invalidate_cached_entry(grain_id)
+            retry_entry = await self._directory.resolve_or_activate(
+                grain_id, self._placement, self._local_silo
             )
+            if retry_entry.silo == self._local_silo:
+                return await self._invoke_local(grain_id, method_name, args, kwargs)
+            return await self._invoke_remote(
+                retry_entry.silo, grain_id, method_name, args, kwargs
+            )
+
+    async def _invoke_local(
+        self,
+        grain_id: GrainId,
+        method_name: str,
+        args: list[Any],
+        kwargs: dict[str, Any],
+    ) -> Any:
         activation = self._activations.get(grain_id)
         if activation is None:
             activation = await self.activate_grain(grain_id)
-        del entry  # seam exercised, dev-mode routes locally
-
         grain_class = get_grain_class(grain_id.grain_type)
         methods = get_grain_methods(grain_class)
         if method_name not in methods:
             raise GrainMethodError(f"Method {method_name!r} not found on {grain_id.grain_type}")
-
         loop = asyncio.get_running_loop()
         future: asyncio.Future[Any] = loop.create_future()
         call = _MethodCall(
@@ -160,6 +200,119 @@ class GrainRuntime:
         )
         await activation.inbox.put(call)
         return await future
+
+    async def _invoke_remote(
+        self,
+        owner: SiloAddress,
+        grain_id: GrainId,
+        method_name: str,
+        args: list[Any],
+        kwargs: dict[str, Any],
+    ) -> Any:
+        if self._transport is None:
+            raise RuntimeError(
+                f"No cluster transport configured; cannot invoke {grain_id} on {owner.silo_id}",
+            )
+        self._next_call_id_value += 1
+        deadline = None
+        if self._remote_call_timeout > 0:
+            deadline = time.time() + self._remote_call_timeout
+        body = encode_request(
+            GrainCallRequest(
+                grain_id=grain_id,
+                method=method_name,
+                args=list(args),
+                kwargs=dict(kwargs),
+                caller_silo=self._local_silo.silo_id,
+                call_id=self._next_call_id_value,
+                deadline=deadline,
+            )
+        )
+        try:
+            _, resp_body = await self._transport.send_request(
+                owner, GRAIN_CALL_HEADER, body, timeout=self._remote_call_timeout
+            )
+        except TransportTimeoutError as exc:
+            raise TimeoutError(
+                f"Remote grain call to {grain_id} on {owner.silo_id} timed out"
+            ) from exc
+        response = decode_response(resp_body)
+        if isinstance(response, GrainCallSuccess):
+            return response.result
+        failure: GrainCallFailure = response
+        raise RemoteGrainException(
+            exception_type=failure.exception_type,
+            message=failure.message,
+            remote_traceback=failure.remote_traceback,
+        )
+
+    def _invalidate_cached_entry(self, grain_id: GrainId) -> None:
+        if isinstance(self._directory, DirectoryCache):
+            self._directory.invalidate(grain_id)
+
+    async def handle_grain_call(
+        self, source: SiloAddress, msg: TransportMessage
+    ) -> TransportMessage | None:
+        """Inbound grain-call handler; wire into the transport's dispatcher."""
+        del source
+        if msg.header != GRAIN_CALL_HEADER or msg.message_type != MessageType.REQUEST:
+            return None
+        try:
+            req = decode_request(msg.body)
+        except ValueError as exc:
+            logger.warning("Malformed grain-call body: %s", exc)
+            body = encode_failure("ValueError", f"malformed body: {exc}", None)
+            return TransportMessage(
+                message_type=MessageType.RESPONSE,
+                correlation_id=msg.correlation_id,
+                header=GRAIN_CALL_HEADER,
+                body=body,
+            )
+        if req.deadline is not None and time.time() >= req.deadline:
+            logger.info(
+                "Dropping grain-call for %s.%s: deadline already expired",
+                req.grain_id.grain_type,
+                req.method,
+            )
+            body = encode_failure("TimeoutError", "deadline expired before handler ran", None)
+            return TransportMessage(
+                message_type=MessageType.RESPONSE,
+                correlation_id=msg.correlation_id,
+                header=GRAIN_CALL_HEADER,
+                body=body,
+            )
+        try:
+            get_grain_class(req.grain_id.grain_type)
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.warning(
+                "Unknown grain type %r in inbound grain-call", req.grain_id.grain_type
+            )
+            exc_type, message, tb = format_exception_for_wire(exc)
+            body = encode_failure(exc_type, message, tb)
+            return TransportMessage(
+                message_type=MessageType.RESPONSE,
+                correlation_id=msg.correlation_id,
+                header=GRAIN_CALL_HEADER,
+                body=body,
+            )
+        try:
+            result = await self._invoke_local(
+                req.grain_id, req.method, req.args, req.kwargs
+            )
+            body = encode_success(result)
+        except Exception as exc:  # pylint: disable=broad-except
+            # Unwrap GrainMethodError wrapper so the original grain-author
+            # exception type/message crosses the wire.
+            original = exc.__cause__ if isinstance(exc, GrainMethodError) else None
+            surfaced = original if original is not None else exc
+            exc_type, message, tb = format_exception_for_wire(surfaced)
+            body = encode_failure(exc_type, message, tb)
+        return TransportMessage(
+            message_type=MessageType.RESPONSE,
+            correlation_id=msg.correlation_id,
+            header=GRAIN_CALL_HEADER,
+            body=body,
+        )
 
     async def activate_grain(self, grain_id: GrainId) -> GrainActivation:
         """Create grain instance, load state, call on_activate, start worker."""
@@ -333,11 +486,11 @@ class GrainRuntime:
                     e,
                 )
                 if not call.future.done():
-                    call.future.set_exception(
-                        GrainMethodError(
-                            f"Error in {activation.grain_id.grain_type}.{call.method_name}: {e}"
-                        )
+                    wrapped = GrainMethodError(
+                        f"Error in {activation.grain_id.grain_type}.{call.method_name}: {e}"
                     )
+                    wrapped.__cause__ = e
+                    call.future.set_exception(wrapped)
 
     async def _idle_collector_single_pass(self) -> None:
         """Run one pass of idle collection. Used by tests and the periodic loop."""
