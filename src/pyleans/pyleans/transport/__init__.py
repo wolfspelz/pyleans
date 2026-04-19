@@ -14,7 +14,6 @@ from pyleans.transport.cluster import (
     ITransportFactory,
     MessageHandler,
 )
-from pyleans.transport.factory import TcpTransportFactory
 from pyleans.transport.error_payload import (
     APPLICATION_ERROR_BASE,
     MAX_REASON_BYTES,
@@ -34,6 +33,7 @@ from pyleans.transport.errors import (
     TransportError,
     TransportTimeoutError,
 )
+from pyleans.transport.factory import TcpTransportFactory
 from pyleans.transport.handshake import (
     MAGIC,
     MAX_HANDSHAKE_STRING,

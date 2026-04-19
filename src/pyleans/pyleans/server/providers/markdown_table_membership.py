@@ -19,8 +19,11 @@ from pyleans.errors import MembershipError
 from pyleans.identity import SiloAddress, SiloInfo, SiloStatus, SuspicionVote
 from pyleans.providers.errors import SiloNotFoundError, TableStaleError
 from pyleans.providers.membership import MembershipProvider, MembershipSnapshot
+from pyleans.server.providers.file_lock import FileLock, atomic_write
 
 logger = logging.getLogger(__name__)
+
+_FILE_LOCK_TIMEOUT = 5.0
 
 _HEADER = (
     "| ID | Host | Port | Epoch | Status | ClusterId | GatewayPort "
@@ -54,17 +57,26 @@ class MarkdownTableMembershipProvider(MembershipProvider):
     nearest second for readability.
     """
 
-    def __init__(self, file_path: str = "./data/membership.md") -> None:
+    def __init__(
+        self,
+        file_path: str = "./data/membership.md",
+        *,
+        file_lock_timeout: float = _FILE_LOCK_TIMEOUT,
+    ) -> None:
         self._file_path = Path(file_path)
         self._lock = asyncio.Lock()
+        self._file_lock_timeout = file_lock_timeout
+
+    def _file_lock(self) -> FileLock:
+        return FileLock(self._file_path, timeout=self._file_lock_timeout)
 
     async def read_all(self) -> MembershipSnapshot:
-        async with self._lock:
+        async with self._lock, self._file_lock():
             state = self._load_table()
         return MembershipSnapshot(version=state.version, silos=list(state.silos))
 
     async def try_update_silo(self, silo: SiloInfo) -> SiloInfo:
-        async with self._lock:
+        async with self._lock, self._file_lock():
             state = self._load_table()
             silo_id = silo.address.silo_id
             index = _find_silo_index(state.silos, silo_id)
@@ -74,7 +86,7 @@ class MarkdownTableMembershipProvider(MembershipProvider):
                         f"Silo {silo_id!r} not found — cannot update with etag {silo.etag!r}"
                     )
                 state.silos.append(silo)
-                return self._finalise_write(state, len(state.silos) - 1)
+                return await self._finalise_write(state, len(state.silos) - 1)
             current = state.silos[index]
             if current.etag != silo.etag:
                 raise TableStaleError(
@@ -82,10 +94,10 @@ class MarkdownTableMembershipProvider(MembershipProvider):
                     f"expected {silo.etag!r}, current {current.etag!r}"
                 )
             state.silos[index] = _with_etag(silo, None)
-            return self._finalise_write(state, index)
+            return await self._finalise_write(state, index)
 
     async def try_delete_silo(self, silo: SiloInfo) -> None:
-        async with self._lock:
+        async with self._lock, self._file_lock():
             state = self._load_table()
             silo_id = silo.address.silo_id
             index = _find_silo_index(state.silos, silo_id)
@@ -99,17 +111,12 @@ class MarkdownTableMembershipProvider(MembershipProvider):
                 )
             del state.silos[index]
             state.version += 1
-            try:
-                self._file_path.parent.mkdir(parents=True, exist_ok=True)
-                self._file_path.write_text(_render(state), encoding="utf-8")
-            except OSError as exc:
-                logger.error("Failed to write membership file: %s", exc)
-                raise MembershipError(f"Failed to write membership file: {exc}") from exc
+            await self._write_state(state)
 
     async def try_add_suspicion(
         self, silo_id: str, vote: SuspicionVote, expected_etag: str
     ) -> SiloInfo:
-        async with self._lock:
+        async with self._lock, self._file_lock():
             state = self._load_table()
             index = _find_silo_index(state.silos, silo_id)
             if index is None:
@@ -121,7 +128,7 @@ class MarkdownTableMembershipProvider(MembershipProvider):
                     f"expected {expected_etag!r}, current {current.etag!r}"
                 )
             current.suspicions.append(vote)
-            return self._finalise_write(state, index)
+            return await self._finalise_write(state, index)
 
     def _load_table(self) -> _State:
         if not self._file_path.exists():
@@ -137,18 +144,20 @@ class MarkdownTableMembershipProvider(MembershipProvider):
         """Internal accessor kept for legacy-test compatibility."""
         return self._load_table()
 
-    def _finalise_write(self, state: _State, target_index: int) -> SiloInfo:
+    async def _finalise_write(self, state: _State, target_index: int) -> SiloInfo:
         state.version += 1
         target = state.silos[target_index]
         fresh = _with_etag(target, _compute_etag(target, state.version))
         state.silos[target_index] = fresh
+        await self._write_state(state)
+        return fresh
+
+    async def _write_state(self, state: _State) -> None:
         try:
-            self._file_path.parent.mkdir(parents=True, exist_ok=True)
-            self._file_path.write_text(_render(state), encoding="utf-8")
+            await atomic_write(self._file_path, _render(state).encode("utf-8"))
         except OSError as exc:
             logger.error("Failed to write membership file: %s", exc)
             raise MembershipError(f"Failed to write membership file: {exc}") from exc
-        return fresh
 
 
 def _find_silo_index(silos: list[SiloInfo], silo_id: str) -> int | None:

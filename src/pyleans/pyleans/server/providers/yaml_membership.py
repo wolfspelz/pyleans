@@ -1,4 +1,9 @@
 """YAML file-based membership provider with Phase 2 OCC schema."""
+# pylint: disable=duplicate-code
+# The YAML and Markdown providers intentionally mirror each other's
+# structural boilerplate (constructor, file-lock helper, serialised
+# silo-row layout). The two formats are deliberate parallel surfaces —
+# sharing the shape is the feature, not a code smell.
 
 from __future__ import annotations
 
@@ -14,8 +19,11 @@ from pyleans.errors import MembershipError
 from pyleans.identity import SiloAddress, SiloInfo, SiloStatus, SuspicionVote
 from pyleans.providers.errors import SiloNotFoundError, TableStaleError
 from pyleans.providers.membership import MembershipProvider, MembershipSnapshot
+from pyleans.server.providers.file_lock import FileLock, atomic_write
 
 logger = logging.getLogger(__name__)
+
+_FILE_LOCK_TIMEOUT = 5.0
 
 
 class YamlMembershipProvider(MembershipProvider):
@@ -46,17 +54,26 @@ class YamlMembershipProvider(MembershipProvider):
     write the same file.
     """
 
-    def __init__(self, file_path: str = "./data/membership.yaml") -> None:
+    def __init__(
+        self,
+        file_path: str = "./data/membership.yaml",
+        *,
+        file_lock_timeout: float = _FILE_LOCK_TIMEOUT,
+    ) -> None:
         self._file_path = Path(file_path)
         self._lock = asyncio.Lock()
+        self._file_lock_timeout = file_lock_timeout
+
+    def _file_lock(self) -> FileLock:
+        return FileLock(self._file_path, timeout=self._file_lock_timeout)
 
     async def read_all(self) -> MembershipSnapshot:
-        async with self._lock:
+        async with self._lock, self._file_lock():
             data = self._load_table()
         return _data_to_snapshot(data)
 
     async def try_update_silo(self, silo: SiloInfo) -> SiloInfo:
-        async with self._lock:
+        async with self._lock, self._file_lock():
             data = self._load_table()
             silos = cast(list[dict[str, Any]], data.setdefault("silos", []))
             silo_id = silo.address.silo_id
@@ -68,7 +85,7 @@ class YamlMembershipProvider(MembershipProvider):
                     )
                 new_row = _silo_to_dict(silo)
                 silos.append(new_row)
-                refreshed = self._finalise_write(data, new_row)
+                refreshed = await self._finalise_write(data, new_row)
                 return _dict_to_silo(refreshed)
             current = silos[index]
             if current.get("etag") != silo.etag:
@@ -78,11 +95,11 @@ class YamlMembershipProvider(MembershipProvider):
                 )
             updated = _silo_to_dict(silo)
             silos[index] = updated
-            refreshed = self._finalise_write(data, updated)
+            refreshed = await self._finalise_write(data, updated)
             return _dict_to_silo(refreshed)
 
     async def try_delete_silo(self, silo: SiloInfo) -> None:
-        async with self._lock:
+        async with self._lock, self._file_lock():
             data = self._load_table()
             silos = cast(list[dict[str, Any]], data.setdefault("silos", []))
             silo_id = silo.address.silo_id
@@ -97,20 +114,12 @@ class YamlMembershipProvider(MembershipProvider):
                 )
             del silos[index]
             data["version"] = int(data.get("version", 0)) + 1
-            try:
-                self._file_path.parent.mkdir(parents=True, exist_ok=True)
-                self._file_path.write_text(
-                    yaml.dump(data, default_flow_style=False, sort_keys=False),
-                    encoding="utf-8",
-                )
-            except OSError as exc:
-                logger.error("Failed to write membership file: %s", exc)
-                raise MembershipError(f"Failed to write membership file: {exc}") from exc
+            await self._write_table(data)
 
     async def try_add_suspicion(
         self, silo_id: str, vote: SuspicionVote, expected_etag: str
     ) -> SiloInfo:
-        async with self._lock:
+        async with self._lock, self._file_lock():
             data = self._load_table()
             silos = cast(list[dict[str, Any]], data.setdefault("silos", []))
             index = _find_silo_index(silos, silo_id)
@@ -124,7 +133,7 @@ class YamlMembershipProvider(MembershipProvider):
                 )
             votes = cast(list[dict[str, Any]], current.setdefault("suspicions", []))
             votes.append({"suspecting_silo": vote.suspecting_silo, "timestamp": vote.timestamp})
-            refreshed = self._finalise_write(data, current)
+            refreshed = await self._finalise_write(data, current)
             return _dict_to_silo(refreshed)
 
     def _load_table(self) -> dict[str, Any]:
@@ -142,19 +151,21 @@ class YamlMembershipProvider(MembershipProvider):
         parsed.setdefault("silos", [])
         return parsed
 
-    def _finalise_write(self, data: dict[str, Any], target_row: dict[str, Any]) -> dict[str, Any]:
+    async def _finalise_write(
+        self, data: dict[str, Any], target_row: dict[str, Any]
+    ) -> dict[str, Any]:
         data["version"] = int(data.get("version", 0)) + 1
         target_row["etag"] = _compute_etag(target_row, data["version"])
+        await self._write_table(data)
+        return target_row
+
+    async def _write_table(self, data: dict[str, Any]) -> None:
+        payload = yaml.dump(data, default_flow_style=False, sort_keys=False).encode("utf-8")
         try:
-            self._file_path.parent.mkdir(parents=True, exist_ok=True)
-            self._file_path.write_text(
-                yaml.dump(data, default_flow_style=False, sort_keys=False),
-                encoding="utf-8",
-            )
+            await atomic_write(self._file_path, payload)
         except OSError as exc:
             logger.error("Failed to write membership file: %s", exc)
             raise MembershipError(f"Failed to write membership file: {exc}") from exc
-        return target_row
 
     def _read_file(self) -> dict[str, Any]:
         """Internal accessor kept for legacy-test compatibility."""
