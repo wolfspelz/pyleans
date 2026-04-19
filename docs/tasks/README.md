@@ -185,6 +185,8 @@ One-time transformation of the existing codebase into the ideal Phase 1 state. E
 
 ## Phase 2 Tasks
 
+> **Meta-guide (temporary):** [task-02-single-activation-fix.md](task-02-single-activation-fix.md) — single readable entry point to the Phase 2 shape while the 21 individual tasks are still spec-only. Supersedes itself when the last Phase 2 task lands.
+
 ### Phase 2 Layer 1: Foundation (can run in parallel after Phase 1)
 
 | # | Task | Status | Dependencies |
