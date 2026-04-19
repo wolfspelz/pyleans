@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 from pyleans.identity import GrainId, SiloAddress
 
-_HASH_BYTES = 8  # low 64 bits of SHA-256 digest
+_HASH_BYTES = 8
 
 
 @dataclass(frozen=True)
