@@ -63,6 +63,17 @@ For the simulator to be a faithful testing substrate it must reproduce every beh
 - Multi-event-loop / multi-process simulation. Everything runs on the pytest event loop.
 - Performance characterisation. Throughput and latency numbers from the simulator are not indicative of production behaviour.
 
+### Protocols in scope vs out of scope
+
+The "no OS ports in tests" rule applies **only to the home-grown protocols pyleans ships and owns end-to-end**:
+
+- the TCP silo-to-silo interconnect ([adr-cluster-transport](adr-cluster-transport.md)), and
+- the gateway protocol ([adr-cluster-access-boundary](adr-cluster-access-boundary.md)).
+
+These run over `INetwork` and MUST be testable in-process against `InMemoryNetwork`. Every new failure mode in these protocols is a pyleans concern and deserves deterministic coverage without kernel involvement.
+
+Third-party protocols that might be plugged in behind `IClusterTransport` / `IGatewayTransport` — MQTT brokers, Zenoh routers, HTTP/2 gRPC meshes, anything else — are **out of scope for this rule**. Their client libraries use their own sockets, and reimplementing those libraries against an in-memory simulator is both impractical and pointless: the value a third-party transport brings is precisely its battle-tested wire implementation. Tests for those adapters use whatever the library's own testing story recommends (real broker in a container, library-provided fakes, recorded fixtures). Pyleans' contribution is only the adapter code that maps the external protocol onto our port ABCs; that adapter itself can still be tested with doubles where useful. Conversely, nothing in this ADR requires a third-party adapter to ship an in-memory simulator; a real broker at integration-test time is acceptable.
+
 ## Consequences
 
 - **Application and runtime code must not call `asyncio.start_server` or `asyncio.open_connection` directly.** All TCP I/O goes through the `INetwork` port. Runtime and test linting enforce this.
