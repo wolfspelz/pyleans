@@ -167,11 +167,12 @@ Keeping the sample lean means reviewers can read the whole thing in one sitting 
 
 ### Deviations from the original design
 
-- The task's walkthrough ("kill a silo, counter survives") only
-  works once the Silo class is wired to the distributed directory
-  / transport (deferred from 02-17). The CLI infrastructure is in
-  place; the end-to-end cluster demo unlocks automatically when
-  the Silo refactor lands.
+- The CLI infrastructure shipped here but the end-to-end cluster
+  routing was previously blocked on the Silo refactor deferred in
+  task 02-17. That refactor landed in
+  [task-02-22-silo-cluster-wiring](task-02-22-silo-cluster-wiring.md):
+  the counter-app now distributes grains across silos in a real
+  cluster, and the README's two-silo walkthrough is live.
 
 ### Test coverage
 

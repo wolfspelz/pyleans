@@ -1,192 +1,113 @@
-"""Minimal N-silo in-process cluster harness.
+"""N-silo in-process cluster harness built on the real :class:`Silo`.
 
-Each harness "silo" is a hand-assembled composition of the Phase 2
-building blocks:
+Each harness silo is a production ``Silo`` instance bound to a shared
+:class:`InMemoryNetwork` — the same network every other silo in the
+harness binds on — so silo-to-silo transport, gateway traffic, and
+membership writes all flow through deterministic in-process streams
+(no OS ports).
 
-* an in-memory fabric acting as the :class:`IClusterTransport`,
-* a :class:`DistributedGrainDirectory` fronted by a
-  :class:`DirectoryCache`,
-* a :class:`GrainRuntime` with the directory cache injected.
-
-The harness intentionally does not spin up the real `Silo` class —
-Silo's own refactor to lifecycle-driven startup is deferred (see
-task 02-17). This lets us exercise the interactions task 02-18
-cares about without blocking on Silo surgery, and still gives the
-13-scenario catalog a solid starting point.
+Partition injection wraps the shared network per-silo so sends that
+would otherwise cross a broken link fail at :meth:`open_connection`
+with :class:`ConnectionRefusedError`. The existing connection is torn
+down explicitly so a partition introduced after the handshake
+disrupts in-flight requests rather than waiting for the next
+reconnect.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import ssl as ssl_module
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
 from typing import Any
 
-from pyleans.cluster.directory_cache import DirectoryCache
-from pyleans.cluster.distributed_directory import DistributedGrainDirectory
-from pyleans.cluster.hash_ring import ConsistentHashRing
 from pyleans.cluster.identity import ClusterId
-from pyleans.cluster.placement import PreferLocalPlacement
-from pyleans.identity import GrainId, SiloAddress
-from pyleans.serialization import JsonSerializer
-from pyleans.server.remote_invoke import GRAIN_CALL_HEADER
-from pyleans.server.runtime import GrainRuntime
-from pyleans.transport.cluster import (
-    ConnectionCallback,
-    DisconnectionCallback,
-    IClusterTransport,
-    MessageHandler,
+from pyleans.identity import GrainId
+from pyleans.net.memory_network import InMemoryNetwork
+from pyleans.net.network import (
+    ClientConnectedCallback,
+    INetwork,
+    NetworkServer,
 )
-from pyleans.transport.errors import TransportConnectionError
-from pyleans.transport.messages import MessageType, TransportMessage
+from pyleans.server.silo import Silo
+from pyleans.testing import InMemoryMembershipProvider
 
 logger = logging.getLogger(__name__)
 
-
-@dataclass
-class _InMemoryFabric:
-    """In-process routing fabric: dispatches frames to each silo's handler."""
-
-    handlers: dict[str, MessageHandler] = field(default_factory=dict)
-    dropped_pairs: set[tuple[str, str]] = field(default_factory=set)
-    correlation_counter: int = 0
-
-    def partition(self, a: str, b: str) -> None:
-        self.dropped_pairs.add((a, b))
-        self.dropped_pairs.add((b, a))
-
-    def heal(self, a: str, b: str) -> None:
-        self.dropped_pairs.discard((a, b))
-        self.dropped_pairs.discard((b, a))
-
-    def is_dropped(self, source: str, target: str) -> bool:
-        return (source, target) in self.dropped_pairs
-
-    def register(self, silo_id: str, handler: MessageHandler) -> None:
-        self.handlers[silo_id] = handler
-
-    def unregister(self, silo_id: str) -> None:
-        self.handlers.pop(silo_id, None)
-
-    def next_correlation(self) -> int:
-        self.correlation_counter += 1
-        return self.correlation_counter
+_HARNESS_CLUSTER_ID = ClusterId("int-cluster")
 
 
-@dataclass
-class _FabricTransport(IClusterTransport):
-    """IClusterTransport adapter over :class:`_InMemoryFabric`."""
+class _PartitionRegistry:
+    """Shared source-to-target block list used by all harness silos."""
 
-    local: SiloAddress
-    fabric: _InMemoryFabric
-    connected: set[str] = field(default_factory=set)
+    def __init__(self) -> None:
+        self._blocked: set[tuple[str, str]] = set()
+        self._address_to_silo: dict[tuple[str, int], str] = {}
 
-    async def start(
+    def register_silo(self, silo_id: str, host: str, port: int) -> None:
+        self._address_to_silo[(host, port)] = silo_id
+
+    def unregister_silo(self, host: str, port: int) -> None:
+        self._address_to_silo.pop((host, port), None)
+
+    def block(self, source_silo_id: str, target_silo_id: str) -> None:
+        self._blocked.add((source_silo_id, target_silo_id))
+
+    def unblock(self, source_silo_id: str, target_silo_id: str) -> None:
+        self._blocked.discard((source_silo_id, target_silo_id))
+
+    def is_blocked(self, source_silo_id: str, host: str, port: int) -> bool:
+        target = self._address_to_silo.get((host, port))
+        if target is None:
+            return False
+        return (source_silo_id, target) in self._blocked
+
+
+class _PartitionedNetwork(INetwork):
+    """Per-silo view over a shared :class:`INetwork` that enforces partitions.
+
+    ``start_server`` passes through unchanged; ``open_connection``
+    consults the shared :class:`_PartitionRegistry` keyed on the
+    silo opening the connection.
+    """
+
+    def __init__(
         self,
-        local_silo: SiloAddress,
-        cluster_id: ClusterId,
-        message_handler: MessageHandler,
+        inner: INetwork,
+        registry: _PartitionRegistry,
+        local_silo_id: str,
     ) -> None:
-        del local_silo, cluster_id
-        self.fabric.register(self.local.silo_id, message_handler)
+        self._inner = inner
+        self._registry = registry
+        self._local = local_silo_id
 
-    async def stop(self) -> None:
-        self.fabric.unregister(self.local.silo_id)
-
-    async def connect_to_silo(self, silo: SiloAddress) -> None:
-        self.connected.add(silo.silo_id)
-
-    async def disconnect_from_silo(self, silo: SiloAddress) -> None:
-        self.connected.discard(silo.silo_id)
-
-    async def send_request(
+    async def start_server(
         self,
-        target: SiloAddress,
-        header: bytes,
-        body: bytes,
-        timeout: float | None = None,
-    ) -> tuple[bytes, bytes]:
-        del timeout
-        if self.fabric.is_dropped(self.local.silo_id, target.silo_id):
-            raise TransportConnectionError(
-                f"partition: {self.local.silo_id} -> {target.silo_id} dropped",
+        client_connected_cb: ClientConnectedCallback,
+        host: str,
+        port: int,
+        *,
+        ssl: ssl_module.SSLContext | None = None,
+    ) -> NetworkServer:
+        return await self._inner.start_server(client_connected_cb, host, port, ssl=ssl)
+
+    async def open_connection(
+        self,
+        host: str,
+        port: int,
+        *,
+        ssl: ssl_module.SSLContext | None = None,
+    ) -> Any:
+        if self._registry.is_blocked(self._local, host, port):
+            raise ConnectionRefusedError(
+                f"harness partition: {self._local} -> {host}:{port}",
             )
-        handler = self.fabric.handlers.get(target.silo_id)
-        if handler is None:
-            raise TransportConnectionError(f"silo {target.silo_id} not registered")
-        msg = TransportMessage(
-            message_type=MessageType.REQUEST,
-            correlation_id=self.fabric.next_correlation(),
-            header=header,
-            body=body,
-        )
-        resp = await handler(self.local, msg)
-        if resp is None:
-            raise TransportConnectionError(f"{target.silo_id} returned no response")
-        return resp.header, resp.body
-
-    async def send_one_way(self, target: SiloAddress, header: bytes, body: bytes) -> None:
-        if self.fabric.is_dropped(self.local.silo_id, target.silo_id):
-            return
-        handler = self.fabric.handlers.get(target.silo_id)
-        if handler is None:
-            return
-        msg = TransportMessage(
-            message_type=MessageType.ONE_WAY,
-            correlation_id=0,
-            header=header,
-            body=body,
-        )
-        await handler(self.local, msg)
-
-    async def send_ping(self, target: SiloAddress, timeout: float = 10.0) -> float:
-        del target, timeout
-        return 0.001
-
-    def is_connected_to(self, silo: SiloAddress) -> bool:
-        return silo.silo_id in self.connected
-
-    def get_connected_silos(self) -> list[SiloAddress]:
-        return []
-
-    @property
-    def local_silo(self) -> SiloAddress:
-        return self.local
-
-    def on_connection_established(self, callback: ConnectionCallback) -> None:
-        pass
-
-    def on_connection_lost(self, callback: DisconnectionCallback) -> None:
-        pass
-
-
-@dataclass
-class HarnessSilo:
-    """A minimal cluster member assembled from Phase 2 primitives."""
-
-    address: SiloAddress
-    transport: _FabricTransport
-    directory: DistributedGrainDirectory
-    cache: DirectoryCache
-    runtime: GrainRuntime
-
-    async def start(self, fabric: _InMemoryFabric) -> None:
-        await self.transport.start(self.address, ClusterId("int-cluster"), self._handler)
-        fabric.register(self.address.silo_id, self._handler)
-
-    async def stop(self) -> None:
-        await self.runtime.stop()
-        await self.transport.stop()
-
-    async def _handler(self, source: SiloAddress, msg: TransportMessage) -> TransportMessage | None:
-        if msg.header == GRAIN_CALL_HEADER:
-            return await self.runtime.handle_grain_call(source, msg)
-        return await self.directory.message_handler(source, msg)
+        return await self._inner.open_connection(host, port, ssl=ssl)
 
 
 class ClusterHarness:
-    """Spin up N silos in one process over an in-memory fabric.
+    """Spin up N real :class:`Silo` instances over one :class:`InMemoryNetwork`.
 
     Use as an async context manager::
 
@@ -194,21 +115,36 @@ class ClusterHarness:
             result = await harness.silos[0].runtime.invoke(...)
     """
 
-    def __init__(self, n: int, *, host_prefix: str = "sim") -> None:
+    def __init__(
+        self,
+        n: int,
+        *,
+        grains: list[type] | None = None,
+        host_prefix: str = "sim",
+        base_port: int = 11111,
+    ) -> None:
         if n < 1:
             raise ValueError(f"n must be >= 1, got {n!r}")
         self._n = n
+        self._grains = grains or []
         self._host_prefix = host_prefix
-        self._fabric = _InMemoryFabric()
-        self._silos: list[HarnessSilo] = []
+        self._base_port = base_port
+        self._network = InMemoryNetwork()
+        self._registry = _PartitionRegistry()
+        self._membership = InMemoryMembershipProvider()
+        self._silos: list[Silo] = []
 
     @property
-    def fabric(self) -> _InMemoryFabric:
-        return self._fabric
-
-    @property
-    def silos(self) -> list[HarnessSilo]:
+    def silos(self) -> list[Silo]:
         return list(self._silos)
+
+    @property
+    def network(self) -> InMemoryNetwork:
+        return self._network
+
+    @property
+    def membership(self) -> InMemoryMembershipProvider:
+        return self._membership
 
     async def __aenter__(self) -> ClusterHarness:
         await self.start()
@@ -218,51 +154,100 @@ class ClusterHarness:
         await self.stop()
 
     async def start(self) -> None:
-        addresses = [
-            SiloAddress(host=f"{self._host_prefix}{i}", port=11111, epoch=1) for i in range(self._n)
-        ]
-        ring = ConsistentHashRing(addresses)
-        for address in addresses:
-            transport = _FabricTransport(local=address, fabric=self._fabric)
-            directory = DistributedGrainDirectory(
-                local_silo=address,
-                transport=transport,
-                initial_ring=ring,
-                active_silos=list(addresses),
-                rebuild_grace_period=0.0,
-            )
-            cache = DirectoryCache(directory)
-            runtime = GrainRuntime(
-                storage_providers={},
-                serializer=JsonSerializer(),
-                directory=cache,
-                local_silo=address,
-                placement_strategy=PreferLocalPlacement(),
-                transport=transport,
-            )
-            silo = HarnessSilo(
-                address=address,
-                transport=transport,
-                directory=directory,
-                cache=cache,
-                runtime=runtime,
-            )
-            await silo.start(self._fabric)
+        """Construct N Silo instances on the shared network and start them all."""
+        for i in range(self._n):
+            silo = self._build_silo(index=i)
             self._silos.append(silo)
+        await asyncio.gather(*(silo.start_background() for silo in self._silos))
+        await self._seed_membership_awareness()
 
     async def stop(self) -> None:
-        for silo in self._silos:
-            try:
-                await silo.stop()
-            except Exception as exc:  # pylint: disable=broad-except
-                logger.warning("harness stop of %s failed: %r", silo.address.silo_id, exc)
+        """Stop all silos; failures are logged, not raised."""
+        results = await asyncio.gather(
+            *(silo.stop() for silo in self._silos),
+            return_exceptions=True,
+        )
+        for silo, res in zip(self._silos, results, strict=True):
+            if isinstance(res, BaseException):
+                logger.warning("Harness stop of %s failed: %r", silo.address.silo_id, res)
+            self._registry.unregister_silo(silo.address.host, silo.address.port)
         self._silos.clear()
 
     async def partition(self, a: int, b: int) -> None:
-        self._fabric.partition(self._silos[a].address.silo_id, self._silos[b].address.silo_id)
+        """Block future sends between silos[a] and silos[b] in both directions."""
+        silo_a = self._silos[a]
+        silo_b = self._silos[b]
+        self._registry.block(silo_a.address.silo_id, silo_b.address.silo_id)
+        self._registry.block(silo_b.address.silo_id, silo_a.address.silo_id)
+        await asyncio.gather(
+            silo_a.cluster_transport.disconnect_from_silo(silo_b.address),
+            silo_b.cluster_transport.disconnect_from_silo(silo_a.address),
+            return_exceptions=True,
+        )
 
     async def heal_partition(self, a: int, b: int) -> None:
-        self._fabric.heal(self._silos[a].address.silo_id, self._silos[b].address.silo_id)
+        """Clear a previously-applied partition between silos[a] and silos[b]."""
+        silo_a = self._silos[a]
+        silo_b = self._silos[b]
+        self._registry.unblock(silo_a.address.silo_id, silo_b.address.silo_id)
+        self._registry.unblock(silo_b.address.silo_id, silo_a.address.silo_id)
+
+    def _build_silo(self, index: int) -> Silo:
+        host = f"{self._host_prefix}{index}"
+        port = self._base_port + index
+        # Fixed epoch keeps the hash ring deterministic across test runs.
+        epoch = 1
+        silo_id = f"{host}:{port}:{epoch}"
+        self._registry.register_silo(silo_id, host, port)
+        partitioned = _PartitionedNetwork(
+            inner=self._network,
+            registry=self._registry,
+            local_silo_id=silo_id,
+        )
+        return Silo(
+            grains=self._grains,
+            membership_provider=self._membership,
+            host=host,
+            port=port,
+            gateway_port=0,
+            cluster_id=_HARNESS_CLUSTER_ID,
+            network=partitioned,
+            epoch=epoch,
+        )
+
+    async def _seed_membership_awareness(self) -> None:
+        """Trigger a membership snapshot broadcast so every silo sees every peer.
+
+        The membership agent's normal flow picks up peers on the next
+        ``i_am_alive`` cycle; integration tests need it instantly so
+        the first grain call already routes over the real ring.
+        """
+        snapshot = await self._membership.read_all()
+        active = [s.address for s in snapshot.silos]
+        for silo in self._silos:
+            # pylint: disable=protected-access
+            await silo._directory.on_membership_changed(active)
+            silo._cache.invalidate_all()
+        # Open outbound connections so subsequent directory RPCs don't spend
+        # their first request on a cold handshake.
+        await asyncio.gather(
+            *(self._connect_all_peers(silo) for silo in self._silos),
+            return_exceptions=True,
+        )
+
+    async def _connect_all_peers(self, silo: Silo) -> None:
+        for peer in self._silos:
+            if peer is silo:
+                continue
+            try:
+                await silo.cluster_transport.connect_to_silo(peer.address)
+            except Exception as exc:  # pylint: disable=broad-except
+                logger.debug(
+                    "initial connect %s -> %s raised %r",
+                    silo.address.silo_id,
+                    peer.address.silo_id,
+                    exc,
+                )
 
 
 async def wait_until(

@@ -281,6 +281,10 @@ class TestMembershipIntegration:
 
 class TestHeartbeat:
     async def test_heartbeat_runs_periodically(self, network: InMemoryNetwork) -> None:
+        # Arrange - membership agent drives ``i_am_alive`` writes; use a short
+        # interval so the test doesn't sit on the 30s production default.
+        from pyleans.cluster.failure_detector import FailureDetectorOptions
+
         membership = FakeMembershipProvider()
         silo = Silo(
             grains=_TEST_GRAINS,
@@ -289,25 +293,35 @@ class TestHeartbeat:
             stream_providers={"default": InMemoryStreamProvider()},
             gateway_port=0,
             network=network,
+            failure_detector_options=FailureDetectorOptions(
+                i_am_alive_interval=0.02,
+                table_poll_interval=0.02,
+            ),
         )
-
-        # Patch heartbeat interval to be very short for testing
-        import pyleans.server.silo as silo_module
-
-        original_interval = silo_module._HEARTBEAT_INTERVAL
-        silo_module._HEARTBEAT_INTERVAL = 0.02
 
         try:
             await silo.start_background()
             await asyncio.sleep(0.07)
             assert membership.heartbeat_count >= 2
         finally:
-            silo_module._HEARTBEAT_INTERVAL = original_interval
             await silo.stop()
 
     async def test_heartbeat_cancelled_on_stop(self, network: InMemoryNetwork) -> None:
+        from pyleans.cluster.failure_detector import FailureDetectorOptions
+
         membership = FakeMembershipProvider()
-        silo = make_silo(network, membership=membership)
+        silo = Silo(
+            grains=_TEST_GRAINS,
+            storage_providers={"default": FakeStorageProvider()},
+            membership_provider=membership,
+            stream_providers={"default": InMemoryStreamProvider()},
+            gateway_port=0,
+            network=network,
+            failure_detector_options=FailureDetectorOptions(
+                i_am_alive_interval=0.02,
+                table_poll_interval=0.02,
+            ),
+        )
         await silo.start_background()
         await silo.stop()
 

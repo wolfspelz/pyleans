@@ -3,7 +3,6 @@
 from dataclasses import dataclass
 
 import pytest
-from conftest import FakeStorageProvider
 from pyleans.grain import _grain_registry, grain
 from pyleans.grain_base import Grain
 from pyleans.identity import GrainId
@@ -11,6 +10,8 @@ from pyleans.providers.storage import StorageProvider
 from pyleans.reference import GrainFactory, GrainRef
 from pyleans.serialization import JsonSerializer
 from pyleans.server.runtime import GrainRuntime
+
+from conftest import FakeStorageProvider
 
 
 @dataclass

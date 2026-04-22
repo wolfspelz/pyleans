@@ -38,6 +38,21 @@ python -m src.counter_client --gateway localhost:30001 inc my-counter
 python -m src.counter_client --gateway localhost:30000 get my-counter   # prints 2
 ```
 
+Expected log excerpt on each silo at startup:
+
+```
+INFO [pyleans.server.silo] Registered in membership table as localhost:11111:<epoch>
+INFO [pyleans.transport.tcp.transport] TcpClusterTransport listening: silo=localhost:11111:<epoch> cluster=dev
+INFO [pyleans.gateway.listener] Gateway listening on localhost:30000
+INFO [pyleans.server.silo] Silo started on localhost:11111 (gateway 30000, background)
+```
+
+`count_activations(cluster, GrainId("CounterGrain", "my-counter"))` is
+exactly 1 across both silos after the first `inc`. Verify with a
+second silo's runtime property in a debugger, or by watching the log
+line ``Grain activated: CounterGrain/my-counter`` fire on exactly one
+silo.
+
 ### Gateway fallback
 
 Pass `--gateway` more than once; the client tries each in order and

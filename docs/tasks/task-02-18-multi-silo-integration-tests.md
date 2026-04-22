@@ -203,3 +203,13 @@ Integration tests must not flake on slow CI. Mitigations:
 - 5 integration scenarios. Full suite stays at 806 fast-unit tests
   + 5 integration tests (opt-in via `-m integration`).
 - pylint 10.00/10; ruff clean; mypy on pyleans clean.
+
+### Harness migrated to real Silo in task 02-22
+
+- [task-02-22-silo-cluster-wiring](task-02-22-silo-cluster-wiring.md)
+  dropped `HarnessSilo` / `_FabricTransport` and now constructs real
+  `Silo` instances over one shared `InMemoryNetwork`. Partition
+  injection moved to an `INetwork` wrapper (`_PartitionedNetwork`)
+  so the production `TcpClusterTransport` path is exercised
+  end-to-end. The 5 scenarios shipped here continue to pass
+  unchanged.

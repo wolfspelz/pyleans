@@ -224,3 +224,12 @@ The Phase 1 signal-handler mechanism ([silo.py:269-287](../../src/pyleans/pylean
 
 - 12 new tests. Suite 806 passing (was 794).
 - pylint 10.00/10; ruff clean; mypy on pyleans clean.
+
+### Closed by task 02-22
+
+- The Silo refactor deferred above landed in
+  [task-02-22-silo-cluster-wiring](task-02-22-silo-cluster-wiring.md).
+  `Silo.__init__` composes the cluster stack and subscribes every
+  subsystem to `SiloLifecycle`; `Silo.start` / `Silo.stop` drive
+  stages in ascending / descending order. See task 02-22's Summary
+  for the stage assignment used.

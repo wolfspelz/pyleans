@@ -23,6 +23,7 @@ import argparse
 import asyncio
 import logging
 
+from pyleans.cluster.identity import ClusterId
 from pyleans.server import Silo
 from pyleans.server.grains import system_grains
 from pyleans.server.providers import FileStorageProvider, MarkdownTableMembershipProvider
@@ -91,6 +92,7 @@ async def main() -> None:
         host=args.host,
         port=args.port,
         gateway_port=args.gateway,
+        cluster_id=ClusterId(args.cluster_id),
     )
     await silo.start()
 
