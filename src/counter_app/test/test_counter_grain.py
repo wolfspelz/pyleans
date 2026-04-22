@@ -97,7 +97,7 @@ class TestCounterGrainRegistration:
 
     def test_public_methods_discovered(self) -> None:
         methods = get_grain_methods(CounterGrain)
-        expected = {"get_value", "increment", "set_value", "reset", "get_silo_info"}
+        expected = {"get_value", "increment", "set_value", "reset", "reload", "get_silo_info"}
         assert set(methods.keys()) == expected
 
 
@@ -188,6 +188,61 @@ class TestReset:
         await ref.reset()
         assert await ref.get_value() == 0
 
+        await silo.stop()
+
+
+class TestReload:
+    async def test_reload_picks_up_external_write(self, network: InMemoryNetwork) -> None:
+        # Arrange
+        storage = FakeStorageProvider()
+        silo = make_silo(network, storage)
+        await silo.start_background()
+        ref = silo.grain_factory.get_grain(CounterGrain, "c1")
+        await ref.set_value(5)
+        await storage.write("CounterGrain", "c1", {"value": 99}, None)
+
+        # Act
+        value = await ref.reload()
+
+        # Assert
+        assert value == 99
+        assert await ref.get_value() == 99
+        await silo.stop()
+
+    async def test_reload_resets_when_storage_cleared(self, network: InMemoryNetwork) -> None:
+        # Arrange
+        storage = FakeStorageProvider()
+        silo = make_silo(network, storage)
+        await silo.start_background()
+        ref = silo.grain_factory.get_grain(CounterGrain, "c1")
+        await ref.set_value(5)
+        await storage.clear("CounterGrain", "c1", None)
+
+        # Act
+        value = await ref.reload()
+
+        # Assert
+        assert value == 0
+        assert await ref.get_value() == 0
+        await silo.stop()
+
+    async def test_reload_then_increment_persists(self, network: InMemoryNetwork) -> None:
+        # Arrange
+        storage = FakeStorageProvider()
+        silo = make_silo(network, storage)
+        await silo.start_background()
+        ref = silo.grain_factory.get_grain(CounterGrain, "c1")
+        await ref.set_value(10)
+        await storage.write("CounterGrain", "c1", {"value": 100}, None)
+        await ref.reload()
+
+        # Act
+        new_value = await ref.increment()
+
+        # Assert
+        assert new_value == 101
+        state_dict, _ = await storage.read("CounterGrain", "c1")
+        assert state_dict["value"] == 101
         await silo.stop()
 
 

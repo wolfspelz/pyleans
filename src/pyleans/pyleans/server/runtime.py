@@ -381,9 +381,25 @@ class GrainRuntime:
         storage_name: str,
         state_type: type,
     ) -> None:
-        """Bind write_state and clear_state methods to the grain instance."""
+        """Bind read_state, write_state, and clear_state methods to the grain instance."""
         runtime = self
         grain_logger = logging.getLogger(f"pyleans.grain.{activation.grain_id.grain_type}")
+
+        async def read_state() -> None:
+            storage = runtime._storage_providers.get(storage_name)
+            if storage is None:
+                return
+            state_dict, etag = await storage.read(
+                activation.grain_id.grain_type,
+                activation.grain_id.key,
+            )
+            if state_dict:
+                serialized = runtime._serializer.serialize(state_dict)
+                instance.state = runtime._serializer.deserialize(serialized, state_type)
+            else:
+                instance.state = state_type()
+            activation.etag = etag
+            grain_logger.debug("read_state for %s", activation.grain_id)
 
         async def write_state() -> None:
             storage = runtime._storage_providers.get(storage_name)
@@ -412,6 +428,7 @@ class GrainRuntime:
             instance.state = state_type()
             grain_logger.debug("clear_state for %s", activation.grain_id)
 
+        instance.read_state = read_state
         instance.write_state = write_state
         instance.clear_state = clear_state
 

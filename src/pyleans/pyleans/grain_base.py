@@ -57,6 +57,10 @@ class Grain[TState]:
         """Per-grain-type logger (``pyleans.grain.<GrainType>``)."""
         return logging.getLogger(f"pyleans.grain.{type(self).__name__}")
 
+    async def read_state(self) -> None:
+        """Reload current state from the storage provider."""
+        raise GrainActivationError("read_state not bound -- grain not activated")
+
     async def write_state(self) -> None:
         """Persist the current state via the storage provider."""
         raise GrainActivationError("write_state not bound -- grain not activated")

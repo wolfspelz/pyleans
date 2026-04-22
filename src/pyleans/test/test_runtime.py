@@ -208,6 +208,53 @@ class TestStateManagement:
         assert activation.instance.state.value == 0
         await runtime.stop()
 
+    async def test_read_state_refreshes_from_storage(self) -> None:
+        # Arrange
+        storage = FakeStorageProvider()
+        runtime = make_runtime(storage)
+        gid = GrainId("CounterGrain", "c1")
+        await runtime.invoke(gid, "increment")
+        await storage.write("CounterGrain", "c1", {"value": 42}, None)
+
+        # Act
+        await runtime.activations[gid].instance.read_state()
+
+        # Assert
+        assert runtime.activations[gid].instance.state.value == 42
+        await runtime.stop()
+
+    async def test_read_state_resets_to_default_when_storage_empty(self) -> None:
+        # Arrange
+        storage = FakeStorageProvider()
+        runtime = make_runtime(storage)
+        gid = GrainId("CounterGrain", "c1")
+        await runtime.invoke(gid, "increment")
+        await runtime.invoke(gid, "increment")
+        await storage.clear("CounterGrain", "c1", None)
+
+        # Act
+        await runtime.activations[gid].instance.read_state()
+
+        # Assert
+        assert runtime.activations[gid].instance.state.value == 0
+        assert runtime.activations[gid].etag is None
+        await runtime.stop()
+
+    async def test_read_state_updates_etag(self) -> None:
+        # Arrange
+        storage = FakeStorageProvider()
+        runtime = make_runtime(storage)
+        gid = GrainId("CounterGrain", "c1")
+        await runtime.invoke(gid, "increment")
+        new_etag = await storage.write("CounterGrain", "c1", {"value": 99}, None)
+
+        # Act
+        await runtime.activations[gid].instance.read_state()
+
+        # Assert
+        assert runtime.activations[gid].etag == new_etag
+        await runtime.stop()
+
 
 class TestLifecycleHooks:
     async def test_on_activate_called(self) -> None:

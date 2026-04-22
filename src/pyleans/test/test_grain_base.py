@@ -28,6 +28,16 @@ def _clear_registry() -> None:
 class TestGrainBaseStubs:
     """Stub methods raise GrainActivationError before runtime activation."""
 
+    def test_read_state_raises_before_activation(self) -> None:
+        # Arrange
+        instance: Grain[CounterState] = Grain()
+
+        # Act / Assert
+        with pytest.raises(GrainActivationError, match="read_state not bound"):
+            import asyncio
+
+            asyncio.get_event_loop().run_until_complete(instance.read_state())
+
     def test_write_state_raises_before_activation(self) -> None:
         instance: Grain[CounterState] = Grain()
         with pytest.raises(GrainActivationError, match="write_state not bound"):
@@ -150,6 +160,24 @@ class TestGrainBaseRuntimeBinding:
         asyncio.get_event_loop().run_until_complete(instance.write_state())
         assert called
 
+    def test_read_state_can_be_overridden(self) -> None:
+        # Arrange
+        instance: Grain[CounterState] = Grain()
+        called = False
+
+        async def mock_read() -> None:
+            nonlocal called
+            called = True
+
+        # Act
+        instance.read_state = mock_read  # type: ignore[method-assign]
+        import asyncio
+
+        asyncio.get_event_loop().run_until_complete(instance.read_state())
+
+        # Assert
+        assert called
+
     def test_deactivate_on_idle_can_be_overridden(self) -> None:
         instance: Grain[CounterState] = Grain()
         called = False
@@ -220,6 +248,7 @@ class TestBaseClassMethodExclusion:
         methods = get_grain_methods(MyGrain)
         assert "write_state" not in methods
         assert "clear_state" not in methods
+        assert "read_state" not in methods
 
     def test_deactivate_on_idle_excluded(self) -> None:
         """deactivate_on_idle is sync so already excluded, but verify."""

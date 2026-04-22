@@ -236,6 +236,12 @@ One-time transformation of the existing codebase into the ideal Phase 1 state. E
 | 02-18 | [Multi-Silo Integration Tests](task-02-18-multi-silo-integration-tests.md) | [x] | 02-16, 02-17 |
 | 02-19 | [Counter Sample Multi-Silo](task-02-19-counter-sample-multi-silo.md) | [x] | 01-17, 01-20, 02-16, 02-17, 02-18 |
 
+### Phase 2 Grain API Extensions
+
+| # | Task | Status | Dependencies |
+|---|---|---|---|
+| 02-23 | [Grain `read_state()` and Counter `reload()`](task-02-23-grain-read-state.md) | [x] | 01-07, 01-08, 01-18 |
+
 ### Phase 2 Production Backends (PostgreSQL)
 
 Production-grade backing store for Phase 2. Both providers share a single PostgreSQL instance so production deployments need only one stateful dependency. Can run in parallel with the rest of Phase 2 once their single upstream is done.

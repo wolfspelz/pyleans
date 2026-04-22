@@ -50,6 +50,12 @@ class CounterGrain(Grain[CounterState]):
         await self.write_state()
         self.logger.info("Counter %s reset", self.identity.key)
 
+    async def reload(self) -> int:
+        """Reload state from storage and return the current value."""
+        await self.read_state()
+        self.logger.info("Counter %s reloaded -> %d", self.identity.key, self.state.value)
+        return self.state.value
+
     async def get_silo_info(self) -> dict[str, Any]:
         """Return metadata about the silo hosting this grain."""
         self.logger.info("Counter %s get_silo_info", self.identity.key)

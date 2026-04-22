@@ -8,7 +8,7 @@ tags: [grain, runtime, api-surface]
 
 ## Context and Problem Statement
 
-Stateful grains need runtime-bound attributes (identity, state, `write_state`, logger, idle control). Orleans provides these via the generic `Grain<TState>` base class. The Python equivalent must:
+Stateful grains need runtime-bound attributes (identity, state, `read_state` / `write_state` / `clear_state`, logger, idle control). Orleans provides these via the generic `Grain<TState>` base class. The Python equivalent must:
 
 - make `identity` available from `__init__` onward (Orleans exposes it via `IGrainContext.GrainId` in the constructor);
 - integrate with the async runtime (storage load before `on_activate`);
@@ -22,6 +22,7 @@ The base class provides:
 
 - `identity: GrainId` — read-only property, available from `__init__` onward. Backed by a `contextvars.ContextVar` during construction and a permanent instance attribute after activation.
 - `state: TState` — loaded from storage before `on_activate`.
+- `read_state()` — refresh `state` from the storage provider (async). The runtime reads storage once at activation time (see [adr-state-declaration](adr-state-declaration.md) and [domain/0001-grains-are-an-active-cache](../domain/0001-grains-are-an-active-cache.md)); `read_state()` is the explicit escape hatch for a grain that must reconcile with out-of-band storage changes.
 - `write_state()` — persist current state (async).
 - `clear_state()` — clear persisted state and reset to defaults (async).
 - `deactivate_on_idle()` — request deactivation after the current turn (sync).
