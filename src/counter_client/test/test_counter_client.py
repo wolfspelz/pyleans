@@ -81,15 +81,23 @@ class _FakeArgs:
 
     def __init__(
         self,
-        command: str,
-        counter_id: str,
-        gateway: str,
+        command: str | None,
+        counter_id: str | None,
+        gateway: list[str] | str | None,
         value: int | None = None,
+        membership: str = "./data/membership.md",
+        cluster_id: str = "dev",
     ) -> None:
         self.command = command
         self.counter_id = counter_id
-        self.gateway = gateway
+        self.gateway: list[str] | None
+        if isinstance(gateway, str):
+            self.gateway = [gateway]
+        else:
+            self.gateway = gateway
         self.value = value
+        self.membership = membership
+        self.cluster_id = cluster_id
 
 
 # --- Tests ---
@@ -277,3 +285,285 @@ class TestRunFunction:
         with pytest.raises(SystemExit) as exc_info:
             await run(args, network=network)  # type: ignore[arg-type]
         assert exc_info.value.code == 1
+
+
+class TestMembershipFallback:
+    """When --gateway is omitted, pick a random active silo from the membership table."""
+
+    async def test_picks_gateway_from_membership_table(
+        self,
+        network: InMemoryNetwork,
+        capsys: pytest.CaptureFixture[str],
+        tmp_path: Any,
+    ) -> None:
+        # Arrange - a silo backed by a real markdown membership file
+        from pyleans.server.providers.markdown_table_membership import (
+            MarkdownTableMembershipProvider,
+        )
+
+        membership_path = str(tmp_path / "membership.md")
+        membership = MarkdownTableMembershipProvider(membership_path)
+        # Explicit gateway_port so the membership row advertises a reachable address
+        silo = Silo(
+            grains=[CounterGrain],
+            storage_providers={"default": FakeStorageProvider()},
+            membership_provider=membership,
+            stream_providers={"default": InMemoryStreamProvider()},
+            gateway_port=40501,
+            network=network,
+        )
+        await silo.start_background()
+
+        # Act - CLI with only --membership / --cluster-id, no --gateway
+        args = _FakeArgs(
+            command="inc",
+            counter_id="from-membership",
+            gateway=None,
+            membership=membership_path,
+            cluster_id="dev",
+        )
+        await run(args, network=network)  # type: ignore[arg-type]
+
+        # Assert - the client dispatched through the membership-advertised gateway
+        captured = capsys.readouterr()
+        assert "Counter 'from-membership': 1" in captured.out
+
+        await silo.stop()
+
+    async def test_no_active_silos_exits(
+        self,
+        network: InMemoryNetwork,
+        tmp_path: Any,
+    ) -> None:
+        # Arrange - empty membership file (no silos have registered yet)
+        membership_path = str(tmp_path / "empty.md")
+        args = _FakeArgs(
+            command="get",
+            counter_id="no-silos",
+            gateway=None,
+            membership=membership_path,
+            cluster_id="dev",
+        )
+
+        # Act / Assert
+        with pytest.raises(SystemExit) as exc_info:
+            await run(args, network=network)  # type: ignore[arg-type]
+        assert exc_info.value.code == 1
+
+    async def test_cluster_id_filter_skips_other_clusters(
+        self,
+        network: InMemoryNetwork,
+        tmp_path: Any,
+    ) -> None:
+        # Arrange - silo announces cluster "prod"; client asks for "dev"
+        from pyleans.server.providers.markdown_table_membership import (
+            MarkdownTableMembershipProvider,
+        )
+
+        membership_path = str(tmp_path / "other-cluster.md")
+        membership = MarkdownTableMembershipProvider(membership_path)
+        from pyleans.cluster.identity import ClusterId
+
+        silo = Silo(
+            grains=[CounterGrain],
+            storage_providers={"default": FakeStorageProvider()},
+            membership_provider=membership,
+            stream_providers={"default": InMemoryStreamProvider()},
+            gateway_port=40502,
+            network=network,
+            cluster_id=ClusterId("prod"),
+        )
+        await silo.start_background()
+
+        args = _FakeArgs(
+            command="get",
+            counter_id="wrong-cluster",
+            gateway=None,
+            membership=membership_path,
+            cluster_id="dev",
+        )
+
+        # Act / Assert - no eligible silo in "dev", client exits
+        with pytest.raises(SystemExit) as exc_info:
+            await run(args, network=network)  # type: ignore[arg-type]
+        assert exc_info.value.code == 1
+
+        await silo.stop()
+
+
+class TestInteractiveMode:
+    """Interactive mode — run() enters a REPL when args.command is None."""
+
+    async def test_runs_multiple_commands_until_quit(
+        self,
+        network: InMemoryNetwork,
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Arrange - prepared transcript fed to the REPL's line reader
+        from src.counter_client import main as cli
+
+        silo = make_silo(network)
+        await silo.start_background()
+
+        transcript = iter(
+            [
+                "inc c1",
+                "inc c1",
+                "get c1",
+                "set c1 10",
+                "get c1",
+                "quit",
+            ]
+        )
+
+        async def fake_read_line(prompt: str) -> str | None:
+            del prompt
+            return next(transcript, None)
+
+        monkeypatch.setattr(cli, "_read_line", fake_read_line)
+
+        # Act
+        args = _FakeArgs(
+            command=None,
+            counter_id=None,
+            gateway=f"localhost:{silo.gateway_port}",
+        )
+        await run(args, network=network)  # type: ignore[arg-type]
+
+        # Assert - each response line is in stdout
+        captured = capsys.readouterr().out
+        assert "Counter 'c1': 1" in captured
+        assert "Counter 'c1': 2" in captured
+        assert "Counter 'c1': 10" in captured
+
+        await silo.stop()
+
+    async def test_eof_exits_cleanly(
+        self,
+        network: InMemoryNetwork,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Arrange - first line, then EOF
+        from src.counter_client import main as cli
+
+        silo = make_silo(network)
+        await silo.start_background()
+
+        transcript = iter(["inc foo", None])  # None models EOF
+
+        async def fake_read_line(prompt: str) -> str | None:
+            del prompt
+            return next(transcript, None)
+
+        monkeypatch.setattr(cli, "_read_line", fake_read_line)
+
+        # Act - should return without raising
+        args = _FakeArgs(
+            command=None,
+            counter_id=None,
+            gateway=f"localhost:{silo.gateway_port}",
+        )
+        await run(args, network=network)  # type: ignore[arg-type]
+
+        await silo.stop()
+
+    async def test_status_command_prints_connected_gateway(
+        self,
+        network: InMemoryNetwork,
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Arrange
+        from src.counter_client import main as cli
+
+        silo = make_silo(network)
+        await silo.start_background()
+        gateway = f"localhost:{silo.gateway_port}"
+
+        transcript = iter(["status", "quit"])
+
+        async def fake_read_line(prompt: str) -> str | None:
+            del prompt
+            return next(transcript, None)
+
+        monkeypatch.setattr(cli, "_read_line", fake_read_line)
+
+        # Act
+        args = _FakeArgs(command=None, counter_id=None, gateway=gateway)
+        await run(args, network=network)  # type: ignore[arg-type]
+
+        # Assert
+        captured = capsys.readouterr().out
+        assert f"connected_gateway: {gateway}" in captured
+
+        await silo.stop()
+
+    async def test_unknown_command_does_not_exit(
+        self,
+        network: InMemoryNetwork,
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Arrange
+        from src.counter_client import main as cli
+
+        silo = make_silo(network)
+        await silo.start_background()
+
+        transcript = iter(["bogus arg", "inc c1", "quit"])
+
+        async def fake_read_line(prompt: str) -> str | None:
+            del prompt
+            return next(transcript, None)
+
+        monkeypatch.setattr(cli, "_read_line", fake_read_line)
+
+        # Act
+        args = _FakeArgs(
+            command=None,
+            counter_id=None,
+            gateway=f"localhost:{silo.gateway_port}",
+        )
+        await run(args, network=network)  # type: ignore[arg-type]
+
+        # Assert - unknown command logged an error, but inc c1 still ran
+        captured = capsys.readouterr()
+        assert "unknown command" in captured.err
+        assert "Counter 'c1': 1" in captured.out
+
+        await silo.stop()
+
+    async def test_missing_counter_id_prints_error(
+        self,
+        network: InMemoryNetwork,
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Arrange
+        from src.counter_client import main as cli
+
+        silo = make_silo(network)
+        await silo.start_background()
+
+        transcript = iter(["get", "quit"])
+
+        async def fake_read_line(prompt: str) -> str | None:
+            del prompt
+            return next(transcript, None)
+
+        monkeypatch.setattr(cli, "_read_line", fake_read_line)
+
+        # Act
+        args = _FakeArgs(
+            command=None,
+            counter_id=None,
+            gateway=f"localhost:{silo.gateway_port}",
+        )
+        await run(args, network=network)  # type: ignore[arg-type]
+
+        # Assert - error is printed on stderr; loop did not exit prematurely
+        captured = capsys.readouterr()
+        assert "'get' requires a counter_id" in captured.err
+
+        await silo.stop()

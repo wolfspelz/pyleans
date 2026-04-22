@@ -145,23 +145,31 @@ pyproject.toml                     # single project file: pyleans metadata + too
 src/
   pyleans/                         # pyleans framework source tree
     pyleans/                       # importable: import pyleans
-      server/                      # silo runtime (heavy)
-        string_cache_grain.py      # system grain: StringCacheGrain
-        grains.py                  # system_grains() helper
-      client/                      # lightweight client
-      gateway/                     # TCP gateway protocol
-      providers/                   # provider ABCs (ports)
+      client/                      # lightweight client (ClusterClient)
+      cluster/                     # cluster-shared domain: directory, ring, membership, placement, SiloAddress/GrainId
+      gateway/                     # TCP gateway protocol (listener + framing)
+      net/                         # INetwork port + asyncio / in-memory adapters (tasks 14/15)
+      providers/                   # provider ABCs (ports) + shared errors
+      server/                      # silo runtime: scheduler, lifecycle, DI, timers, system grains
+        providers/                 # concrete provider adapters (file, yaml, postgres, memory-stream)
+      testing/                     # test-only helpers reused across suites
+      transport/                   # Phase 2 cluster transport (facade, handshake, wire, options)
+        tcp/                       # asyncio TCP transport built on INetwork
     test/
-  counter_app/                     # sample silo app (not pip-installed)
-    counter_grain.py               # one file per grain
-    main.py                        # Standalone silo
-    __main__.py                    # python -m src.counter_app
+      integration/                 # multi-silo / harness-based tests
+  counter_app/                     # sample silo app (not pip-installed, one grain per file)
     test/
   counter_client/                  # sample CLI client (not pip-installed)
-    main.py                        # CLI entry point
-    __main__.py                    # python -m src.counter_client
     test/
 ```
+
+Notes on layout choices that crystallised during implementation:
+
+- **Top-level modules in `pyleans/`** (`grain.py`, `grain_base.py`, `reference.py`, `identity.py`, `serialization.py`, `errors.py`) are the surface imported by both `client` and `server`. Keeping them at the package root avoids circular imports between the two entry points.
+- **`cluster/` vs `server/`**: `cluster/` holds types that describe cluster membership and grain location (ring, directory, membership agent). `server/` holds the per-silo runtime that *uses* those types. The split keeps silo-only code (scheduler, timers, lifecycle) out of anything the client or tests may import.
+- **`providers/` vs `server/providers/`**: `providers/` contains the ABCs (ports). `server/providers/` contains the concrete adapters. Hexagonal: driven ports live next to the domain; adapters live under the runtime that instantiates them.
+- **`net/`** is the `INetwork` port + its two adapters (asyncio, in-memory). It is intentionally not inside `transport/`: the gateway listener and any future transport consume `INetwork`, so it belongs one level up.
+- **`testing/`** holds test fakes that are imported by more than one test file. Anything used by a single test stays in that test file.
 
 ### Naming convention
 

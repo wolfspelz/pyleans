@@ -68,13 +68,15 @@ FakeMembershipProvider = InMemoryMembershipProvider
 # --- Helpers ---
 
 
-def make_silo(network: InMemoryNetwork) -> Silo:
+def make_silo(network: InMemoryNetwork, *, host: str = "localhost", port: int = 11111) -> Silo:
     return Silo(
         grains=_GW_GRAINS,
         storage_providers={"default": FakeStorageProvider()},
         membership_provider=FakeMembershipProvider(),
         stream_providers={"default": InMemoryStreamProvider()},
         gateway_port=0,  # simulator assigns a virtual port
+        host=host,
+        port=port,
         network=network,
     )
 
@@ -106,6 +108,79 @@ class TestGatewayConnection:
     async def test_empty_gateways_raises(self) -> None:
         with pytest.raises(ValueError, match="At least one gateway"):
             ClusterClient(gateways=[])
+
+    async def test_connected_gateway_property_tracks_dialled_address(
+        self, network: InMemoryNetwork
+    ) -> None:
+        # Arrange
+        silo = make_silo(network)
+        await silo.start_background()
+        port = silo.gateway_port
+        client = ClusterClient(gateways=[f"localhost:{port}"], network=network)
+
+        # Act / Assert - None before connect, address while connected, None after close
+        assert client.connected_gateway is None
+        await client.connect()
+        assert client.connected_gateway == f"localhost:{port}"
+        await client.close()
+        assert client.connected_gateway is None
+
+        await silo.stop()
+
+    async def test_connect_emits_info_log(
+        self,
+        network: InMemoryNetwork,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        # Arrange
+        import logging
+
+        silo = make_silo(network)
+        await silo.start_background()
+        port = silo.gateway_port
+
+        # Act
+        with caplog.at_level(logging.INFO, logger="pyleans.client.cluster_client"):
+            client = ClusterClient(gateways=[f"localhost:{port}"], network=network)
+            await client.connect()
+            await client.close()
+
+        # Assert - both connect and disconnect lines at INFO
+        messages = [rec.getMessage() for rec in caplog.records]
+        assert any(f"Connected to gateway localhost:{port}" in m for m in messages)
+        assert any(f"Disconnected from gateway localhost:{port}" in m for m in messages)
+
+        await silo.stop()
+
+    async def test_server_drop_emits_info_log(
+        self,
+        network: InMemoryNetwork,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        # Arrange - silo stops while the client is still connected
+        import logging
+
+        silo = make_silo(network)
+        await silo.start_background()
+        port = silo.gateway_port
+        client = ClusterClient(gateways=[f"localhost:{port}"], network=network)
+        await client.connect()
+
+        # Act - stopping the silo closes the gateway; the client sees EOF
+        with caplog.at_level(logging.INFO, logger="pyleans.client.cluster_client"):
+            await silo.stop()
+            # give the read loop one tick to notice
+            import asyncio as _aio
+
+            await _aio.sleep(0.05)
+
+        # Assert
+        messages = [rec.getMessage() for rec in caplog.records]
+        assert any(
+            f"Disconnected by gateway localhost:{port} (connection lost)" in m for m in messages
+        ), messages
+
+        await client.close()
 
 
 class TestRemoteGrainCalls:
@@ -252,3 +327,169 @@ class TestClientGatewayIntegration:
         await client2.close()
 
         await silo.stop()
+
+
+class TestResilientReconnect:
+    """Client with a gateway_refresher fails over to another silo."""
+
+    async def test_refresher_replaces_dead_gateway_on_initial_connect(
+        self,
+        network: InMemoryNetwork,
+    ) -> None:
+        # Arrange - one live silo; constructor list only has a dead address
+        silo = make_silo(network)
+        await silo.start_background()
+        live_gateway = f"localhost:{silo.gateway_port}"
+        refresh_count = {"n": 0}
+
+        async def refresher() -> list[str]:
+            refresh_count["n"] += 1
+            return [live_gateway]
+
+        # Act - client was built with a stale gateway but a refresher
+        client = ClusterClient(
+            gateways=[_UNBOUND_GATEWAY],
+            network=network,
+            gateway_refresher=refresher,
+        )
+        await client.connect()
+
+        # Assert - connect succeeded via the refreshed list, not the stale one
+        assert client.connected
+        assert client.connected_gateway == live_gateway
+        assert refresh_count["n"] >= 1
+
+        await client.close()
+        await silo.stop()
+
+    async def test_refresher_fails_over_mid_session(
+        self,
+        network: InMemoryNetwork,
+    ) -> None:
+        # Arrange - silo A dies mid-session; refresher then returns silo B.
+        # Two distinct host names so the cluster-transport listeners don't collide.
+        silo_a = make_silo(network, host="host-a", port=11141)
+        await silo_a.start_background()
+        gateway_a = f"host-a:{silo_a.gateway_port}"
+
+        silo_b = make_silo(network, host="host-b", port=11142)
+        await silo_b.start_background()
+        gateway_b = f"host-b:{silo_b.gateway_port}"
+
+        refresh_seen: list[list[str]] = []
+
+        async def refresher() -> list[str]:
+            live = [gateway_b] if silo_b.started else []
+            refresh_seen.append(list(live))
+            return live
+
+        client = ClusterClient(
+            gateways=[gateway_a],
+            network=network,
+            gateway_refresher=refresher,
+        )
+        await client.connect()
+        # ``connect`` refreshed before dialling, so silo_b (from refresher) wins.
+        # Force the test to dial silo_a first by installing the refresher *after*
+        # connect — that preserves the "alive when you connected, died later" shape.
+        assert client.connected_gateway == gateway_b
+        await client.close()
+        # Reconnect explicitly to silo_a, keeping refresher wired
+        client = ClusterClient(
+            gateways=[gateway_a],
+            network=network,
+        )
+        await client.connect()
+        assert client.connected_gateway == gateway_a
+        # pylint: disable=protected-access
+        client._gateway_refresher = refresher  # type: ignore[assignment]
+        client._max_reconnect_attempts = 2
+
+        counter = client.get_grain(GwCounterGrain, "failover")
+        await counter.set_value(1)
+
+        # Act - kill silo_a; the next invoke sees a connection loss and should
+        # transparently fail over to silo_b via the refresher.
+        await silo_a.stop()
+        await asyncio.sleep(0.05)
+        value = await counter.get_value()
+
+        # Assert - call returned, client is now connected to silo_b
+        assert value == 0  # fresh activation on silo_b — different storage
+        assert client.connected_gateway == gateway_b
+        assert refresh_seen  # at least one refresh happened on the failover path
+
+        await client.close()
+        await silo_b.stop()
+
+    async def test_no_refresher_surfaces_connection_loss(
+        self,
+        network: InMemoryNetwork,
+    ) -> None:
+        # Arrange - legacy path: no refresher, single gateway
+        silo = make_silo(network)
+        await silo.start_background()
+        client = ClusterClient(
+            gateways=[f"localhost:{silo.gateway_port}"],
+            network=network,
+        )
+        await client.connect()
+        counter = client.get_grain(GwCounterGrain, "loss")
+        await counter.set_value(3)
+
+        # Act - silo dies; no refresher, so invoke must raise
+        await silo.stop()
+        await asyncio.sleep(0.05)
+
+        # Assert
+        with pytest.raises((ConnectionError, TimeoutError)):
+            await counter.get_value()
+
+        await client.close()
+
+    async def test_max_reconnect_attempts_zero_disables_retry(
+        self,
+        network: InMemoryNetwork,
+    ) -> None:
+        # Arrange - refresher supplied, but retry budget is zero
+        silo = make_silo(network)
+        await silo.start_background()
+        gateway = f"localhost:{silo.gateway_port}"
+        refresh_count = {"n": 0}
+
+        async def refresher() -> list[str]:
+            refresh_count["n"] += 1
+            return [gateway]
+
+        client = ClusterClient(
+            gateways=[gateway],
+            network=network,
+            gateway_refresher=refresher,
+            max_reconnect_attempts=0,
+        )
+        await client.connect()
+        counter = client.get_grain(GwCounterGrain, "no-retry")
+        await counter.set_value(1)
+
+        # Act - silo dies mid-session; retry budget is zero -> no reconnect
+        await silo.stop()
+        await asyncio.sleep(0.05)
+
+        # Assert
+        with pytest.raises((ConnectionError, TimeoutError)):
+            await counter.get_value()
+
+        await client.close()
+
+    async def test_negative_max_reconnect_attempts_rejected(self) -> None:
+        # Act / Assert
+        with pytest.raises(ValueError, match="max_reconnect_attempts"):
+            ClusterClient(
+                gateways=["localhost:1"],
+                max_reconnect_attempts=-1,
+            )
+
+    async def test_constructor_requires_gateways_or_refresher(self) -> None:
+        # Act / Assert
+        with pytest.raises(ValueError, match="gateway address or a gateway_refresher"):
+            ClusterClient(gateways=[])
