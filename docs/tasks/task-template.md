@@ -66,6 +66,13 @@ _To be filled when task is complete._
 
 ## Summary of implementation
 
+### Overview
+<A short prose paragraph explaining what was actually
+delivered. Start from the task goal, describe the shape of the solution, and
+call out anything a reviewer needs to know before reading the diff. The bullet
+lists below give the itemized detail; this section gives the narrative. Write
+in past tense -- this captures what was done, not what is planned.>
+
 ### Files created
 - `<path>` -- <one-line description>
 

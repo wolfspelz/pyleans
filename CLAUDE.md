@@ -25,6 +25,7 @@ All project documentation lives under [docs/](docs/):
 - [docs/plan.md](docs/plan.md) — implementation plan: scope, phase roadmap, package structure.
 - [docs/adr/](docs/adr/) — Architecture Decision Records (MADR format), one decision per file. Index: [docs/adr/README.md](docs/adr/README.md).
 - [docs/architecture/](docs/architecture/) — long-form architecture specs (e.g. [pyleans-transport.md](docs/architecture/pyleans-transport.md)).
+- [docs/domain/](docs/domain/) — ubiquitous-language glossary for the problem space, one concept per file: `NNNN-<kebab-name>.md`. Index: [docs/domain/README.md](docs/domain/README.md).
 - [docs/tasks/](docs/tasks/) — per-phase task specs. Overview in [docs/tasks/README.md](docs/tasks/README.md); each task is a `task-PP-NN-name.md` file (PP = 2-digit phase number, NN = 2-digit task number within that phase).
 - [docs/orleans-architecture/](docs/orleans-architecture/) — Orleans reference documentation used while designing pyleans.
 - [docs/orleans-sample/](docs/orleans-sample/) — Orleans sample app (C# demo, see [docs/orleans-sample/README.md](docs/orleans-sample/README.md)).
