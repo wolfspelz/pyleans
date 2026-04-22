@@ -44,6 +44,8 @@ async def run(args: argparse.Namespace, *, network: INetwork | None = None) -> N
             value = await counter.get_value()
         elif args.command == "inc":
             value = await counter.increment()
+        elif args.command == "reload":
+            value = await counter.reload()
         else:  # "set"
             if args.value is None:
                 print("Error: 'set' requires a value", file=sys.stderr)
@@ -61,7 +63,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Counter grain CLI client")
     parser.add_argument(
         "command",
-        choices=["get", "inc", "set", "info"],
+        choices=["get", "inc", "set", "info", "reload"],
         help="Command to execute",
     )
     parser.add_argument("counter_id", help="Counter grain ID")

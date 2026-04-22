@@ -214,6 +214,41 @@ class TestRunFunction:
 
         await silo.stop()
 
+    async def test_run_reload(
+        self, network: InMemoryNetwork, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        # Arrange - set up a grain whose in-memory state diverges from storage
+        storage = FakeStorageProvider()
+        silo = Silo(
+            grains=[CounterGrain],
+            storage_providers={"default": storage},
+            membership_provider=FakeMembershipProvider(),
+            stream_providers={"default": InMemoryStreamProvider()},
+            gateway_port=0,
+            network=network,
+        )
+        await silo.start_background()
+        client = ClusterClient(gateways=[f"localhost:{silo.gateway_port}"], network=network)
+        await client.connect()
+        counter = client.get_grain(CounterGrain, "reload-cli")
+        await counter.set_value(5)
+        await storage.write("CounterGrain", "reload-cli", {"value": 99}, None)
+        await client.close()
+
+        # Act - CLI reload command
+        args = _FakeArgs(
+            command="reload",
+            counter_id="reload-cli",
+            gateway=f"localhost:{silo.gateway_port}",
+        )
+        await run(args, network=network)  # type: ignore[arg-type]
+
+        # Assert
+        captured = capsys.readouterr()
+        assert "Counter 'reload-cli': 99" in captured.out
+
+        await silo.stop()
+
     async def test_run_info(
         self, network: InMemoryNetwork, capsys: pytest.CaptureFixture[str]
     ) -> None:
